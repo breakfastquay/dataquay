@@ -12,9 +12,9 @@
 #include <QUrl>
 #include <QCryptographicHash>
 
-#include "system/Debug.h"
+#include "Debug.h"
 
-#define DEBUG_BASIC_STORE 1
+#include <iostream>
 
 namespace Dataquay
 {
@@ -65,17 +65,13 @@ public:
     }
 
     bool add(Triple t) {
-#ifdef DEBUG_BASIC_STORE
-        std::cerr << "BasicStore::add: " << t << std::endl;
-#endif
+        DEBUG << "BasicStore::add: " << t << endl;
         QMutexLocker locker(&m_mutex);
         return doAdd(t);
     }
 
     bool remove(Triple t) {
-#ifdef DEBUG_BASIC_STORE
-        std::cerr << "BasicStore::remove: " << t << std::endl;
-#endif
+        DEBUG << "BasicStore::remove: " << t << endl;
         QMutexLocker locker(&m_mutex);
         if (t.a.type == Node::Nothing || 
             t.b.type == Node::Nothing ||
@@ -132,9 +128,7 @@ public:
     }
 
     bool contains(Triple t) const {
-#ifdef DEBUG_BASIC_STORE
-        std::cerr << "BasicStore::contains: " << t << std::endl;
-#endif
+        DEBUG << "BasicStore::contains: " << t << endl;
         QMutexLocker locker(&m_mutex);
         librdf_statement *statement = tripleToStatement(t);
         if (!checkComplete(statement)) {
@@ -151,16 +145,13 @@ public:
     }
     
     Triples match(Triple t) const {
-#ifdef DEBUG_BASIC_STORE
-        std::cerr << "BasicStore::match: " << t << std::endl;
-#endif
+        DEBUG << "BasicStore::match: " << t << endl;
         QMutexLocker locker(&m_mutex);
         Triples result = doMatch(t);
-#ifdef DEBUG_BASIC_STORE
-        std::cerr << "BasicStore::match result (size " << result.size()
-                  << "):" << std::endl;
+#ifndef NDEBUG
+        DEBUG << "BasicStore::match result (size " << result.size() << "):" << endl;
         for (int i = 0; i < result.size(); ++i) {
-            std::cerr << i << ". " << result[i] << std::endl;
+            DEBUG << i << ". " << result[i] << endl;
         }
 #endif
         return result;
@@ -169,15 +160,13 @@ public:
     Triple matchFirst(Triple t) const {
         //!!! if all three nodes in the triple are defined, we should be
         // able to short-circuit to a single lookup
-#ifdef DEBUG_BASIC_STORE
-        std::cerr << "BasicStore::matchFirst: " << t << std::endl;
-#endif
+        DEBUG << "BasicStore::matchFirst: " << t << endl;
         QMutexLocker locker(&m_mutex);
         Triples result = doMatch(t, true);
-#ifdef DEBUG_BASIC_STORE
-        std::cerr << "BasicStore::matchFirst result:" << std::endl;
+#ifndef NDEBUG
+        DEBUG << "BasicStore::matchFirst result:" << endl;
         for (int i = 0; i < result.size(); ++i) {
-            std::cerr << i << ". " << result[i] << std::endl;
+            DEBUG << i << ". " << result[i] << endl;
         }
 #endif
         if (result.empty()) return Triple();
@@ -274,12 +263,12 @@ public:
                 if (qpfx == "" && quri != "#") {
                     // base uri
                     if (m_baseUri == "#") {
-                        DEBUG << "Loading file into store with no base URI; setting base URI to " << quri << " from file" << endl;
+                        std::cerr << "BasicStore::import: NOTE: Loading file into store with no base URI; setting base URI to <" << quri.toStdString() << "> from file" << std::endl;
                         m_baseUri = quri;
                         m_prefixes[""] = m_baseUri;
                     } else {
                         if (quri != m_baseUri) {
-                            std::cerr << "NOTE: Base URI of loaded file differs from base URI of store (<" << quri << "> != <" << m_baseUri << ">)" << std::endl;
+                            std::cerr << "BasicStore::import: NOTE: Base URI of loaded file differs from base URI of store (<" << quri.toStdString() << "> != <" << m_baseUri.toStdString() << ">)" << std::endl;
                         }
                     }
                 }
@@ -491,7 +480,7 @@ private:
         else {
             unsigned char *text = librdf_statement_to_string(statement);
             QString str = QString::fromUtf8((char *)text);
-            DEBUG << "WARNING: RDF statement is incomplete: " << str << endl;
+            std::cerr << "BasicStore::checkComplete: WARNING: RDF statement is incomplete: " << str.toStdString() << std::endl;
             free(text);
             return false;
         }
@@ -518,7 +507,7 @@ private:
     ResultSet runQuery(QString rawQuery) const {
     
         if (m_baseUri == "#") {
-            DEBUG << "WARNING: Query requested on RDF store with default '#' base URI: results may be not as expected" << endl;
+            std::cerr << "BasicStore::runQuery: WARNING: Query requested on RDF store with default '#' base URI: results may be not as expected" << std::endl;
         }
 
         QString sparql;
@@ -528,8 +517,6 @@ private:
         }
         sparql += rawQuery;
 
-//        DEBUG << "sparql = " << sparql << endl;
-        
         ResultSet returned;
         librdf_query *query =
             librdf_new_query(m_w.getWorld(), "sparql", 0,

@@ -2,7 +2,7 @@
 
 #include "Node.h"
 
-#include "system/Debug.h"
+#include "Debug.h"
 
 #include <QDataStream>
 #include <QTextStream>
