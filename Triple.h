@@ -5,10 +5,7 @@
 
 #include "Node.h"
 
-namespace Turbot
-{
-	
-namespace RDF
+namespace Dataquay
 {
 
 class Triple
@@ -60,8 +57,6 @@ QDataStream &operator>>(QDataStream &in, Triple &);
 
 std::ostream &operator<<(std::ostream &out, const Triple &);
 QTextStream &operator<<(QTextStream &out, const Triple &);
-
-}
 
 }
  

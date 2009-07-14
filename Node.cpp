@@ -9,10 +9,7 @@
 #include <QUrl>
 #include <QByteArray>
 
-namespace Turbot
-{
-
-namespace RDF
+namespace Dataquay
 {
 
 static const QString encodedVariantTypeURI = "http://breakfastquay.com/rdf/datatype/encodedvariant";
@@ -184,5 +181,5 @@ operator<<(QTextStream &out, const Node &n)
 
 }
 
-}
+
 

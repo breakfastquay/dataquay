@@ -5,10 +5,7 @@
 #include <QDataStream>
 #include <QTextStream>
 
-namespace Turbot
-{
-	
-namespace RDF
+namespace Dataquay
 {
 
 bool
@@ -42,8 +39,6 @@ QTextStream &
 operator<<(QTextStream &out, const Triple &t)
 {
     return out << "( " << t.a << " " << t.b << " " << t.c << " )";
-}
-
 }
 
 }

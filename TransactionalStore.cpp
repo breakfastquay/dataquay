@@ -11,12 +11,9 @@
 
 using std::auto_ptr;
 
-namespace Turbot
+namespace Dataquay
 {
 	
-namespace RDF
-{
-
 class TransactionalStore::D
 {
 public:
@@ -412,8 +409,6 @@ ChangeSet
 TransactionalStore::TSTransaction::getChanges() const
 {
     return m_d->getChanges();
-}
-
 }
 
 }

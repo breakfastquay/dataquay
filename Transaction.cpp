@@ -2,15 +2,10 @@
 
 #include "PropertyObject.h"
 
-namespace Turbot
-{
-
-namespace RDF
+namespace Dataquay
 {
 
 Transaction *const NoTransaction = 0;
-
-}
 
 }
 

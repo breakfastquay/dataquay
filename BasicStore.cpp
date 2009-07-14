@@ -16,10 +16,7 @@
 
 #define DEBUG_BASIC_STORE 1
 
-namespace Turbot
-{
-
-namespace RDF
+namespace Dataquay
 {
 
 class BasicStore::D
@@ -712,7 +709,7 @@ BasicStore::load(QString url)
 }
 
 }
-}
+
 
 
 		

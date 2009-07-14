@@ -8,12 +8,9 @@
 #include <QList>
 #include <QHash>
 
-namespace Turbot
+namespace Dataquay
 {
 	
-namespace RDF
-{
-
 typedef QList<Triple> Triples;
 typedef QHash<QString, Node> Dictionary;
 typedef QList<Dictionary> ResultSet;
@@ -128,8 +125,6 @@ public:
 protected:
     virtual ~Store() { }
 };
-
-}
 
 }
 

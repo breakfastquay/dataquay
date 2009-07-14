@@ -10,10 +10,7 @@
 class QDataStream;
 class QTextStream;
 
-namespace Turbot
-{
-
-namespace RDF
+namespace Dataquay
 {
 
 class Node
@@ -113,8 +110,6 @@ QDataStream &operator>>(QDataStream &in, Node &);
 
 std::ostream &operator<<(std::ostream &out, const Node &);
 QTextStream &operator<<(QTextStream &out, const Node &);
-
-}
 
 }
 

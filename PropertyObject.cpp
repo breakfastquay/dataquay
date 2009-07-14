@@ -2,10 +2,7 @@
 
 #include "PropertyObject.h"
 
-namespace Turbot
-{
-
-namespace RDF
+namespace Dataquay
 {
 
 const char *
@@ -14,8 +11,6 @@ PropertyNotFound::what() const throw()
     return QString
         ("Object property %1 (RDF property %2) not found for URI %3")
         .arg(m_prop).arg(m_propuri).arg(m_uri).toLocal8Bit().data();
-}
-
 }
 
 }

@@ -8,10 +8,7 @@
 
 #include <map>
 
-namespace Turbot
-{
-
-namespace RDF
+namespace Dataquay
 {
 
 class PropertyNotFound : virtual public std::exception //!!! lose this class
@@ -161,8 +158,6 @@ private:
     typedef std::map<QString, QVariant> StringVariantMap;
     mutable StringVariantMap m_cache;
 };
-
-}
 
 }
 

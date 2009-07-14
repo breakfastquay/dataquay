@@ -6,10 +6,7 @@
 #include <QString>
 #include <exception>
 
-namespace Turbot
-{
-
-namespace RDF
+namespace Dataquay
 {
 
 class RDFException : virtual public std::exception
@@ -30,8 +27,6 @@ protected:
     QString m_message;
     QString m_data;
 };
-
-}
 
 }
 

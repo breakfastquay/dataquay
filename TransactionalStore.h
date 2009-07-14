@@ -5,12 +5,9 @@
 
 #include "Transaction.h"
 
-namespace Turbot
+namespace Dataquay
 {
 	
-namespace RDF
-{
-
 /**
  * This RDF data store provides transaction support as a layer over a
  * non-transactional store.  Access to the store (other than "admin"
@@ -125,8 +122,6 @@ public:
 private:
     D *m_d;
 };
-
-}
 
 }
 

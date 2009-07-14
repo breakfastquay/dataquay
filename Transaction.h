@@ -5,10 +5,7 @@
 
 #include "Store.h"
 
-namespace Turbot
-{
-	
-namespace RDF
+namespace Dataquay
 {
 
 /**
@@ -36,8 +33,6 @@ public:
 };
 
 extern Transaction *const NoTransaction;
-
-}
 
 }
 

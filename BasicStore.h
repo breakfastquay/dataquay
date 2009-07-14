@@ -5,12 +5,9 @@
 
 #include "Store.h"
 
-namespace Turbot
+namespace Dataquay
 {
 	
-namespace RDF
-{
-
 /**
  * RDF data store class.  This in-memory store provides add, remove,
  * matching and query operations for RDF triples and SPARQL, as well
@@ -107,8 +104,6 @@ private:
     class D;
     D *m_d;
 };
-
-}
 
 }
 

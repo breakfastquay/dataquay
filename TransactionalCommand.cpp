@@ -7,10 +7,7 @@
 
 using std::auto_ptr;
 
-namespace Turbot
-{
-
-namespace RDF
+namespace Dataquay
 {
 
 TransactionalCommand::TransactionalCommand(TransactionalStore *store) :
@@ -40,6 +37,5 @@ TransactionalCommand::unexecute()
 
 }
 
-}
 
 

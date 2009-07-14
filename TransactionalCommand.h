@@ -1,21 +1,18 @@
 /* -*- c-basic-offset: 4 indent-tabs-mode: nil -*-  vi:set ts=8 sts=4 sw=4: */
 
-#ifndef _TURBOT_TRANSACTIONAL_COMMAND_H_
-#define _TURBOT_TRANSACTIONAL_COMMAND_H_
+#ifndef _DATAQUAY_TRANSACTIONAL_COMMAND_H_
+#define _DATAQUAY_TRANSACTIONAL_COMMAND_H_
 
 #include "Transaction.h"
 
 #include "base/Command.h"
 
-namespace Turbot
-{
-
-namespace RDF
+namespace Dataquay
 {
     
 class TransactionalStore;
 
-class TransactionalCommand : public Command
+class TransactionalCommand : public Turbot::Command
 {
 public:
     virtual void execute();
@@ -30,8 +27,6 @@ private:
     ChangeSet m_cs;
     bool m_haveCs;
 };
-
-}
 
 }
 
