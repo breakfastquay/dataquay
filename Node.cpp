@@ -106,6 +106,12 @@ operator==(const Node &a, const Node &b)
     return false;
 }
 
+bool
+operator!=(const Node &a, const Node &b)
+{
+    return !operator==(a, b);
+}
+
 QDataStream &
 operator<<(QDataStream &out, const Node &n)
 {

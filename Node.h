@@ -13,6 +13,9 @@ class QTextStream;
 namespace Dataquay
 {
 
+/**
+ * \class Node Node.h <dataquay/Node.h>
+ */
 class Node
 {
 public:
@@ -104,6 +107,7 @@ public:
 typedef QList<Node> Nodes;
 
 bool operator==(const Node &a, const Node &b);
+bool operator!=(const Node &a, const Node &b);
     
 QDataStream &operator<<(QDataStream &out, const Node &);
 QDataStream &operator>>(QDataStream &in, Node &);

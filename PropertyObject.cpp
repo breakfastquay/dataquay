@@ -2,16 +2,18 @@
 
 #include "PropertyObject.h"
 
+#include "Transaction.h"
+
 namespace Dataquay
 {
 
-PropertyObject::PropertyObject(Store *s, QUrl uri) :
-    m_store(s), m_uri(uri)
+PropertyObject::PropertyObject(Store *s, QString pfx, QUrl uri) :
+    m_store(s), m_pfx(pfx), m_uri(uri)
 {
 }
 
-PropertyObject::PropertyObject(Store *s, QString uri) :
-    m_store(s), m_uri(s->expand(uri))
+PropertyObject::PropertyObject(Store *s, QString pfx, QString uri) :
+    m_store(s), m_pfx(pfx), m_uri(s->expand(uri))
 {
 }
 
@@ -20,10 +22,8 @@ PropertyObject::hasProperty(Transaction *tx, QString name) const
 {
     Store *s = getStore(tx);
     QUrl property = getPropertyUri(name);
-    // a highly inefficient use of match(), but Store has no
-    // wildcarded contains()...
-    Triples r = s->match(Triple(m_uri, property, Node()));
-    return !r.empty();
+    Triple r = s->matchFirst(Triple(m_uri, property, Node()));
+    return (r != Triple());
 }
 
 QVariant
@@ -31,11 +31,9 @@ PropertyObject::getProperty(Transaction *tx, QString name) const
 {
     Store *s = getStore(tx);
     QUrl property = getPropertyUri(name);
-    Triples r = s->match(Triple(m_uri, property, Node()));
-    if (r.empty()) {
-        return QVariant();
-    }
-    return r[0].c.toVariant();
+    Triple r = s->matchFirst(Triple(m_uri, property, Node()));
+    if (r == Triple()) return QVariant();
+    return r.c.toVariant();
 }
 
 void
@@ -44,8 +42,7 @@ PropertyObject::setProperty(Transaction *tx, QString name, QVariant value)
     Store *s = getStore(tx);
     QUrl property = getPropertyUri(name);
     Triple t(m_uri, property, Node());
-    Triples r = s->match(t);
-    for (int i = 0; i < r.size(); ++i) s->remove(r[i]);
+    s->remove(t); // remove all matching triples
     t.c = Node::fromVariant(value);
     s->add(t);
 }
@@ -56,7 +53,7 @@ PropertyObject::removeProperty(Transaction *tx, QString name)
     Store *s = getStore(tx);
     QUrl property = getPropertyUri(name);
     Triple t(m_uri, property, Node());
-    s->remove(t);
+    s->remove(t); // remove all matching triples
 }
 
 Store *
@@ -69,16 +66,18 @@ PropertyObject::getStore(Transaction *tx) const
 QUrl
 PropertyObject::getPropertyUri(QString name) const
 {
-    return m_store->expand("turboprop:" + name);
+    if (name == "a") return m_store->expand(name);
+    if (name.contains(':')) return m_store->expand(name);
+    return m_store->expand(m_pfx + ":" + name);
 }
 
-CacheingPropertyObject::CacheingPropertyObject(Store *s, QUrl uri) :
-    m_po(s, uri)
+CacheingPropertyObject::CacheingPropertyObject(Store *s, QString pfx, QUrl uri) :
+    m_po(s, pfx, uri)
 {
 }
 
-CacheingPropertyObject::CacheingPropertyObject(Store *s, QString uri) :
-    m_po(s, uri)
+CacheingPropertyObject::CacheingPropertyObject(Store *s, QString pfx, QString uri) :
+    m_po(s, pfx, uri)
 {
 }
 

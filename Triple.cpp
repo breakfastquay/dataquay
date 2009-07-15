@@ -17,6 +17,12 @@ operator==(const Triple &a, const Triple &b)
     return false;
 }
 
+bool
+operator!=(const Triple &a, const Triple &b)
+{
+    return !operator==(a, b);
+}
+
 QDataStream &
 operator<<(QDataStream &out, const Triple &t)
 {

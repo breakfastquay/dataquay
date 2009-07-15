@@ -369,6 +369,7 @@ private:
     }
 
     QString prefixExpand(const QString uri) const {
+        if (uri == "a") return prefixExpand("rdf:type");
         QUrl qu(uri);
         QString expanded(uri);
         QString maybePrefix = qu.scheme();

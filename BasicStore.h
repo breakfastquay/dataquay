@@ -9,9 +9,12 @@ namespace Dataquay
 {
 	
 /**
- * RDF data store class.  This in-memory store provides add, remove,
- * matching and query operations for RDF triples and SPARQL, as well
- * as export and import.  It uses librdf internally.
+ * \class BasicStore BasicStore.h <dataquay/BasicStore.h>
+ *
+ * In-memory RDF data store implementing the Store interface,
+ * providing add, remove, matching and query operations for RDF
+ * triples and SPARQL, as well as export and import.  It uses librdf
+ * internally.
  *
  * All operations are thread safe.
  */

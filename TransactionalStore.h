@@ -9,8 +9,11 @@ namespace Dataquay
 {
 	
 /**
- * This RDF data store provides transaction support as a layer over a
- * non-transactional store.  Access to the store (other than "admin"
+ * \class TransactionalStore TransactionalStore.h <dataquay/TransactionalStore.h>
+ *
+ * RDF data store implementing the Store interface, providing
+ * transaction support as a wrapper around a non-transactional store
+ * such as a BasicStore.  Access to the store (other than "admin"
  * roles such as addPrefix) is permitted only in the context of a
  * transaction.  You can start a transaction explicitly using
  * startTransaction. If you call a Store method directly on

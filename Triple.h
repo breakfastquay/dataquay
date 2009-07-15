@@ -8,6 +8,9 @@
 namespace Dataquay
 {
 
+/**
+ * \class Triple Triple.h <dataquay/Triple.h>
+ */
 class Triple
 {
 public:
@@ -51,6 +54,7 @@ public:
 };
 
 bool operator==(const Triple &a, const Triple &b);
+bool operator!=(const Triple &a, const Triple &b);
     
 QDataStream &operator<<(QDataStream &out, const Triple &);
 QDataStream &operator>>(QDataStream &in, Triple &);

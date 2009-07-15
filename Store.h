@@ -20,7 +20,9 @@ typedef std::pair<ChangeType, Triple> Change;
 typedef QList<Change> ChangeSet;
 
 /**
- * RDF data store interface.
+ * \class Store Store.h <dataquay/Store.h>
+ *
+ * Abstract interface for Dataquay RDF data stores.
  */
 class Store
 {
@@ -51,7 +53,7 @@ public:
     
     /**
      * Atomically apply the sequence of add/remove changes described
-     * in the given ChangeSet, in reverse (i.e. removing adds and
+     * in the given ChangeSet, in reverse (ie removing adds and
      * adding removes, in reverse order).  Throw RDFException if any
      * operation fails for any reason (including duplication etc).
      */
@@ -66,10 +68,10 @@ public:
     virtual bool contains(Triple t) const = 0;
     
     /**
-     * Return all triples matching the given triple, with a Nothing
-     * node in any part of the triple matching any node in the data
-     * store.  Prefix expansion is performed on URI nodes in the
-     * triple.  Return an empty list if there are no matches; may
+     * Return all triples matching the given wildcard triple.  A node
+     * of type Nothing in any part of the triple matches any node in
+     * the data store.  Prefix expansion is performed on URI nodes in
+     * the triple.  Return an empty list if there are no matches; may
      * throw RDFException if matching fails in some other way.
      */
     virtual Triples match(Triple t) const = 0;
@@ -92,8 +94,8 @@ public:
     virtual ResultSet query(QString sparql) const = 0;
 
     /**
-     * Return the first triple found that matches the given triple,
-     * with a Nothing node in any part of the triple matching any node
+     * Return the first triple to match the given wildcard triple.  A
+     * node of type Nothing in any part of the triple matches any node
      * in the data store.  Prefix expansion is performed on URI nodes
      * in the triple.  Return an empty triple (three Nothing nodes) if
      * there are no matches.  May throw RDFException.

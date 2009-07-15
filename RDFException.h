@@ -9,6 +9,9 @@
 namespace Dataquay
 {
 
+/**
+ * \class RDFException RDFException.h <dataquay/RDFException.h>
+ */
 class RDFException : virtual public std::exception
 {
 public:
