@@ -7,6 +7,19 @@
 namespace Dataquay
 {
 
+QString
+PropertyObject::m_defaultPrefix = "property";
+
+PropertyObject::PropertyObject(Store *s, QUrl uri) :
+    m_store(s), m_pfx(m_defaultPrefix), m_uri(uri)
+{
+}
+
+PropertyObject::PropertyObject(Store *s, QString uri) :
+    m_store(s), m_pfx(m_defaultPrefix), m_uri(s->expand(uri))
+{
+}
+
 PropertyObject::PropertyObject(Store *s, QString pfx, QUrl uri) :
     m_store(s), m_pfx(pfx), m_uri(uri)
 {
@@ -69,6 +82,22 @@ PropertyObject::getPropertyUri(QString name) const
     if (name == "a") return m_store->expand(name);
     if (name.contains(':')) return m_store->expand(name);
     return m_store->expand(m_pfx + ":" + name);
+}
+
+void
+PropertyObject::setDefaultPropertyPrefix(QString prefix)
+{
+    m_defaultPrefix = prefix;
+}
+
+CacheingPropertyObject::CacheingPropertyObject(Store *s, QUrl uri) :
+    m_po(s, uri)
+{
+}
+
+CacheingPropertyObject::CacheingPropertyObject(Store *s, QString uri) :
+    m_po(s, uri)
+{
 }
 
 CacheingPropertyObject::CacheingPropertyObject(Store *s, QString pfx, QUrl uri) :

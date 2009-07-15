@@ -56,6 +56,21 @@ class PropertyObject
 public:
     /**
      * Construct a PropertyObject acting on the given Store, with the
+     * default prefix for properties taken from the global default
+     * (see setDefaultPropertyPrefix) and the given "subject" URI.
+     */
+    PropertyObject(Store *s, QUrl myUri);
+
+    /**
+     * Construct a PropertyObject acting on the given Store, with the
+     * default prefix for properties taken from the global default
+     * (see setDefaultPropertyPrefix) and the given "subject" URI
+     * (which will be prefix expanded).
+     */
+    PropertyObject(Store *s, QString myUri);
+
+    /**
+     * Construct a PropertyObject acting on the given Store, with the
      * given default prefix for properties and the given "subject"
      * URI.
      */
@@ -103,13 +118,35 @@ public:
      */
     void removeProperty(Transaction *tx, QString name);
 
+    /**
+     * Return the Store object that will be used for modifications in
+     * the given transaction.  If the transaction is not
+     * NoTransaction, then the returned Store will simply be the
+     * transaction itself; otherwise it will be the store that was
+     * passed to the constructor.
+     */
     Store *getStore(Transaction *tx) const;
+
+    /**
+     * Return the URI used for the "predicate" part of any triple
+     * referring to the given property name.  See the general
+     * PropertyObject documentation for details of how these names are
+     * expanded.
+     */
     QUrl getPropertyUri(QString name) const;
+
+    /**
+     * Set the global default property prefix.  This will be used as
+     * the prefix for all PropertyObjects subsequently constructed
+     * using the two-argument (prefixless) constructors.
+     */
+    static void setDefaultPropertyPrefix(QString prefix);
     
 private:
     Store *m_store;
     QString m_pfx;
     QUrl m_uri;
+    static QString m_defaultPrefix;
 };
 
 /**
@@ -125,6 +162,8 @@ private:
 class CacheingPropertyObject
 {
 public:
+    CacheingPropertyObject(Store *s, QUrl myUri);
+    CacheingPropertyObject(Store *s, QString myUri);
     CacheingPropertyObject(Store *s, QString propertyPrefix, QUrl myUri);
     CacheingPropertyObject(Store *s, QString propertyPrefix, QString myUri);
 
