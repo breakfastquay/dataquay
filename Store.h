@@ -60,7 +60,8 @@ public:
     /**
      * Return true if the store contains the given triple, false
      * otherwise.  Prefix expansion is performed on URI nodes in the
-     * triple.  No matching is carried out for Nothing nodes.
+     * triple.  Throw RDFException if the triple is not complete or if
+     * the test failed for any other reason.
      */
     virtual bool contains(Triple t) const = 0;
     
@@ -68,7 +69,7 @@ public:
      * Return all triples matching the given triple, with a Nothing
      * node in any part of the triple matching any node in the data
      * store.  Prefix expansion is performed on URI nodes in the
-     * triple.  Returns an empty list if there are no matches; may
+     * triple.  Return an empty list if there are no matches; may
      * throw RDFException if matching fails in some other way.
      */
     virtual Triples match(Triple t) const = 0;
