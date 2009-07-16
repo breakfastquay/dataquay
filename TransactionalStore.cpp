@@ -17,9 +17,12 @@ namespace Dataquay
 class TransactionalStore::D
 {
 public:
-    D(Store *store, Strictness strictness) :
+    D(Store *store,
+      TransactionStrictness strictness,
+      TransactionlessBehaviour txless) :
         m_store(store),
         m_strictness(strictness),
+        m_txless(txless),
         m_mutex(QMutex::Recursive), // important: lock in both startTx & startOp
         m_currentTx(0) {
     }
@@ -111,13 +114,25 @@ public:
         return m_store->expand(uri);
     }
         
-    bool isRelaxed() const { return m_strictness == Relaxed; }
+    bool hasRelaxedRead() const {
+        return m_strictness == TxStrictWrite || m_strictness == TxRelaxed;
+    }
+
+    bool hasRelaxedWrite() const {
+        return m_strictness == TxRelaxed;
+    }
+
+    bool hasWrap() const {
+        return m_txless == NoTxWrap;
+    }
+
     Store *getStore() { return m_store; }
     const Store *getStore() const { return m_store; }
     
 private:
     Store *m_store;
-    Strictness m_strictness;
+    TransactionStrictness m_strictness;
+    TransactionlessBehaviour m_txless;
     mutable QMutex m_mutex;
     const Transaction *m_currentTx;
 
@@ -187,8 +202,10 @@ private:
     ChangeSet m_changes;
 };
 
-TransactionalStore::TransactionalStore(Store *store, Strictness strictness) :
-    m_d(new D(store, strictness))
+TransactionalStore::TransactionalStore(Store *store,
+                                       TransactionStrictness strictness,
+                                       TransactionlessBehaviour txless) :
+    m_d(new D(store, strictness, txless))
 {
 }
 
@@ -206,7 +223,11 @@ TransactionalStore::startTransaction()
 bool
 TransactionalStore::add(Triple t)
 {
-    if (m_d->isRelaxed()) return m_d->getStore()->add(t);
+    if (m_d->hasRelaxedWrite()) {
+        m_d->getStore()->add(t);
+    } else if (!m_d->hasWrap()) {
+        throw RDFException("TransactionalStore::add() called without Transaction");
+    }
     // auto_ptr here is very useful to ensure destruction on exceptions
     auto_ptr<Transaction> tx(startTransaction());
     return tx->add(t);
@@ -215,7 +236,11 @@ TransactionalStore::add(Triple t)
 bool
 TransactionalStore::remove(Triple t)
 {
-    if (m_d->isRelaxed()) return m_d->getStore()->remove(t);
+    if (m_d->hasRelaxedWrite()) {
+        m_d->getStore()->remove(t);
+    } else if (!m_d->hasWrap()) {
+        throw RDFException("TransactionalStore::remove() called without Transaction");
+    }
     auto_ptr<Transaction> tx(startTransaction());
     return tx->remove(t);
 }
@@ -223,7 +248,11 @@ TransactionalStore::remove(Triple t)
 void
 TransactionalStore::change(ChangeSet cs)
 {
-    if (m_d->isRelaxed()) { m_d->getStore()->change(cs); return; }
+    if (m_d->hasRelaxedWrite()) {
+        m_d->getStore()->change(cs);
+    } else if (!m_d->hasWrap()) {
+        throw RDFException("TransactionalStore::change() called without Transaction");
+    }
     auto_ptr<Transaction> tx(startTransaction());
     tx->change(cs);
 }
@@ -231,7 +260,11 @@ TransactionalStore::change(ChangeSet cs)
 void
 TransactionalStore::revert(ChangeSet cs)
 {
-    if (m_d->isRelaxed()) { m_d->getStore()->revert(cs); return; }
+    if (m_d->hasRelaxedWrite()) {
+        m_d->getStore()->revert(cs);
+    } else if (!m_d->hasWrap()) {
+        throw RDFException("TransactionalStore::revert() called without Transaction");
+    }
     auto_ptr<Transaction> tx(startTransaction());
     tx->revert(cs);
 }
@@ -239,7 +272,11 @@ TransactionalStore::revert(ChangeSet cs)
 bool
 TransactionalStore::contains(Triple t) const
 {
-    if (m_d->isRelaxed()) return m_d->getStore()->contains(t);
+    if (m_d->hasRelaxedRead()) {
+        return m_d->getStore()->contains(t);
+    } else if (!m_d->hasWrap()) {
+        throw RDFException("TransactionalStore::contains() called without Transaction");
+    }
     auto_ptr<const Transaction> tx
         (const_cast<TransactionalStore *>(this)->startTransaction());
     return tx->contains(t);
@@ -248,7 +285,11 @@ TransactionalStore::contains(Triple t) const
 Triples
 TransactionalStore::match(Triple t) const
 {
-    if (m_d->isRelaxed()) return m_d->getStore()->match(t);
+    if (m_d->hasRelaxedRead()) {
+        return m_d->getStore()->match(t);
+    } else if (!m_d->hasWrap()) {
+        throw RDFException("TransactionalStore::match() called without Transaction");
+    }
     auto_ptr<const Transaction> tx
         (const_cast<TransactionalStore *>(this)->startTransaction());
     return tx->match(t);
@@ -257,7 +298,11 @@ TransactionalStore::match(Triple t) const
 ResultSet
 TransactionalStore::query(QString s) const
 {
-    if (m_d->isRelaxed()) return m_d->getStore()->query(s);
+    if (m_d->hasRelaxedRead()) {
+        return m_d->getStore()->query(s);
+    } else if (!m_d->hasWrap()) {
+        throw RDFException("TransactionalStore::query() called without Transaction");
+    }
     auto_ptr<const Transaction> tx
         (const_cast<TransactionalStore *>(this)->startTransaction());
     return tx->query(s);
@@ -266,7 +311,11 @@ TransactionalStore::query(QString s) const
 Triple
 TransactionalStore::matchFirst(Triple t) const
 {
-    if (m_d->isRelaxed()) return m_d->getStore()->matchFirst(t);
+    if (m_d->hasRelaxedRead()) {
+        return m_d->getStore()->matchFirst(t);
+    } else if (!m_d->hasWrap()) {
+        throw RDFException("TransactionalStore::matchFirst() called without Transaction");
+    }
     auto_ptr<const Transaction> tx
         (const_cast<TransactionalStore *>(this)->startTransaction());
     return tx->matchFirst(t);
@@ -275,7 +324,11 @@ TransactionalStore::matchFirst(Triple t) const
 Node
 TransactionalStore::queryFirst(QString s, QString b) const
 {
-    if (m_d->isRelaxed()) return m_d->getStore()->queryFirst(s, b);
+    if (m_d->hasRelaxedRead()) {
+        return m_d->getStore()->queryFirst(s, b);
+    } else if (!m_d->hasWrap()) {
+        throw RDFException("TransactionalStore::queryFirst() called without Transaction");
+    }
     auto_ptr<const Transaction> tx
         (const_cast<TransactionalStore *>(this)->startTransaction());
     return tx->queryFirst(s, b);
@@ -284,7 +337,11 @@ TransactionalStore::queryFirst(QString s, QString b) const
 QUrl
 TransactionalStore::getUniqueUri(QString prefix) const
 {
-    if (m_d->isRelaxed()) return m_d->getStore()->getUniqueUri(prefix);
+    if (m_d->hasRelaxedRead()) {
+        return m_d->getStore()->getUniqueUri(prefix);
+    } else if (!m_d->hasWrap()) {
+        throw RDFException("TransactionalStore::getUniqueUri() called without Transaction");
+    }
     auto_ptr<const Transaction> tx
         (const_cast<TransactionalStore *>(this)->startTransaction());
     return tx->getUniqueUri(prefix);

@@ -16,9 +16,11 @@ namespace Dataquay
  * such as a BasicStore.  Access to the store (other than "admin"
  * roles such as addPrefix) is permitted only in the context of a
  * transaction.  You can start a transaction explicitly using
- * startTransaction. If you call a Store method directly on
- * TransactionalStore, it will be carried out using a single-operation
- * transaction.
+ * startTransaction.
+ * 
+ * If you call a Store method directly on TransactionalStore, the
+ * results depend on the TransactionStrictness and
+ * TransactionlessBehaviour settings.
  *
  * Asking to start a transaction will ensure you receive a Transaction
  * object for use for the duration of your transaction; this provides
@@ -32,34 +34,56 @@ class TransactionalStore : public Store
 {
 public:
     /**
-     * The "strictness" of a TransactionalStore controls how it
-     * behaves when its Store functions are called directly, as
-     * opposed to through a Transaction.  (Normally you should call
-     * startTransaction on the store, then call Store methods through
-     * the Transaction that was returned by that function.)
+     * TransactionStrictness controls the extent to which
+     * TransactionalStore permits access without a Transaction, that
+     * is, by calling Store methods directly on the TransactionalStore
+     * object.
      *
-     * If the TransactionalStore is Strict (the default), then calling
-     * its Store functions directly will result in a new single-use
-     * Transaction being created and used internally for each call.
+     * If TransactionStrictness is TxStrict, all read or write access
+     * to the TransactionalStore must use a Transaction.  Accesses
+     * directly to the store will either fail or be handled through a
+     * single-use Transaction, depending on the current
+     * TransactionlessBehaviour setting.
      *
-     * If the TransactionalStore is Relaxed, then calling its Store
-     * functions directly will result in calls being made directly to
-     * the underlying Store without any transactional integrity, even
-     * if a Transaction is ongoing elsewhere.
+     * If TransactionStrictness is TxStrictWrite (the default), all
+     * modifying accesses to the TransactionalStore must use a
+     * Transaction, but read-only access directly to the
+     * TransactionalStore is permitted.  Modifying accesses directly
+     * to the store will either fail or be handled through a
+     * single-use Transaction, depending on the current
+     * TransactionlessBehaviour setting.
      *
-     * This is a very substantial difference because of Transaction's
-     * simplistic implementation -- it effectively locks the store for
-     * read or write by all other transactions until the transaction
-     * is completed.  So a Strict datastore will be unable to carry
-     * out any non-transactional activities a transaction is ongoing,
-     * while a Relaxed datastore will be able to (at the expense of
-     * transactional isolation).
+     * If TransactionStrictness is TxRelaxed, full access will be
+     * permitted directly to the TransactionalStore without any
+     * transaction as well as through a Transaction, with obvious
+     * consequences for transactional integrity.
      */
-    enum Strictness {
-        Strict,
-        Relaxed
+    enum TransactionStrictness {
+        TxStrict,
+        TxStrictWrite,
+        TxRelaxed
     };
     
+    /**
+     * TransactionlessBehaviour controls how TransactionalStore
+     * responds when called directly (not through a Transaction) in a
+     * context in which a transaction is required by the current
+     * TransactionStrictness setting.
+     *
+     * If TransactionlessBehaviour is NoTxWrap, a Transaction object
+     * will be created, used for the single access, and then closed.
+     * This may cause a deadlock if another transaction is already
+     * ongoing elsewhere.
+     *
+     * If TransactionlessBehaviour is NoTxFail (the default), an RDF
+     * exception will be thrown whenever a transaction is required but
+     * not used.
+     */
+    enum TransactionlessBehaviour {
+        NoTxWrap,
+        NoTxFail
+    };
+
     /**
      * Create a TransactionalStore operating on the given (presumably
      * non-transactional) data store.
@@ -69,14 +93,17 @@ public:
      * that: once you have set up a transactional store, you should
      * use it for all routine accesses to the underlying store.
      */
-    TransactionalStore(Store *store, Strictness = Strict);
+    TransactionalStore(Store *store,
+                       TransactionStrictness = TxStrictWrite,
+                       TransactionlessBehaviour = NoTxFail);
     
     ~TransactionalStore();
 
     /**
      * Start a transaction and obtain a Transaction through which to
      * carry out its operations.  Once the transaction is complete,
-     * you must call delete the Transaction.
+     * you must delete the Transaction object to finish the
+     * transaction.
      */
     Transaction *startTransaction();
 
