@@ -30,36 +30,7 @@ namespace Dataquay
  */
 class TransactionalStore : public Store
 {
-    class D;
-
 public:
-    class TSTransaction : public Transaction
-    {
-    public:
-        // Store interface
-        bool add(Triple t);
-        bool remove(Triple t);
-        void change(ChangeSet changes);
-        void revert(ChangeSet changes);
-        bool contains(Triple t) const;
-        Triples match(Triple t) const;
-        ResultSet query(QString sparql) const;
-        Triple matchFirst(Triple t) const;
-        Node queryFirst(QString sparql, QString bindingName) const;
-        QUrl getUniqueUri(QString prefix) const;
-        QUrl expand(QString uri) const;
-
-        // Transaction interface
-        ChangeSet getChanges() const;
-        
-        TSTransaction(TransactionalStore::D *td);
-        virtual ~TSTransaction();
-
-    private:
-        class D;
-        D *m_d;
-    };
-
     /**
      * The "strictness" of a TransactionalStore controls how it
      * behaves when its Store functions are called directly, as
@@ -123,7 +94,35 @@ public:
     QUrl expand(QString uri) const;
 
 private:
+    class D;
     D *m_d;
+
+    class TSTransaction : public Transaction
+    {
+    public:
+        // Store interface
+        bool add(Triple t);
+        bool remove(Triple t);
+        void change(ChangeSet changes);
+        void revert(ChangeSet changes);
+        bool contains(Triple t) const;
+        Triples match(Triple t) const;
+        ResultSet query(QString sparql) const;
+        Triple matchFirst(Triple t) const;
+        Node queryFirst(QString sparql, QString bindingName) const;
+        QUrl getUniqueUri(QString prefix) const;
+        QUrl expand(QString uri) const;
+
+        // Transaction interface
+        ChangeSet getChanges() const;
+        
+        TSTransaction(TransactionalStore::D *td);
+        virtual ~TSTransaction();
+
+    private:
+        class D;
+        D *m_d;
+    };
 };
 
 }
