@@ -15,16 +15,16 @@ namespace Dataquay
  * transaction support as a wrapper around a non-transactional store
  * such as a BasicStore.  Access to the store (other than "admin"
  * roles such as addPrefix) is permitted only in the context of a
- * transaction.  You can start a transaction explicitly using
- * startTransaction.
+ * transaction.
+ *
+ * Call startTransaction to obtain a new Transaction object and start
+ * its transaction; use the Transaction's Store interface for all
+ * accesses associated with that transaction; delete the Transaction
+ * object once done, to finish the transaction.
  * 
  * If you call a Store method directly on TransactionalStore, the
  * results depend on the TransactionStrictness and
  * TransactionlessBehaviour settings.
- *
- * Asking to start a transaction will ensure you receive a Transaction
- * object for use for the duration of your transaction; this provides
- * the Store interface.  Call end() on that Transaction when complete.
  *
  * Transactions are serialised (one thread only may engage in a
  * transaction at a time).  The implementation is very simplistic and
