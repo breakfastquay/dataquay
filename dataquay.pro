@@ -1,6 +1,7 @@
 
 TEMPLATE = lib
 CONFIG += warn_on staticlib
+QT -= gui
 TARGET = dataquay
 
 load(../platform.prf)
@@ -17,7 +18,6 @@ HEADERS += RDFException.h \
            BasicStore.h \
            Store.h \
            Transaction.h \
-           TransactionalCommand.h \
            TransactionalStore.h \
            Triple.h \
            Node.h 
@@ -26,6 +26,5 @@ SOURCES += Node.cpp \
            BasicStore.cpp \
            PropertyObject.cpp \
            Transaction.cpp \
-           TransactionalCommand.cpp \
            TransactionalStore.cpp \
            Triple.cpp

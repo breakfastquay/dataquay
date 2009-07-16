@@ -12,7 +12,7 @@
 namespace Dataquay
 {
 
-static const QString encodedVariantTypeURI = "http://breakfastquay.com/rdf/datatype/encodedvariant";
+static const QString encodedVariantTypeURI = "http://breakfastquay.com/dataquay/datatype/encodedvariant";
 
 Node
 Node::fromVariant(QVariant v)
