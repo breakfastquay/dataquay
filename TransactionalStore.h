@@ -13,75 +13,47 @@ namespace Dataquay
  *
  * RDF data store implementing the Store interface, providing
  * transaction support as a wrapper around a non-transactional store
- * such as a BasicStore.  Access to the store (other than "admin"
- * roles such as addPrefix) is permitted only in the context of a
- * transaction.
+ * such as a BasicStore.
+ *
+ * Write access to the store is permitted only in the context of a
+ * transaction.  If you call a modifying function directly on
+ * TransactionalStore, the store will either throw RDFException (if
+ * set to NoAutoTransaction) or create a single-use Transaction object
+ * for the duration of that modification (if set to AutoTransaction).
+ * Note that the latter behaviour will deadlock if a transaction is in
+ * progress already.
+ *
+ * Read access may be carried out through a Transaction, in which case
+ * the read state will reflect the changes made so far in the pending
+ * transaction, or directly on the TransactionalStore, in which case
+ * the read will be isolated from any pending transaction.
  *
  * Call startTransaction to obtain a new Transaction object and start
  * its transaction; use the Transaction's Store interface for all
  * accesses associated with that transaction; delete the Transaction
- * object once done, to finish the transaction.
- * 
- * If you call a Store method directly on TransactionalStore, the
- * results depend on the TransactionStrictness and
- * TransactionlessBehaviour settings.
- *
- * Transactions are serialised (one thread only may engage in a
- * transaction at a time).  The implementation is very simplistic and
- * is not really "atomic" in any sense other than serialisation.
+ * object once done, to finish and commit the transaction; or call
+ * Transaction::rollback() if you decide you do not wish to commit it.
  */
 class TransactionalStore : public Store
 {
 public:
     /**
-     * TransactionStrictness controls the extent to which
-     * TransactionalStore permits access without a Transaction, that
-     * is, by calling Store methods directly on the TransactionalStore
-     * object.
+     * DirectWriteBehaviour controls how TransactionalStore responds
+     * when called directly (not through a Transaction) for a write
+     * operation (add, remove, change, or revert).
      *
-     * If TransactionStrictness is TxStrict, all read or write access
-     * to the TransactionalStore must use a Transaction.  Accesses
-     * directly to the store will either fail or be handled through a
-     * single-use Transaction, depending on the current
-     * TransactionlessBehaviour setting.
+     * NoAutoTransaction (the default) means that an RDF exception
+     * will be thrown whenever a write is attempted without a
+     * transaction.
      *
-     * If TransactionStrictness is TxStrictWrite (the default), all
-     * modifying accesses to the TransactionalStore must use a
-     * Transaction, but read-only access directly to the
-     * TransactionalStore is permitted.  Modifying accesses directly
-     * to the store will either fail or be handled through a
-     * single-use Transaction, depending on the current
-     * TransactionlessBehaviour setting.
-     *
-     * If TransactionStrictness is TxRelaxed, full access will be
-     * permitted directly to the TransactionalStore without any
-     * transaction as well as through a Transaction, with obvious
-     * consequences for transactional integrity.
+     * AutoTransaction means that a Transaction object will be
+     * created, used for the single access, and then closed.  This may
+     * cause a deadlock if another transaction is already ongoing
+     * elsewhere.
      */
-    enum TransactionStrictness {
-        TxStrict,
-        TxStrictWrite,
-        TxRelaxed
-    };
-    
-    /**
-     * TransactionlessBehaviour controls how TransactionalStore
-     * responds when called directly (not through a Transaction) in a
-     * context in which a transaction is required by the current
-     * TransactionStrictness setting.
-     *
-     * If TransactionlessBehaviour is NoTxWrap, a Transaction object
-     * will be created, used for the single access, and then closed.
-     * This may cause a deadlock if another transaction is already
-     * ongoing elsewhere.
-     *
-     * If TransactionlessBehaviour is NoTxFail (the default), an RDF
-     * exception will be thrown whenever a transaction is required but
-     * not used.
-     */
-    enum TransactionlessBehaviour {
-        NoTxWrap,
-        NoTxFail
+    enum DirectWriteBehaviour {
+        NoAutoTransaction,
+        AutoTransaction
     };
 
     /**
@@ -93,9 +65,7 @@ public:
      * that: once you have set up a transactional store, you should
      * use it for all routine accesses to the underlying store.
      */
-    TransactionalStore(Store *store,
-                       TransactionStrictness = TxStrictWrite,
-                       TransactionlessBehaviour = NoTxFail);
+    TransactionalStore(Store *store, DirectWriteBehaviour dwb = NoAutoTransaction);
     
     ~TransactionalStore();
 

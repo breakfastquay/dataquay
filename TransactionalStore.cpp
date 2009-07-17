@@ -2,8 +2,10 @@
 
 #include "TransactionalStore.h"
 #include "RDFException.h"
+#include "Debug.h"
 
 #include <QMutex>
+#include <QMutexLocker>
 #include <QUrl>
 
 #include <iostream>
@@ -16,41 +18,58 @@ namespace Dataquay
 	
 class TransactionalStore::D
 {
+    /**
+     * Current store context.
+     *
+     * TxContext: changes pending for the transaction are present in the
+     * store (committing the transaction would be a no-op;
+     * non-transactional queries would return incorrect results).
+     *
+     * NonTxContext: changes pending for the transaction are absent from
+     * the store (store is ready for non-transactional queries;
+     * committing the transaction would require reapplying changes).
+     */
+    enum Context { TxContext, NonTxContext };
+
 public:
-    D(Store *store,
-      TransactionStrictness strictness,
-      TransactionlessBehaviour txless) :
+    D(Store *store, DirectWriteBehaviour dwb) :
         m_store(store),
-        m_strictness(strictness),
-        m_txless(txless),
-        m_mutex(QMutex::Recursive), // important: lock in both startTx & startOp
-        m_currentTx(0) {
+        m_dwb(dwb),
+        m_currentTx(NoTransaction),
+        m_context(NonTxContext) {
     }
     
     ~D() {
-        if (m_currentTx != 0) {
+        if (m_currentTx != NoTransaction) {
             std::cerr << "WARNING: TransactionalStore deleted with transaction ongoing" << std::endl;
         }
     }
 
     Transaction *startTransaction() {
-        m_mutex.lock(); // not a QMutexLocker, see below
-        if (m_currentTx != 0) {
-            m_mutex.unlock();
+        QMutexLocker locker(&m_mutex);
+        DEBUG << "TransactionalStore::startTransaction" << endl;
+        if (m_currentTx != NoTransaction) {
             throw RDFException("ERROR: Attempt to start transaction when another transaction from the same thread is already in train");
         }
         Transaction *tx = new TSTransaction(this);
         m_currentTx = tx;
-        // leave with mutex locked for this thread
         return tx;
     }
 
     void endTransaction(Transaction *tx) {
-        startOperation(tx);
-        if (tx != m_currentTx) throw RDFException("Transaction integrity error");
-        endOperation(tx);
-        m_currentTx = 0;
-        m_mutex.unlock();
+        QMutexLocker locker(&m_mutex);
+        DEBUG << "TransactionalStore::endTransaction" << endl;
+        if (tx != m_currentTx) {
+            throw RDFException("Transaction integrity error");
+        }
+        enterTransactionContext();
+        // The store is now in transaction context, which means its
+        // changes have been committed; resetting m_currentTx now
+        // ensures they will remain committed.  Reset m_context as
+        // well for symmetry with the initial state in the
+        // constructor, though it shouldn't be necessary
+        m_currentTx = NoTransaction;
+        m_context = NonTxContext;
     }
     
     bool add(Transaction *tx, Triple t) {
@@ -114,27 +133,58 @@ public:
         return m_store->expand(uri);
     }
         
-    bool hasRelaxedRead() const {
-        return m_strictness == TxStrictWrite || m_strictness == TxRelaxed;
-    }
-
-    bool hasRelaxedWrite() const {
-        return m_strictness == TxRelaxed;
-    }
-
     bool hasWrap() const {
-        return m_txless == NoTxWrap;
+        return m_dwb == AutoTransaction;
+    }
+
+    void startNonTransactionalAccess() {
+        // This is only called from the containing TransactionalStore
+        // when it wants to carry out a non-transactional read access.
+        // Hence, it needs to take a lock and hold it until
+        // endNonTransactionalAccess is called
+        m_mutex.lock();
+        DEBUG << "TransactionalStore::startNonTransactionalAccess" << endl;
+        if (m_context == NonTxContext) {
+            return;
+        }
+        if (m_currentTx == NoTransaction) {
+            m_context = NonTxContext;
+            return;
+        }
+        ChangeSet cs = m_currentTx->getChanges();
+        if (!cs.empty()) {
+            try {
+                m_store->revert(cs);
+            } catch (RDFException e) {
+                throw RDFException(QString("Failed to leave transaction context.  Has the store been modified non-transactionally while a transaction was in progress?  Original error is: %1").arg(e.what()));
+            }
+        }
+        m_context = NonTxContext;
+        // return with mutex held
+    }
+
+    void endNonTransactionalAccess() {
+        // We can remain in NonTxContext, since every transactional
+        // access checks this via enterTransactionContext before doing
+        // any work; this way is quicker if we may have multiple
+        // non-transactional reads happening together.
+        DEBUG << "TransactionalStore::endNonTransactionalAccess" << endl;
+        m_mutex.unlock();
     }
 
     Store *getStore() { return m_store; }
     const Store *getStore() const { return m_store; }
     
 private:
-    Store *m_store;
-    TransactionStrictness m_strictness;
-    TransactionlessBehaviour m_txless;
+    // Most things are mutable here because the TransactionalStore
+    // manipulates the Store extensively when entering and leaving
+    // transaction context, which can happen on any supposedly
+    // read-only access
+    mutable Store *m_store;
+    DirectWriteBehaviour m_dwb;
     mutable QMutex m_mutex;
     const Transaction *m_currentTx;
+    mutable Context m_context;
 
     void startOperation(const Transaction *tx) const {
         // This will succeed immediately if the mutex is already held
@@ -146,6 +196,7 @@ private:
         if (tx != m_currentTx) {
             throw RDFException("Transaction integrity error");
         }
+        enterTransactionContext();
     }
 
     void endOperation(const Transaction *tx) const {
@@ -155,6 +206,26 @@ private:
         m_mutex.unlock();
     }
 
+    void enterTransactionContext() const {
+        // This is always called from within this class, with the
+        // mutex held already (compare leaveTransactionContext())
+        if (m_context == TxContext) {
+            return;
+        }
+        if (m_currentTx == NoTransaction) {
+            return;
+        }
+        ChangeSet cs = m_currentTx->getChanges();
+        if (!cs.empty()) {
+            DEBUG << "TransactionalStore::enterTransactionContext: replaying" << endl;
+            try {
+                m_store->change(cs);
+            } catch (RDFException e) {
+                throw RDFException(QString("Failed to enter transaction context.  Has the store been modified non-transactionally while a transaction was in progress?  Original error is: %1").arg(e.what()));
+            }
+        }
+        m_context = TxContext;
+    }
 };
 
 class TransactionalStore::TSTransaction::D
@@ -202,10 +273,8 @@ private:
     ChangeSet m_changes;
 };
 
-TransactionalStore::TransactionalStore(Store *store,
-                                       TransactionStrictness strictness,
-                                       TransactionlessBehaviour txless) :
-    m_d(new D(store, strictness, txless))
+TransactionalStore::TransactionalStore(Store *store, DirectWriteBehaviour dwb) :
+    m_d(new D(store, dwb))
 {
 }
 
@@ -223,9 +292,7 @@ TransactionalStore::startTransaction()
 bool
 TransactionalStore::add(Triple t)
 {
-    if (m_d->hasRelaxedWrite()) {
-        m_d->getStore()->add(t);
-    } else if (!m_d->hasWrap()) {
+    if (!m_d->hasWrap()) {
         throw RDFException("TransactionalStore::add() called without Transaction");
     }
     // auto_ptr here is very useful to ensure destruction on exceptions
@@ -236,9 +303,7 @@ TransactionalStore::add(Triple t)
 bool
 TransactionalStore::remove(Triple t)
 {
-    if (m_d->hasRelaxedWrite()) {
-        m_d->getStore()->remove(t);
-    } else if (!m_d->hasWrap()) {
+    if (!m_d->hasWrap()) {
         throw RDFException("TransactionalStore::remove() called without Transaction");
     }
     auto_ptr<Transaction> tx(startTransaction());
@@ -248,9 +313,7 @@ TransactionalStore::remove(Triple t)
 void
 TransactionalStore::change(ChangeSet cs)
 {
-    if (m_d->hasRelaxedWrite()) {
-        m_d->getStore()->change(cs);
-    } else if (!m_d->hasWrap()) {
+    if (!m_d->hasWrap()) {
         throw RDFException("TransactionalStore::change() called without Transaction");
     }
     auto_ptr<Transaction> tx(startTransaction());
@@ -260,9 +323,7 @@ TransactionalStore::change(ChangeSet cs)
 void
 TransactionalStore::revert(ChangeSet cs)
 {
-    if (m_d->hasRelaxedWrite()) {
-        m_d->getStore()->revert(cs);
-    } else if (!m_d->hasWrap()) {
+    if (!m_d->hasWrap()) {
         throw RDFException("TransactionalStore::revert() called without Transaction");
     }
     auto_ptr<Transaction> tx(startTransaction());
@@ -272,79 +333,55 @@ TransactionalStore::revert(ChangeSet cs)
 bool
 TransactionalStore::contains(Triple t) const
 {
-    if (m_d->hasRelaxedRead()) {
-        return m_d->getStore()->contains(t);
-    } else if (!m_d->hasWrap()) {
-        throw RDFException("TransactionalStore::contains() called without Transaction");
-    }
-    auto_ptr<const Transaction> tx
-        (const_cast<TransactionalStore *>(this)->startTransaction());
-    return tx->contains(t);
+    m_d->startNonTransactionalAccess();
+    bool result = m_d->getStore()->contains(t);
+    m_d->endNonTransactionalAccess();
+    return result;
 }
     
 Triples
 TransactionalStore::match(Triple t) const
 {
-    if (m_d->hasRelaxedRead()) {
-        return m_d->getStore()->match(t);
-    } else if (!m_d->hasWrap()) {
-        throw RDFException("TransactionalStore::match() called without Transaction");
-    }
-    auto_ptr<const Transaction> tx
-        (const_cast<TransactionalStore *>(this)->startTransaction());
-    return tx->match(t);
+    m_d->startNonTransactionalAccess();
+    Triples result = m_d->getStore()->match(t);
+    m_d->endNonTransactionalAccess();
+    return result;
 }
 
 ResultSet
 TransactionalStore::query(QString s) const
 {
-    if (m_d->hasRelaxedRead()) {
-        return m_d->getStore()->query(s);
-    } else if (!m_d->hasWrap()) {
-        throw RDFException("TransactionalStore::query() called without Transaction");
-    }
-    auto_ptr<const Transaction> tx
-        (const_cast<TransactionalStore *>(this)->startTransaction());
-    return tx->query(s);
+    m_d->startNonTransactionalAccess();
+    ResultSet result = m_d->getStore()->query(s);
+    m_d->endNonTransactionalAccess();
+    return result;
 }
 
 Triple
 TransactionalStore::matchFirst(Triple t) const
 {
-    if (m_d->hasRelaxedRead()) {
-        return m_d->getStore()->matchFirst(t);
-    } else if (!m_d->hasWrap()) {
-        throw RDFException("TransactionalStore::matchFirst() called without Transaction");
-    }
-    auto_ptr<const Transaction> tx
-        (const_cast<TransactionalStore *>(this)->startTransaction());
-    return tx->matchFirst(t);
+    m_d->startNonTransactionalAccess();
+    Triple result = m_d->getStore()->matchFirst(t);
+    m_d->endNonTransactionalAccess();
+    return result;
 }
 
 Node
 TransactionalStore::queryFirst(QString s, QString b) const
 {
-    if (m_d->hasRelaxedRead()) {
-        return m_d->getStore()->queryFirst(s, b);
-    } else if (!m_d->hasWrap()) {
-        throw RDFException("TransactionalStore::queryFirst() called without Transaction");
-    }
-    auto_ptr<const Transaction> tx
-        (const_cast<TransactionalStore *>(this)->startTransaction());
-    return tx->queryFirst(s, b);
+    m_d->startNonTransactionalAccess();
+    Node result = m_d->getStore()->queryFirst(s, b);
+    m_d->endNonTransactionalAccess();
+    return result;
 }
 
 QUrl
 TransactionalStore::getUniqueUri(QString prefix) const
 {
-    if (m_d->hasRelaxedRead()) {
-        return m_d->getStore()->getUniqueUri(prefix);
-    } else if (!m_d->hasWrap()) {
-        throw RDFException("TransactionalStore::getUniqueUri() called without Transaction");
-    }
-    auto_ptr<const Transaction> tx
-        (const_cast<TransactionalStore *>(this)->startTransaction());
-    return tx->getUniqueUri(prefix);
+    m_d->startNonTransactionalAccess();
+    QUrl result = m_d->getStore()->getUniqueUri(prefix);
+    m_d->endNonTransactionalAccess();
+    return result;
 }
 
 QUrl

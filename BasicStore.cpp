@@ -48,6 +48,7 @@ public:
 
     void clear() {
         QMutexLocker locker(&m_mutex);
+        DEBUG << "BasicStore::clear" << endl;
         if (m_model) librdf_free_model(m_model);
         if (m_storage) librdf_free_storage(m_storage);
         m_storage = librdf_new_storage(m_w.getWorld(), "trees", 0, 0);
@@ -65,14 +66,14 @@ public:
     }
 
     bool add(Triple t) {
-        DEBUG << "BasicStore::add: " << t << endl;
         QMutexLocker locker(&m_mutex);
+        DEBUG << "BasicStore::add: " << t << endl;
         return doAdd(t);
     }
 
     bool remove(Triple t) {
-        DEBUG << "BasicStore::remove: " << t << endl;
         QMutexLocker locker(&m_mutex);
+        DEBUG << "BasicStore::remove: " << t << endl;
         if (t.a.type == Node::Nothing || 
             t.b.type == Node::Nothing ||
             t.c.type == Node::Nothing) {
@@ -91,6 +92,7 @@ public:
 
     void change(ChangeSet cs) {
         QMutexLocker locker(&m_mutex);
+        DEBUG << "BasicStore::change: " << cs.size() << " changes" << endl;
         for (int i = 0; i < cs.size(); ++i) {
             ChangeType type = cs[i].first;
             switch (type) {
@@ -110,6 +112,7 @@ public:
 
     void revert(ChangeSet cs) {
         QMutexLocker locker(&m_mutex);
+        DEBUG << "BasicStore::revert: " << cs.size() << " changes" << endl;
         for (int i = cs.size()-1; i >= 0; --i) {
             ChangeType type = cs[i].first;
             switch (type) {
@@ -128,8 +131,8 @@ public:
     }
 
     bool contains(Triple t) const {
-        DEBUG << "BasicStore::contains: " << t << endl;
         QMutexLocker locker(&m_mutex);
+        DEBUG << "BasicStore::contains: " << t << endl;
         librdf_statement *statement = tripleToStatement(t);
         if (!checkComplete(statement)) {
             librdf_free_statement(statement);
@@ -145,8 +148,8 @@ public:
     }
     
     Triples match(Triple t) const {
-        DEBUG << "BasicStore::match: " << t << endl;
         QMutexLocker locker(&m_mutex);
+        DEBUG << "BasicStore::match: " << t << endl;
         Triples result = doMatch(t);
 #ifndef NDEBUG
         DEBUG << "BasicStore::match result (size " << result.size() << "):" << endl;
@@ -158,10 +161,13 @@ public:
     }
 
     Triple matchFirst(Triple t) const {
-        //!!! if all three nodes in the triple are defined, we should be
-        // able to short-circuit to a single lookup
-        DEBUG << "BasicStore::matchFirst: " << t << endl;
+        if (t.c != Node() && t.b != Node() && t.a != Node()) {
+            // triple is complete: short-circuit to a single lookup
+            if (contains(t)) return t;
+            else return Triple();
+        }
         QMutexLocker locker(&m_mutex);
+        DEBUG << "BasicStore::matchFirst: " << t << endl;
         Triples result = doMatch(t, true);
 #ifndef NDEBUG
         DEBUG << "BasicStore::matchFirst result:" << endl;

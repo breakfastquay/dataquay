@@ -5,9 +5,10 @@ QT -= gui
 TARGET = test-dataquay
 
 INCLUDEPATH += . ..
+DEPENDPATH += . ..
 LIBPATH += ..
+PRE_TARGETDEPS += ../libdataquay.a
 LIBS += -ldataquay -lraptor -lrasqal -lrdf
 
-HEADERS += TestDataquay.h
 SOURCES += TestDataquay.cpp
 

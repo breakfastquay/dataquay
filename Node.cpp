@@ -100,6 +100,8 @@ Node::toVariant() const
 bool
 operator==(const Node &a, const Node &b)
 {
+    if (a.type == Node::Nothing &&
+        b.type == Node::Nothing) return true;
     if (a.type == b.type &&
         a.value == b.value &&
         a.datatype == b.datatype) return true;

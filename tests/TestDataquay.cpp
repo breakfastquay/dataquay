@@ -485,31 +485,66 @@ testTransactionalStore()
 
     TransactionalStore ts(&store);
 
+    Triples triples;
+    int n;
+
     Transaction *t = ts.startTransaction();
+    int added = 0;
 
     // These add calls are all things we've tested in testBasicStore already
     t->add(Triple(Node(Node::URI, ":fred"),
                   Node(Node::URI, "http://xmlns.com/foaf/0.1/name"),
                   Node(Node::Literal, "Fred Jenkins")));
+    ++added;
     t->add(Triple(":fred",
                   "http://xmlns.com/foaf/0.1/knows",
                   Node(Node::URI, ":alice")));
+    ++added;
     t->add(Triple(":fred",
                   ":age",
                   Node::fromVariant(QVariant(42))));
+    ++added;
+
+    // pause to test transactional isolation
+    triples = ts.match(Triple(Node(), Node(), Node()));
+    n = triples.size();
+    if (n != 0) {
+        cerr << "Transactional isolation failure -- match() during initial add returned " << n << " results (should have been 0)" << endl;
+        return false;
+    }
+
+    // do it again, just to check internal state isn't being bungled
+    triples = ts.match(Triple(Node(), Node(), Node()));
+    n = triples.size();
+    if (n != 0) {
+        cerr << "Transactional isolation failure -- second match() during initial add returned " << n << " results (should have been 0)" << endl;
+        return false;
+    }
+
+    // and check that reads *through* the transaction return the
+    // partial state as expected
+    triples = t->match(Triple(Node(), Node(), Node()));
+    n = triples.size();
+    if (n != added) {
+        cerr << "Transactional failure -- match() within initial transaction returned " << n << " results (should have been " << added << ")" << endl;
+        return false;
+    }
+
     t->add(Triple(":fred",
                   ":likes_to_think_his_age_is",
                   Node::fromVariant(QVariant(21.9))));
+    ++added;
     t->add(Triple(":fred",
                   ":is_sadly_deluded",
                   Node::fromVariant(true)));
+    ++added;
 
     ChangeSet changes = t->getChanges();
 
     delete t;
 
-    Triples triples = store.match(Triple(Node(), Node(), Node()));
-    int n = triples.size();
+    triples = ts.match(Triple(Node(), Node(), Node()));
+    n = triples.size();
     if (n == 0) {
         cerr << "Store add didn't take at all (triples matched on query == 0" <<endl;
         return false;
@@ -519,7 +554,7 @@ testTransactionalStore()
     t->revert(changes);
     delete t;
 
-    triples = store.match(Triple(Node(), Node(), Node()));
+    triples = ts.match(Triple(Node(), Node(), Node()));
     if (triples.size() > 0) {
         cerr << "Store revert failed (store is not empty)" << endl;
         return false;
@@ -529,7 +564,7 @@ testTransactionalStore()
     t->change(changes);
     delete t;
 
-    triples = store.match(Triple(Node(), Node(), Node()));
+    triples = ts.match(Triple(Node(), Node(), Node()));
     if (triples.size() != n) {
         cerr << "Store re-change failed (triple count " << triples.size() << " != original " << n << ")" << endl;
         return false;
