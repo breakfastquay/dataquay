@@ -31,6 +31,21 @@ class TransactionalStore::D
      */
     enum Context { TxContext, NonTxContext };
 
+    class Operation
+    {
+    public:
+        Operation(const D *d, const Transaction *tx) :
+            m_d(d), m_tx(tx) {
+            m_d->startOperation(m_tx);
+        }
+        ~Operation() {
+            m_d->endOperation(m_tx);
+        }
+    private:
+        const D *m_d;
+        const Transaction *m_tx;
+    };
+
 public:
     D(Store *store, DirectWriteBehaviour dwb) :
         m_store(store),
@@ -71,61 +86,53 @@ public:
         m_currentTx = NoTransaction;
         m_context = NonTxContext;
     }
-    
+
     bool add(Transaction *tx, Triple t) {
-        startOperation(tx);
+        Operation op(this, tx);
         bool result = m_store->add(t);
-        endOperation(tx);
         return result;
     }
 
     bool remove(Transaction *tx, Triple t) {
-        startOperation(tx);
+        Operation op(this, tx);
         bool result = m_store->remove(t);
-        endOperation(tx);
         return result;
     }
 
     bool contains(const Transaction *tx, Triple t) const {
-        startOperation(tx);
+        Operation op(this, tx);
         bool result = m_store->contains(t);
-        endOperation(tx);
         return result;
     }
 
     Triples match(const Transaction *tx, Triple t) const {
-        startOperation(tx);
+        Operation op(this, tx);
         Triples result = m_store->match(t);
-        endOperation(tx);
         return result;
     }
 
     ResultSet query(const Transaction *tx, QString sparql) const {
-        startOperation(tx);
+        Operation op(this, tx);
         ResultSet result = m_store->query(sparql);
-        endOperation(tx);
         return result;
     }
 
     Triple matchFirst(const Transaction *tx, Triple t) const {
-        startOperation(tx);
+        Operation op(this, tx);
         Triple result = m_store->matchFirst(t);
-        endOperation(tx);
         return result;
     }
 
     Node queryFirst(const Transaction *tx, QString sparql,
                         QString bindingName) const {
-        startOperation(tx);
+        Operation op(this, tx);
         Node result = m_store->queryFirst(sparql, bindingName);
-        endOperation(tx);
         return result;
     }
 
     QUrl getUniqueUri(const Transaction *tx, QString prefix) const {
-        startOperation(tx);
+        Operation op(this, tx);
         QUrl result = m_store->getUniqueUri(prefix);
-        endOperation(tx);
         return result;
     }
 
