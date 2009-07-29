@@ -3,6 +3,7 @@
 #include "../BasicStore.h"
 #include "../PropertyObject.h"
 #include "../TransactionalStore.h"
+#include "../RDFException.h"
 #include "../Debug.h"
 
 #include <QStringList>
@@ -232,7 +233,7 @@ testBasicStore()
 
         cerr << "Testing matching..." << endl;
 
-        triples = store.match(Triple(Node(), Node(), Node()));
+        triples = store.match(Triple());
 
         if (triples.size() != count) {
             cerr << "Failed to load and match triples: loaded " << count << " but matched " << triples.size() << endl;
@@ -383,7 +384,7 @@ testBasicStore()
             return false;
         }
 
-        triples = store.match(Triple(Node(), Node(), Node()));
+        triples = store.match(Triple());
 
         if (triples.size() != count-1) {
             cerr << "Failed to match triples: loaded " << count << " then removed 1, but matched " << triples.size() << endl;
@@ -417,7 +418,7 @@ testBasicStore()
 
         cerr << "Testing match on loaded store..." << endl;
 
-        triples = store2->match(Triple(Node(), Node(), Node()));
+        triples = store2->match(Triple());
 
         if (triples.size() != count) {
             cerr << "Failed to load and match triples after export/import: loaded " << count << " but matched " << triples.size() << endl;
@@ -506,7 +507,7 @@ testTransactionalStore()
     ++added;
 
     // pause to test transactional isolation
-    triples = ts.match(Triple(Node(), Node(), Node()));
+    triples = ts.match(Triple());
     n = triples.size();
     if (n != 0) {
         cerr << "Transactional isolation failure -- match() during initial add returned " << n << " results (should have been 0)" << endl;
@@ -514,7 +515,7 @@ testTransactionalStore()
     }
 
     // do it again, just to check internal state isn't being bungled
-    triples = ts.match(Triple(Node(), Node(), Node()));
+    triples = ts.match(Triple());
     n = triples.size();
     if (n != 0) {
         cerr << "Transactional isolation failure -- second match() during initial add returned " << n << " results (should have been 0)" << endl;
@@ -523,7 +524,7 @@ testTransactionalStore()
 
     // and check that reads *through* the transaction return the
     // partial state as expected
-    triples = t->match(Triple(Node(), Node(), Node()));
+    triples = t->match(Triple());
     n = triples.size();
     if (n != added) {
         cerr << "Transactional failure -- match() within initial transaction returned " << n << " results (should have been " << added << ")" << endl;
@@ -543,10 +544,10 @@ testTransactionalStore()
 
     delete t;
 
-    triples = ts.match(Triple(Node(), Node(), Node()));
+    triples = ts.match(Triple());
     n = triples.size();
-    if (n == 0) {
-        cerr << "Store add didn't take at all (triples matched on query == 0" <<endl;
+    if (n != added) {
+        cerr << "Store add didn't take at all (triples matched on query != expected " << added << ")" << endl;
         return false;
     }
 
@@ -554,7 +555,7 @@ testTransactionalStore()
     t->revert(changes);
     delete t;
 
-    triples = ts.match(Triple(Node(), Node(), Node()));
+    triples = ts.match(Triple());
     if (triples.size() > 0) {
         cerr << "Store revert failed (store is not empty)" << endl;
         return false;
@@ -564,11 +565,115 @@ testTransactionalStore()
     t->change(changes);
     delete t;
 
-    triples = ts.match(Triple(Node(), Node(), Node()));
+    triples = ts.match(Triple());
     if (triples.size() != n) {
         cerr << "Store re-change failed (triple count " << triples.size() << " != original " << n << ")" << endl;
         return false;
     }
+
+
+    // Test explicit rollback
+
+    t = ts.startTransaction();
+
+    t->add(Triple(Node(Node::URI, ":fred2"),
+                  Node(Node::URI, "http://xmlns.com/foaf/0.1/name"),
+                  Node(Node::Literal, "Fred Jenkins")));
+    t->add(Triple(":fred2",
+                  "http://xmlns.com/foaf/0.1/knows",
+                  Node(Node::URI, ":alice")));
+    t->add(Triple(":fred2",
+                  ":age",
+                  Node::fromVariant(QVariant(42))));
+    t->rollback();
+    int exceptionCount = 0;
+    int expectedExceptions = 0;
+    try {
+        t->add(Triple(":fred2",
+                      ":likes_to_think_his_age_is",
+                      Node::fromVariant(QVariant(21.9))));
+    } catch (RDFException) {
+        ++exceptionCount;
+    }
+    ++expectedExceptions;
+    try {
+        t->add(Triple(":fred2",
+                      ":is_sadly_deluded",
+                      Node::fromVariant(true)));
+    } catch (RDFException) {
+        ++exceptionCount;
+    }
+    ++expectedExceptions;
+    delete t;
+
+    triples = ts.match(Triple());
+    n = triples.size();
+    if (n != added) {
+        cerr << "Transactional rollback failed (" << n << " triples matched on query != expected " << added << " left from previous transaction)" << endl;
+        return false;
+    }
+
+    if (exceptionCount != expectedExceptions) {
+        cerr << "Transaction failed to throw expected exceptions when used after rollback" << endl;
+        return false;
+    }
+    
+
+    // Test automatic rollback triggered by exception
+
+    t = ts.startTransaction();
+
+    t->add(Triple(Node(Node::URI, ":fred2"),
+                  Node(Node::URI, "http://xmlns.com/foaf/0.1/name"),
+                  Node(Node::Literal, "Fred Jenkins")));
+    t->add(Triple(":fred2",
+                  "http://xmlns.com/foaf/0.1/knows",
+                  Node(Node::URI, ":alice")));
+    t->add(Triple(":fred2",
+                  ":age",
+                  Node::fromVariant(QVariant(42))));
+    exceptionCount = 0;
+    expectedExceptions = 0;
+    // Add incomplete statement to provoke an exception
+    try {
+        t->add(Triple(Node(),
+                      Node(Node::URI, "http://xmlns.com/foaf/0.1/name"),
+                      Node(Node::Literal, "The Man Who Wasn't There")));
+    } catch (RDFException) {
+        ++exceptionCount;
+    }
+    ++expectedExceptions;
+    try {
+        t->add(Triple(":fred2",
+                      ":likes_to_think_his_age_is",
+                      Node::fromVariant(QVariant(21.9))));
+    } catch (RDFException) {
+        ++exceptionCount;
+    }
+    ++expectedExceptions;
+    try {
+        t->add(Triple(":fred2",
+                      ":is_sadly_deluded",
+                      Node::fromVariant(true)));
+    } catch (RDFException) {
+        ++exceptionCount;
+    }
+    ++expectedExceptions;
+    delete t;
+
+    triples = ts.match(Triple());
+    n = triples.size();
+    if (n != added) {
+        cerr << "Auto-rollback on failed transaction failed (" << n << " triples matched on query != expected " << added << " left from previous transaction)" << endl;
+        return false;
+    }
+
+    if (exceptionCount != expectedExceptions) {
+        cerr << "Transaction failed to throw expected exceptions when used after auto-rollback" << endl;
+        return false;
+    }
+    
+    
 
     std::cerr << "testTransactionalStore done" << std::endl;
     return true;
@@ -584,7 +689,7 @@ main()
     Dataquay::Test::testBasicStore();
     Dataquay::Test::testTransactionalStore();
 
-    std::cerr << "testDataquay done" << std::endl;
+    std::cerr << "testDataquay successfully completed" << std::endl;
     return true;
 }
 

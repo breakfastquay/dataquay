@@ -74,7 +74,7 @@ public:
 
     void rollbackTransaction(Transaction *tx) {
         QMutexLocker locker(&m_mutex);
-        DEBUG << "TransactionalStore::abandonTransaction" << endl;
+        DEBUG << "TransactionalStore::rollbackTransaction" << endl;
         if (tx != m_currentTx) {
             throw RDFException("Transaction integrity error");
         }
@@ -282,6 +282,7 @@ public:
     }
 
     void abandon() const {
+        DEBUG << "TransactionalStore::TSTransaction::abandon: Auto-rollback triggered by exception" << endl;
         m_abandoned = true;
     }
     
@@ -422,29 +423,17 @@ public:
     }
 
     QUrl expand(QString uri) const {
-        check();
-        try {
-            return m_td->expand(uri);
-        } catch (RDFException) {
-            abandon();
-            throw;
-        }
+        return m_td->expand(uri);
     }
 
     ChangeSet getChanges() const {
-        check();
-        try {
-            return m_changes;
-        } catch (RDFException) {
-            abandon();
-            throw;
-        }
+        return m_changes;
     }
 
     void rollback() {
         check();
         DEBUG << "TransactionalStore::TSTransaction::rollback: Abandoning" << endl;
-        abandon();
+        m_abandoned = true;
     }
         
 private:

@@ -21,7 +21,9 @@ class Transaction : public Store
 {
 public:
     /**
-     * Return the ChangeSet applied so far by this transaction.
+     * Return the ChangeSet applied so far by this transaction.  This
+     * is undefined if the transaction has been rolled back (it may
+     * return the changes prior to rollback, or an empty ChangeSet).
      */
     virtual ChangeSet getChanges() const = 0;
 

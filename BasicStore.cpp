@@ -330,7 +330,10 @@ private:
 
     bool doAdd(Triple t) {
         librdf_statement *statement = tripleToStatement(t);
-        checkComplete(statement);
+        if (!checkComplete(statement)) {
+            librdf_free_statement(statement);
+            throw RDFException("Failed to add triple (statement is incomplete)");
+        }
         if (librdf_model_contains_statement(m_model, statement)) {
             librdf_free_statement(statement);
             return false;
