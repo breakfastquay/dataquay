@@ -31,21 +31,6 @@ class TransactionalStore::D
      */
     enum Context { TxContext, NonTxContext };
 
-    class Operation
-    {
-    public:
-        Operation(const D *d, const Transaction *tx) :
-            m_d(d), m_tx(tx) {
-            m_d->startOperation(m_tx);
-        }
-        ~Operation() {
-            m_d->endOperation(m_tx);
-        }
-    private:
-        const D *m_d;
-        const Transaction *m_tx;
-    };
-
 public:
     D(Store *store, DirectWriteBehaviour dwb) :
         m_store(store),
@@ -86,6 +71,35 @@ public:
         m_currentTx = NoTransaction;
         m_context = NonTxContext;
     }
+
+    class Operation
+    {
+    public:
+        Operation(const D *d, const Transaction *tx) :
+            m_d(d), m_tx(tx) {
+            m_d->startOperation(m_tx);
+        }
+        ~Operation() {
+            m_d->endOperation(m_tx);
+        }
+    private:
+        const D *m_d;
+        const Transaction *m_tx;
+    };
+
+    class NonTransactionalAccess
+    {
+    public:
+        NonTransactionalAccess(D *d) :
+            m_d(d) {
+            m_d->startNonTransactionalAccess();
+        }
+        ~NonTransactionalAccess() {
+            m_d->endNonTransactionalAccess();
+        }
+    private:
+        D *m_d;
+    };
 
     bool add(Transaction *tx, Triple t) {
         Operation op(this, tx);
@@ -340,54 +354,48 @@ TransactionalStore::revert(ChangeSet cs)
 bool
 TransactionalStore::contains(Triple t) const
 {
-    m_d->startNonTransactionalAccess();
+    D::NonTransactionalAccess ntxa(m_d);
     bool result = m_d->getStore()->contains(t);
-    m_d->endNonTransactionalAccess();
     return result;
 }
     
 Triples
 TransactionalStore::match(Triple t) const
 {
-    m_d->startNonTransactionalAccess();
+    D::NonTransactionalAccess ntxa(m_d);
     Triples result = m_d->getStore()->match(t);
-    m_d->endNonTransactionalAccess();
     return result;
 }
 
 ResultSet
 TransactionalStore::query(QString s) const
 {
-    m_d->startNonTransactionalAccess();
+    D::NonTransactionalAccess ntxa(m_d);
     ResultSet result = m_d->getStore()->query(s);
-    m_d->endNonTransactionalAccess();
     return result;
 }
 
 Triple
 TransactionalStore::matchFirst(Triple t) const
 {
-    m_d->startNonTransactionalAccess();
+    D::NonTransactionalAccess ntxa(m_d);
     Triple result = m_d->getStore()->matchFirst(t);
-    m_d->endNonTransactionalAccess();
     return result;
 }
 
 Node
 TransactionalStore::queryFirst(QString s, QString b) const
 {
-    m_d->startNonTransactionalAccess();
+    D::NonTransactionalAccess ntxa(m_d);
     Node result = m_d->getStore()->queryFirst(s, b);
-    m_d->endNonTransactionalAccess();
     return result;
 }
 
 QUrl
 TransactionalStore::getUniqueUri(QString prefix) const
 {
-    m_d->startNonTransactionalAccess();
+    D::NonTransactionalAccess ntxa(m_d);
     QUrl result = m_d->getStore()->getUniqueUri(prefix);
-    m_d->endNonTransactionalAccess();
     return result;
 }
 
