@@ -26,6 +26,17 @@ public:
     virtual ChangeSet getChanges() const = 0;
 
     /**
+     * Roll back this transaction.  All changes made during the
+     * transaction will be discarded.  You should not attempt to use
+     * the Transaction object again (except to delete it) after this
+     * call is made.  Any further call to the transaction's Store
+     * interface will throw an RDFException.  When the transaction is
+     * deleted, it will simply be discarded rather than being
+     * committed.
+     */
+    virtual void rollback() = 0;
+
+    /**
      * End the transaction which this store object was handling, and
      * (of course) delete the object.  You must delete this object
      * before beginning any other transaction, or that transaction

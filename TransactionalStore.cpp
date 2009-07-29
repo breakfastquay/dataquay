@@ -56,9 +56,9 @@ public:
         return tx;
     }
 
-    void endTransaction(Transaction *tx) {
+    void commitTransaction(Transaction *tx) {
         QMutexLocker locker(&m_mutex);
-        DEBUG << "TransactionalStore::endTransaction" << endl;
+        DEBUG << "TransactionalStore::commitTransaction" << endl;
         if (tx != m_currentTx) {
             throw RDFException("Transaction integrity error");
         }
@@ -70,6 +70,18 @@ public:
         // constructor, though it shouldn't be necessary
         m_currentTx = NoTransaction;
         m_context = NonTxContext;
+    }
+
+    void rollbackTransaction(Transaction *tx) {
+        QMutexLocker locker(&m_mutex);
+        DEBUG << "TransactionalStore::abandonTransaction" << endl;
+        if (tx != m_currentTx) {
+            throw RDFException("Transaction integrity error");
+        }
+        leaveTransactionContext();
+        // The store is now in non-transaction context, which means
+        // the transaction's changes are uncommitted
+        m_currentTx = NoTransaction;
     }
 
     class Operation
@@ -165,22 +177,7 @@ public:
         // endNonTransactionalAccess is called
         m_mutex.lock();
         DEBUG << "TransactionalStore::startNonTransactionalAccess" << endl;
-        if (m_context == NonTxContext) {
-            return;
-        }
-        if (m_currentTx == NoTransaction) {
-            m_context = NonTxContext;
-            return;
-        }
-        ChangeSet cs = m_currentTx->getChanges();
-        if (!cs.empty()) {
-            try {
-                m_store->revert(cs);
-            } catch (RDFException e) {
-                throw RDFException(QString("Failed to leave transaction context.  Has the store been modified non-transactionally while a transaction was in progress?  Original error is: %1").arg(e.what()));
-            }
-        }
-        m_context = NonTxContext;
+        leaveTransactionContext();
         // return with mutex held
     }
 
@@ -229,7 +226,7 @@ private:
 
     void enterTransactionContext() const {
         // This is always called from within this class, with the
-        // mutex held already (compare leaveTransactionContext())
+        // mutex held already
         if (m_context == TxContext) {
             return;
         }
@@ -247,51 +244,214 @@ private:
         }
         m_context = TxContext;
     }
+
+    void leaveTransactionContext() const {
+        // This is always called from within this class, with the
+        // mutex held already
+        if (m_context == NonTxContext) {
+            return;
+        }
+        if (m_currentTx == NoTransaction) {
+            m_context = NonTxContext;
+            return;
+        }
+        ChangeSet cs = m_currentTx->getChanges();
+        if (!cs.empty()) {
+            try {
+                m_store->revert(cs);
+            } catch (RDFException e) {
+                throw RDFException(QString("Failed to leave transaction context.  Has the store been modified non-transactionally while a transaction was in progress?  Original error is: %1").arg(e.what()));
+            }
+        }
+        m_context = NonTxContext;
+    }        
 };
 
 class TransactionalStore::TSTransaction::D
 {
 public:
-    D(Transaction *tx, TransactionalStore::D *td) : m_tx(tx), m_td(td) { }
-    ~D() { m_td->endTransaction(m_tx); }
-    
-    bool add(Triple t) {
-        if (m_td->add(m_tx, t)) {
-            m_changes.push_back(Change(AddTriple, t));
-            return true;
+    D(Transaction *tx, TransactionalStore::D *td) :
+        m_tx(tx), m_td(td), m_abandoned(false) {
+    }
+    ~D() {
+        if (m_abandoned) {
+            m_td->rollbackTransaction(m_tx);
         } else {
-            return false;
+            m_td->commitTransaction(m_tx);
+        }
+    }
+
+    void abandon() const {
+        m_abandoned = true;
+    }
+    
+    void check() const {
+        if (m_abandoned) {
+            throw RDFException("Transaction abandoned");
+        }
+    }
+
+    bool add(Triple t) {
+        check();
+        try {
+            if (m_td->add(m_tx, t)) {
+                m_changes.push_back(Change(AddTriple, t));
+                return true;
+            } else {
+                return false;
+            }
+        } catch (RDFException) {
+            abandon();
+            throw;
         }
     }
 
     bool remove(Triple t) {
-        if (m_td->remove(m_tx, t)) {
-            m_changes.push_back(Change(RemoveTriple, t));
-            return true;
-        } else {
-            return false;
+        check();
+        try {
+            if (m_td->remove(m_tx, t)) {
+                m_changes.push_back(Change(RemoveTriple, t));
+                return true;
+            } else {
+                return false;
+            }
+        } catch (RDFException) {
+            abandon();
+            throw;
         }
     }
 
-    bool contains(Triple t) const { return m_td->contains(m_tx, t); }
-    Triples match(Triple t) const { return m_td->match(m_tx, t); }
-    ResultSet query(QString sparql) const { return m_td->query(m_tx, sparql); }
-    Triple matchFirst(Triple t) const { return m_td->matchFirst(m_tx, t); }
+    void change(ChangeSet cs) {
+        // this is all atomic anyway (as it's part of the
+        // transaction), so unlike BasicStore we don't need a lock
+        for (int i = 0; i < cs.size(); ++i) {
+            ChangeType type = cs[i].first;
+            switch (type) {
+            case AddTriple:
+                if (!add(cs[i].second)) {
+                    throw RDFException("Change add failed due to duplication");
+                }
+                break;
+            case RemoveTriple:
+                if (!remove(cs[i].second)) {
+                    throw RDFException("Change remove failed due to absence");
+                }
+                break;
+            }
+        }
+    }
+
+    void revert(ChangeSet cs) {
+        // this is all atomic anyway (as it's part of the
+        // transaction), so unlike BasicStore we don't need a lock
+        for (int i = cs.size()-1; i >= 0; --i) {
+            ChangeType type = cs[i].first;
+            switch (type) {
+            case AddTriple:
+                if (!remove(cs[i].second)) {
+                    throw RDFException("Change revert add failed due to absence");
+                }
+                break;
+            case RemoveTriple:
+                if (!add(cs[i].second)) {
+                    throw RDFException("Change revert remove failed due to duplication");
+                }
+                break;
+            }
+        }
+    }        
+
+    bool contains(Triple t) const {
+        check();
+        try {
+            return m_td->contains(m_tx, t);
+        } catch (RDFException) {
+            abandon();
+            throw;
+        }
+    }
+
+    Triples match(Triple t) const {
+        check();
+        try {
+            return m_td->match(m_tx, t);
+        } catch (RDFException) {
+            abandon();
+            throw;
+        }
+    }
+
+    ResultSet query(QString sparql) const {
+        check();
+        try {
+            return m_td->query(m_tx, sparql);
+        } catch (RDFException) {
+            abandon();
+            throw;
+        }
+    }
+
+    Triple matchFirst(Triple t) const {
+        check();
+        try {
+            return m_td->matchFirst(m_tx, t);
+        } catch (RDFException) {
+            abandon();
+            throw;
+        }
+    }
+
     Node queryFirst(QString sparql, QString bindingName) const {
-        return m_td->queryFirst(m_tx, sparql, bindingName);
+        check();
+        try {
+            return m_td->queryFirst(m_tx, sparql, bindingName);
+        } catch (RDFException) {
+            abandon();
+            throw;
+        }
     }
+
     QUrl getUniqueUri(QString prefix) const {
-        return m_td->getUniqueUri(m_tx, prefix);
+        check();
+        try {
+            return m_td->getUniqueUri(m_tx, prefix);
+        } catch (RDFException) {
+            abandon();
+            throw;
+        }
     }
+
     QUrl expand(QString uri) const {
-        return m_td->expand(uri);
+        check();
+        try {
+            return m_td->expand(uri);
+        } catch (RDFException) {
+            abandon();
+            throw;
+        }
     }
-    ChangeSet getChanges() const { return m_changes; }
+
+    ChangeSet getChanges() const {
+        check();
+        try {
+            return m_changes;
+        } catch (RDFException) {
+            abandon();
+            throw;
+        }
+    }
+
+    void rollback() {
+        check();
+        DEBUG << "TransactionalStore::TSTransaction::rollback: Abandoning" << endl;
+        abandon();
+    }
         
 private:
     Transaction *m_tx;
     TransactionalStore::D *m_td;
     ChangeSet m_changes;
+    mutable bool m_abandoned;
 };
 
 TransactionalStore::TransactionalStore(Store *store, DirectWriteBehaviour dwb) :
@@ -430,45 +590,13 @@ TransactionalStore::TSTransaction::remove(Triple t)
 void
 TransactionalStore::TSTransaction::change(ChangeSet cs)
 {
-    // this is all atomic anyway (as it's part of the transaction), so
-    // unlike BasicStore we don't need a lock here
-    for (int i = 0; i < cs.size(); ++i) {
-        ChangeType type = cs[i].first;
-        switch (type) {
-        case AddTriple:
-            if (!add(cs[i].second)) {
-                throw RDFException("Change add failed due to duplication");
-            }
-            break;
-        case RemoveTriple:
-            if (!remove(cs[i].second)) {
-                throw RDFException("Change remove failed due to absence");
-            }
-            break;
-        }
-    }
+    m_d->change(cs);
 }
 
 void
 TransactionalStore::TSTransaction::revert(ChangeSet cs)
 {
-    // this is all atomic anyway (as it's part of the transaction), so
-    // unlike BasicStore we don't need a lock here
-    for (int i = cs.size()-1; i >= 0; --i) {
-        ChangeType type = cs[i].first;
-        switch (type) {
-        case AddTriple:
-            if (!remove(cs[i].second)) {
-                throw RDFException("Change revert add failed due to absence");
-            }
-            break;
-        case RemoveTriple:
-            if (!add(cs[i].second)) {
-                throw RDFException("Change revert remove failed due to duplication");
-            }
-            break;
-        }
-    }
+    m_d->revert(cs);
 }
 
 bool
@@ -518,6 +646,12 @@ ChangeSet
 TransactionalStore::TSTransaction::getChanges() const
 {
     return m_d->getChanges();
+}
+
+void
+TransactionalStore::TSTransaction::rollback()
+{
+    m_d->rollback();
 }
 
 }

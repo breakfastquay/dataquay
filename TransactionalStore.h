@@ -112,7 +112,8 @@ private:
 
         // Transaction interface
         ChangeSet getChanges() const;
-        
+        void rollback();
+
         TSTransaction(TransactionalStore::D *td);
         virtual ~TSTransaction();
 
