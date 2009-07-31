@@ -181,12 +181,14 @@ public:
 
     ResultSet query(QString sparql) const {
         QMutexLocker locker(&m_mutex);
+        DEBUG << "BasicStore::query: " << sparql << endl;
         ResultSet rs = runQuery(sparql);
         return rs;
     }
 
     Node queryFirst(QString sparql, QString bindingName) const {
         QMutexLocker locker(&m_mutex);
+        DEBUG << "BasicStore::queryFirst: " << bindingName << " from " << sparql << endl;
         ResultSet rs = runQuery(sparql);
         if (rs.empty()) return Node();
         for (ResultSet::const_iterator i = rs.begin(); i != rs.end(); ++i) {
@@ -200,6 +202,7 @@ public:
 
     QUrl getUniqueUri(QString prefix) const {
         QMutexLocker locker(&m_mutex);
+        DEBUG << "BasicStore::getUniqueUri: prefix " << prefix << endl;
         int base = (int)(long)this; // we don't care at all about overflow
         bool good = false;
         QString uri;

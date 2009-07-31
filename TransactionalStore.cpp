@@ -310,12 +310,30 @@ public:
     bool remove(Triple t) {
         check();
         try {
-            if (m_td->remove(m_tx, t)) {
-                m_changes.push_back(Change(RemoveTriple, t));
-                return true;
+            // If some nodes are null, we need to remove all matching
+            // triples -- we need to do that here instead of relying
+            // on the underlying store (which does the same thing)
+            // because we can't push the incomplete statement onto the
+            // change set
+            Triples tt;
+            bool wild = false;
+            if (t.a.type == Node::Nothing || 
+                t.b.type == Node::Nothing ||
+                t.c.type == Node::Nothing) {
+                tt = m_td->match(m_tx, t);
+                wild = true;
             } else {
-                return false;
+                tt.push_back(t);
             }
+            for (int i = 0; i < tt.size(); ++i) {
+                if (m_td->remove(m_tx, tt[i])) {
+                    m_changes.push_back(Change(RemoveTriple, tt[i]));
+                    return true;
+                } else if (wild) {
+                    throw RDFException("Failed to remove matched statement in remove() with wildcards");
+                }
+            }
+            return false;
         } catch (RDFException) {
             abandon();
             throw;
