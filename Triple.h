@@ -1,7 +1,7 @@
 /* -*- c-basic-offset: 4 indent-tabs-mode: nil -*-  vi:set ts=8 sts=4 sw=4: */
 
-#ifndef _RDF_TRIPLE_H_
-#define _RDF_TRIPLE_H_
+#ifndef _DATAQUAY_TRIPLE_H_
+#define _DATAQUAY_TRIPLE_H_
 
 #include "Node.h"
 

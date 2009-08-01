@@ -1,7 +1,7 @@
 /* -*- c-basic-offset: 4 indent-tabs-mode: nil -*-  vi:set ts=8 sts=4 sw=4: */
 
-#ifndef _RDF_TRANSACTIONAL_CONNECTION_H_
-#define _RDF_TRANSACTIONAL_CONNECTION_H_
+#ifndef _DATAQUAY_CONNECTION_H_
+#define _DATAQUAY_CONNECTION_H_
 
 #include "Store.h"
 
@@ -11,11 +11,11 @@ namespace Dataquay
 class TransactionalStore;
 class Transaction;
 
-class TransactionalConnection : public Store
+class Connection : public Store
 {
 public:
-    TransactionalConnection(TransactionalStore *ts);
-    ~TransactionalConnection();
+    Connection(TransactionalStore *ts);
+    ~Connection();
 
     // Store interface
     bool add(Triple t);

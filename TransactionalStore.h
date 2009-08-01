@@ -1,7 +1,7 @@
 /* -*- c-basic-offset: 4 indent-tabs-mode: nil -*-  vi:set ts=8 sts=4 sw=4: */
 
-#ifndef _RDF_TRANSACTIONAL_STORE_H_
-#define _RDF_TRANSACTIONAL_STORE_H_
+#ifndef _DATAQUAY_TRANSACTIONAL_STORE_H_
+#define _DATAQUAY_TRANSACTIONAL_STORE_H_
 
 #include "Transaction.h"
 

@@ -13,20 +13,20 @@ INCLUDEPATH += \
 	   ../ext/librdf/redland-1.0.9/src
 
 # Input
-HEADERS += RDFException.h \
+HEADERS += BasicStore.h \
+           Connection.h \
            PropertyObject.h \
-           BasicStore.h \
+           RDFException.h \
            Store.h \
            Transaction.h \
-           TransactionalConnection.h \
            TransactionalStore.h \
            Triple.h \
            Node.h 
            
-SOURCES += Node.cpp \
-           BasicStore.cpp \
+SOURCES += BasicStore.cpp \
+           Connection.cpp \
+           Node.cpp \
            PropertyObject.cpp \
            Transaction.cpp \
-           TransactionalConnection.cpp \
            TransactionalStore.cpp \
            Triple.cpp
