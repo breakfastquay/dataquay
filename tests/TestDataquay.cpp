@@ -503,6 +503,14 @@ testTransactionalStore()
     ++added;
     t->add(Triple(":fred",
                   ":age",
+                  Node::fromVariant(QVariant(43))));
+    ++added;
+    t->remove(Triple(":fred",
+                     ":age",
+                     Node()));
+    --added;
+    t->add(Triple(":fred",
+                  ":age",
                   Node::fromVariant(QVariant(42))));
     ++added;
 
@@ -570,6 +578,22 @@ testTransactionalStore()
         cerr << "Store re-change failed (triple count " << triples.size() << " != original " << n << ")" << endl;
         return false;
     }
+
+    
+    if (ts.contains(Triple(":fred",
+                           ":age",
+                           Node::fromVariant(QVariant(43))))) {
+        cerr << "Store re-change resulted in incorrect age for Fred?" << endl;
+        return false;
+    }
+    
+    if (!ts.contains(Triple(":fred",
+                            ":age",
+                            Node::fromVariant(QVariant(42))))) {
+        cerr << "Store re-change resulted in lack of proper age for Fred?" << endl;
+        return false;
+    }
+
 
 
     // Test explicit rollback
