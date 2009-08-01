@@ -18,6 +18,7 @@ HEADERS += RDFException.h \
            BasicStore.h \
            Store.h \
            Transaction.h \
+           TransactionalConnection.h \
            TransactionalStore.h \
            Triple.h \
            Node.h 
@@ -26,5 +27,6 @@ SOURCES += Node.cpp \
            BasicStore.cpp \
            PropertyObject.cpp \
            Transaction.cpp \
+           TransactionalConnection.cpp \
            TransactionalStore.cpp \
            Triple.cpp
