@@ -3,6 +3,7 @@
 #include "../BasicStore.h"
 #include "../PropertyObject.h"
 #include "../TransactionalStore.h"
+#include "../Connection.h"
 #include "../RDFException.h"
 #include "../Debug.h"
 
@@ -703,6 +704,88 @@ testTransactionalStore()
     return true;
 }
 
+bool
+testConnection()
+{
+    BasicStore store;
+
+    cerr << "testConnection starting..." << endl;
+
+    store.clear();
+    store.setBaseUri("http://blather-de-hoop/");
+
+    TransactionalStore ts(&store);
+    
+    // We really need to test many simultaneous connections from
+    // multiple threads in order to make this worthwhile... oh well
+
+    Connection c(&ts);
+    
+    Triples triples;
+    int n;
+    int added = 0;
+
+    c.add(Triple(Node(Node::URI, ":fred"),
+                  Node(Node::URI, "http://xmlns.com/foaf/0.1/name"),
+                  Node(Node::Literal, "Fred Jenkins")));
+    ++added;
+    c.add(Triple(":fred",
+                  "http://xmlns.com/foaf/0.1/knows",
+                  Node(Node::URI, ":alice")));
+    ++added;
+    c.add(Triple(":fred",
+                  ":age",
+                  Node::fromVariant(QVariant(43))));
+    ++added;
+    c.remove(Triple(":fred",
+                     ":age",
+                     Node()));
+    --added;
+    c.add(Triple(":fred",
+                  ":age",
+                  Node::fromVariant(QVariant(42))));
+    ++added;
+
+    // query on connection
+    triples = c.match(Triple());
+    n = triples.size();
+    if (n != added) {
+        cerr << "Transactional failure -- match() within connection transaction returned " << n << " results (should have been " << added << ")" << endl;
+        return false;
+    }
+
+    // query on store
+    triples = ts.match(Triple());
+    n = triples.size();
+    if (n != 0) {
+        cerr << "Transactional isolation failure -- match() during initial add returned " << n << " results (should have been 0)" << endl;
+        return false;
+    }
+
+    c.add(Triple(":fred",
+                  ":likes_to_think_his_age_is",
+                  Node::fromVariant(QVariant(21.9))));
+    ++added;
+    c.add(Triple(":fred",
+                  ":is_sadly_deluded",
+                  Node::fromVariant(true)));
+    ++added;
+
+    c.commit();
+
+    triples = ts.match(Triple());
+    n = triples.size();
+    if (n != added) {
+        cerr << "Transactional failure -- match() after connection commit complete returned " << n << " results (should have been " << added << ")" << endl;
+        return false;
+    }
+
+    
+
+    std::cerr << "testConnection done" << std::endl;
+    return true;
+}
+
 }
 
 }
@@ -712,6 +795,7 @@ main()
 {
     Dataquay::Test::testBasicStore();
     Dataquay::Test::testTransactionalStore();
+    Dataquay::Test::testConnection();
 
     std::cerr << "testDataquay successfully completed" << std::endl;
     return true;
