@@ -54,7 +54,9 @@ public:
     /**
      * Return the ChangeSet applied so far by this transaction.  This
      * is undefined if the transaction has been rolled back (it may
-     * return the changes prior to rollback, or an empty ChangeSet).
+     * return the changes prior to rollback, or an empty ChangeSet, or
+     * something else).
+     *!!! FIX -- TransactionalStore depends on getChanges returning the changes prior to rollback, in leaveTransactionContext -- it's called after rollback if a transaction is being rolled back
      */
     virtual ChangeSet getChanges() const = 0;
 

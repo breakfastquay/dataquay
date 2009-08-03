@@ -750,68 +750,79 @@ testConnection()
     // We really need to test many simultaneous connections from
     // multiple threads in order to make this worthwhile... oh well
 
-    Connection c(&ts);
+    {
+        Connection c(&ts);
     
-    Triples triples;
-    int n;
-    int added = 0;
+        Triples triples;
+        int n;
+        int added = 0;
 
-    c.add(Triple(Node(Node::URI, ":fred"),
-                  Node(Node::URI, "http://xmlns.com/foaf/0.1/name"),
-                  Node(Node::Literal, "Fred Jenkins")));
-    ++added;
-    c.add(Triple(":fred",
-                  "http://xmlns.com/foaf/0.1/knows",
-                  Node(Node::URI, ":alice")));
-    ++added;
-    c.add(Triple(":fred",
-                  ":age",
-                  Node::fromVariant(QVariant(43))));
-    ++added;
-    c.remove(Triple(":fred",
+        c.add(Triple(Node(Node::URI, ":fred"),
+                     Node(Node::URI, "http://xmlns.com/foaf/0.1/name"),
+                     Node(Node::Literal, "Fred Jenkins")));
+        ++added;
+        c.add(Triple(":fred",
+                     "http://xmlns.com/foaf/0.1/knows",
+                     Node(Node::URI, ":alice")));
+        ++added;
+        c.add(Triple(":fred",
                      ":age",
-                     Node()));
-    --added;
-    c.add(Triple(":fred",
-                  ":age",
-                  Node::fromVariant(QVariant(42))));
-    ++added;
+                     Node::fromVariant(QVariant(43))));
+        ++added;
+        c.remove(Triple(":fred",
+                        ":age",
+                        Node()));
+        --added;
+        c.add(Triple(":fred",
+                     ":age",
+                     Node::fromVariant(QVariant(42))));
+        ++added;
 
-    // query on connection
-    triples = c.match(Triple());
-    n = triples.size();
-    if (n != added) {
-        cerr << "Transactional failure -- match() within connection transaction returned " << n << " results (should have been " << added << ")" << endl;
-        return false;
+        // query on connection
+        triples = c.match(Triple());
+        n = triples.size();
+        if (n != added) {
+            cerr << "Transactional failure -- match() within connection transaction returned " << n << " results (should have been " << added << ")" << endl;
+            return false;
+        }
+
+        // query on store
+        triples = ts.match(Triple());
+        n = triples.size();
+        if (n != 0) {
+            cerr << "Transactional isolation failure -- match() during initial add returned " << n << " results (should have been 0)" << endl;
+            return false;
+        }
+
+        c.add(Triple(":fred",
+                     ":likes_to_think_his_age_is",
+                     Node::fromVariant(QVariant(21.9))));
+        ++added;
+        c.add(Triple(":fred",
+                     ":is_sadly_deluded",
+                     Node::fromVariant(true)));
+        ++added;
+
+        c.commit();
+
+        triples = ts.match(Triple());
+        n = triples.size();
+        if (n != added) {
+            cerr << "Transactional failure -- match() after connection commit complete returned " << n << " results (should have been " << added << ")" << endl;
+            return false;
+        }
+
+        // test implicit commit on dtor
+        for (int i = 0; i < triples.size(); ++i) {
+            c.remove(triples[i]);
+        }
     }
-
-    // query on store
-    triples = ts.match(Triple());
-    n = triples.size();
+    Triples triples = ts.match(Triple());
+    int n = triples.size();
     if (n != 0) {
-        cerr << "Transactional isolation failure -- match() during initial add returned " << n << " results (should have been 0)" << endl;
+        cerr << "Connection failure -- match() after remove and implicit commit on close returned " << n << " results (should have been none)" << endl;
         return false;
     }
-
-    c.add(Triple(":fred",
-                  ":likes_to_think_his_age_is",
-                  Node::fromVariant(QVariant(21.9))));
-    ++added;
-    c.add(Triple(":fred",
-                  ":is_sadly_deluded",
-                  Node::fromVariant(true)));
-    ++added;
-
-    c.commit();
-
-    triples = ts.match(Triple());
-    n = triples.size();
-    if (n != added) {
-        cerr << "Transactional failure -- match() after connection commit complete returned " << n << " results (should have been " << added << ")" << endl;
-        return false;
-    }
-
-    
 
     std::cerr << "testConnection done" << std::endl;
     return true;

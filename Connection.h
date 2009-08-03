@@ -42,11 +42,62 @@ namespace Dataquay
 class TransactionalStore;
 class Transaction;
 
+/**
+ * \class Connection Connection.h <dataquay/Connection.h>
+ *
+ * Provides a connection interface to a transactional store, in a
+ * manner intended to be familiar to users of SQL database connection
+ * interfaces.
+ * 
+ * Each processing thread may construct a Connection to a central
+ * TransactionalStore.  The Connection will start a new Transaction on
+ * the store when the first modifying function (add, remove, change or
+ * revert) is called and will continue to use this Transaction for all
+ * accesses to the store until either commit() or rollback() is called
+ * on the Connection.
+ *
+ * Any read-only functions called on this class between a commit() or
+ * rollback() and the next modifying function will be passed directly
+ * to the store without any transaction.  Read-only functions called
+ * while a transaction is in progress will be passed through the
+ * current transaction, and so will read the effective state of the
+ * store with the partial transaction in force.
+ *
+ * The Connection commits any active Transaction when it is deleted.
+ * To avoid this, call rollback() before deletion.  No other
+ * auto-commit functionality is provided -- if you want auto-commit,
+ * use the TransactionalStore's own interface in AutoTransaction mode.
+ *
+ * Each Connection should be used in a single processing thread only.
+ * Connection is not thread-safe.
+ */
 class Connection : public Store
 {
 public:
+    /**
+     * Construct a Connection to the given TransactionalStore, through
+     * which a series of transactions may be made in a single
+     * processing thread.
+     */
     Connection(TransactionalStore *ts);
+
+    /**
+     * Destroy the Connection, first committing any outstanding
+     * transaction.
+     */
     ~Connection();
+
+    /**
+     * Commit the outstanding Transaction, if any.
+     */
+    void commit();
+
+    /**
+     * Roll back the outstanding Transaction, if any, and prepare to
+     * begin a new Transaction the next time a modifying function is
+     * called.
+     */
+    void rollback();
 
     // Store interface
     bool add(Triple t);
@@ -60,17 +111,10 @@ public:
     Node queryFirst(QString sparql, QString bindingName) const;
     QUrl getUniqueUri(QString prefix) const;
     QUrl expand(QString uri) const;
-    
-    // My own interface
-    void commit();
-    void rollback();
 
 private:
-    //!!! want m_d
-    TransactionalStore *m_ts;
-    Transaction *m_tx;
-    Store *getStore() const;
-    void start();
+    class D;
+    D *m_d;
 };
 
 }

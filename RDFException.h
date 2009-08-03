@@ -42,6 +42,8 @@ namespace Dataquay
 
 /**
  * \class RDFException RDFException.h <dataquay/RDFException.h>
+ *
+ * Exception resulting from an error specific to the RDF datastore.
  */
 class RDFException : virtual public std::exception
 {

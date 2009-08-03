@@ -64,6 +64,8 @@ namespace Dataquay
  * accesses associated with that transaction; delete the Transaction
  * object once done, to finish and commit the transaction; or call
  * Transaction::rollback() if you decide you do not wish to commit it.
+ *
+ * TransactionalStore is thread-safe.
  */
 class TransactionalStore : public Store
 {

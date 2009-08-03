@@ -41,6 +41,8 @@ namespace Dataquay
 
 /**
  * \class Triple Triple.h <dataquay/Triple.h>
+ *
+ * A triple made up of three Node objects.
  */
 class Triple
 {

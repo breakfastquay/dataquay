@@ -42,13 +42,23 @@
 namespace Dataquay
 {
 	
+/// A list of RDF triples.
 typedef QList<Triple> Triples;
+
+/// A mapping from key to node, used to list results for a set of result keys.
 typedef QHash<QString, Node> Dictionary;
+
+/// A list of Dictionary types, used to contain a sequence of query results.
 typedef QList<Dictionary> ResultSet;
 
 enum ChangeType { AddTriple, RemoveTriple };
+
+/// An add or remove operation specified by add/remove token and triple.
 typedef std::pair<ChangeType, Triple> Change;
+
+/// A sequence of add/remove operations such as may be enacted by a transaction.
 typedef QList<Change> ChangeSet;
+
 
 /**
  * \class Store Store.h <dataquay/Store.h>

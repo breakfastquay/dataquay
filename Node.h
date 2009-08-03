@@ -46,6 +46,8 @@ namespace Dataquay
 
 /**
  * \class Node Node.h <dataquay/Node.h>
+ *
+ * A single RDF node, with conversions to and from variant types.
  */
 class Node
 {
@@ -111,8 +113,8 @@ public:
      * Other QVariants including complex structures are converted into
      * literals containing an encoded representation which may be
      * converted back again using toVariant but cannot be directly
-     * read from the node's value.  These types are given a specific
-     * fixed datatype URI.
+     * read from or interchanged using the node's value.  These types
+     * are given a specific fixed datatype URI.
      */
     static Node fromVariant(QVariant v);
 
@@ -121,12 +123,10 @@ public:
      *
      * See fromVariant for details of the conversion.
      *
-     * Note that URI nodes are returned as string variants, not QUrl
-     * variants, because QUrl is not a suitable class for representing
-     * URIs (as discussed in the fromVariant documentation).
-     *
-     **!!!!! This won't do -- not while fromVariant is silently
-     *       converting all strings to literal nodes...
+     * Note that URI nodes are returned as QUrl variants, not QString
+     * variants.  This may result in invalid QUrls if the URIs were
+     * not properly expanded on construction (see the notes about
+     * fromVariant).
      */
     QVariant toVariant() const;
     
@@ -135,6 +135,9 @@ public:
     QString datatype;
 };
 
+/**
+ * A list of node types.
+ */
 typedef QList<Node> Nodes;
 
 bool operator==(const Node &a, const Node &b);

@@ -39,61 +39,90 @@
 namespace Dataquay
 {
 
-Connection::Connection(TransactionalStore *ts) :
+class Connection::D
+{
+public:
+    D(TransactionalStore *ts);
+    ~D();
+
+    bool add(Triple t);
+    bool remove(Triple t);
+    void change(ChangeSet changes);
+    void revert(ChangeSet changes);
+    bool contains(Triple t) const;
+    Triples match(Triple t) const;
+    ResultSet query(QString sparql) const;
+    Triple matchFirst(Triple t) const;
+    Node queryFirst(QString sparql, QString bindingName) const;
+    QUrl getUniqueUri(QString prefix) const;
+    QUrl expand(QString uri) const;
+    
+    void commit();
+    void rollback();
+
+private:
+    TransactionalStore *m_ts;
+    Transaction *m_tx;
+
+    Store *getStore() const;
+    void start();
+};
+
+Connection::D::D(TransactionalStore *ts) :
     m_ts(ts),
     m_tx(NoTransaction)
 {
 }
 
-Connection::~Connection()
+Connection::D::~D()
 {
     commit();
 }
 
 bool
-Connection::add(Triple t)
+Connection::D::add(Triple t)
 {
     start();
     return m_tx->add(t);
 }
 
 bool
-Connection::remove(Triple t)
+Connection::D::remove(Triple t)
 {
     start();
     return m_tx->remove(t);
 }
 
 void
-Connection::change(ChangeSet cs)
+Connection::D::change(ChangeSet cs)
 {
     start();
     return m_tx->change(cs);
 }
 
 void
-Connection::revert(ChangeSet cs)
+Connection::D::revert(ChangeSet cs)
 {
     start();
     return m_tx->revert(cs);
 }
 
 void
-Connection::start()
+Connection::D::start()
 {
     if (m_tx != NoTransaction) return;
     m_tx = m_ts->startTransaction();
 }
 
 void
-Connection::commit()
+Connection::D::commit()
 {
     delete m_tx;
     m_tx = NoTransaction;
 }
 
 void
-Connection::rollback()
+Connection::D::rollback()
 {
     if (m_tx) {
 	m_tx->rollback();
@@ -103,52 +132,140 @@ Connection::rollback()
 }
 
 Store *
-Connection::getStore() const
+Connection::D::getStore() const
 {
     if (m_tx) return m_tx;
     else return m_ts;
 }
 
 bool
-Connection::contains(Triple t) const
+Connection::D::contains(Triple t) const
 {
     return getStore()->contains(t);
 }
 
 Triples
-Connection::match(Triple t) const
+Connection::D::match(Triple t) const
 {
     return getStore()->match(t);
 }
 
 ResultSet
-Connection::query(QString sparql) const
+Connection::D::query(QString sparql) const
 {
     return getStore()->query(sparql);
 }
 
 Triple
-Connection::matchFirst(Triple t) const
+Connection::D::matchFirst(Triple t) const
 {
     return getStore()->matchFirst(t);
 }
 
 Node
-Connection::queryFirst(QString sparql, QString bindingName) const
+Connection::D::queryFirst(QString sparql, QString bindingName) const
 {
     return getStore()->queryFirst(sparql, bindingName);
 }
 
 QUrl
-Connection::getUniqueUri(QString prefix) const
+Connection::D::getUniqueUri(QString prefix) const
 {
     return getStore()->getUniqueUri(prefix);
 }
 
 QUrl
-Connection::expand(QString uri) const
+Connection::D::expand(QString uri) const
 {
     return getStore()->expand(uri);
+}
+
+Connection::Connection(TransactionalStore *ts) :
+    m_d(new D(ts))
+{
+}
+
+Connection::~Connection()
+{
+    delete m_d;
+}
+
+bool
+Connection::add(Triple t)
+{
+    return m_d->add(t);
+}
+
+bool 
+Connection::remove(Triple t)
+{
+    return m_d->remove(t);
+}
+
+void 
+Connection::change(ChangeSet changes)
+{
+    m_d->change(changes);
+}
+
+void 
+Connection::revert(ChangeSet changes)
+{
+    m_d->revert(changes);
+}
+
+bool 
+Connection::contains(Triple t) const
+{
+    return m_d->contains(t);
+}
+
+Triples 
+Connection::match(Triple t) const
+{
+    return m_d->match(t);
+}
+
+ResultSet 
+Connection::query(QString sparql) const
+{
+    return m_d->query(sparql);
+}
+
+Triple 
+Connection::matchFirst(Triple t) const
+{
+    return m_d->matchFirst(t);
+}
+
+Node 
+Connection::queryFirst(QString sparql, QString bindingName) const
+{
+    return m_d->queryFirst(sparql, bindingName);
+}
+
+QUrl 
+Connection::getUniqueUri(QString prefix) const
+{
+    return m_d->getUniqueUri(prefix);
+}
+
+QUrl 
+Connection::expand(QString uri) const
+{
+    return m_d->expand(uri);
+}
+
+void 
+Connection::commit()
+{
+    m_d->commit();
+}
+
+void 
+Connection::rollback()
+{
+    m_d->rollback();
 }
 
 }

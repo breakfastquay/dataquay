@@ -162,15 +162,15 @@ CacheingPropertyObject::getProperty(Transaction *tx, QString name) const
 void
 CacheingPropertyObject::setProperty(Transaction *tx, QString name, QVariant value)
 {
-    m_cache[name] = value;
     m_po.setProperty(tx, name, value);
+    m_cache[name] = value;
 }
 
 void
 CacheingPropertyObject::removeProperty(Transaction *tx, QString name)
 {
-    m_cache.erase(name);
     m_po.removeProperty(tx, name);
+    m_cache.erase(name);
 }
 
 Store *
