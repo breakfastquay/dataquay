@@ -41,7 +41,7 @@
 
 namespace Dataquay
 {
-	
+
 /// A list of RDF triples.
 typedef QList<Triple> Triples;
 

@@ -92,9 +92,6 @@ public:
 
     ~Node() { }
 
-    //!!! probably nicer to have template to<typename> and
-    //!!! from<typename>, no? at least in addition to these
-
     /**
      * Convert a QVariant to a Node.
      *
