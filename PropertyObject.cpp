@@ -62,12 +62,29 @@ PropertyObject::PropertyObject(Store *s, QString pfx, QString uri) :
 }
 
 bool
+PropertyObject::hasProperty(QString name) const
+{
+    QUrl property = getPropertyUri(name);
+    Triple r = m_store->matchFirst(Triple(m_uri, property, Node()));
+    return (r != Triple());
+}
+
+bool
 PropertyObject::hasProperty(Transaction *tx, QString name) const
 {
     Store *s = getStore(tx);
     QUrl property = getPropertyUri(name);
     Triple r = s->matchFirst(Triple(m_uri, property, Node()));
     return (r != Triple());
+}
+
+QVariant
+PropertyObject::getProperty(QString name) const
+{
+    QUrl property = getPropertyUri(name);
+    Triple r = m_store->matchFirst(Triple(m_uri, property, Node()));
+    if (r == Triple()) return QVariant();
+    return r.c.toVariant();
 }
 
 QVariant
@@ -142,9 +159,27 @@ CacheingPropertyObject::CacheingPropertyObject(Store *s, QString pfx, QString ur
 }
 
 bool
+CacheingPropertyObject::hasProperty(QString name) const
+{
+    return m_po.hasProperty(name);
+}
+
+bool
 CacheingPropertyObject::hasProperty(Transaction *tx, QString name) const
 {
     return m_po.hasProperty(tx, name);
+}
+
+QVariant
+CacheingPropertyObject::getProperty(QString name) const
+{
+    StringVariantMap::iterator i = m_cache.find(name);
+    if (i == m_cache.end()) {
+        QVariant value = m_po.getProperty(name);
+        m_cache[name] = value;
+        return value;
+    }
+    return i->second;
 }
 
 QVariant

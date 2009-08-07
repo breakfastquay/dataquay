@@ -208,6 +208,7 @@ public:
         // endNonTransactionalAccess is called
         m_mutex.lock();
         DEBUG << "TransactionalStore::startNonTransactionalAccess" << endl;
+        if (m_context == NonTxContext) DEBUG << "(note: already in non-tx context)" << endl;
         leaveTransactionContext();
         // return with mutex held
     }

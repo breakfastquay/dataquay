@@ -120,6 +120,14 @@ public:
      * predicate match those for my URI and the expansion of the given
      * property name.
      */
+    bool hasProperty(QString name) const;
+
+    /**
+     * Return true if the property object has the given property,
+     * querying through the given transaction.  That is, if the store
+     * contains at least one triple whose subject and predicate match
+     * those for my URI and the expansion of the given property name.
+     */
     bool hasProperty(Transaction *tx, QString name) const;
 
     /**
@@ -129,6 +137,17 @@ public:
      * convert the object part of the first such matching triple to a
      * QVariant via Node::toVariant and return that value.  If there
      * is no such match, return QVariant().
+     */
+    QVariant getProperty(QString name) const;
+
+    /**
+     * Get the value of the given property, querying through the given
+     * transaction.  That is, if the store contains at least one
+     * triple whose subject and predicate match those for my URI and
+     * the expansion of the given property name, convert the object
+     * part of the first such matching triple to a QVariant via
+     * Node::toVariant and return that value.  If there is no such
+     * match, return QVariant().
      */
     QVariant getProperty(Transaction *tx, QString name) const;
 
@@ -198,7 +217,9 @@ public:
     CacheingPropertyObject(Store *s, QString propertyPrefix, QUrl myUri);
     CacheingPropertyObject(Store *s, QString propertyPrefix, QString myUri);
 
+    bool hasProperty(QString name) const;
     bool hasProperty(Transaction *tx, QString name) const;
+    QVariant getProperty(QString name) const;
     QVariant getProperty(Transaction *tx, QString name) const;
     void setProperty(Transaction *tx, QString name, QVariant value);
     void removeProperty(Transaction *tx, QString name);
