@@ -63,7 +63,8 @@ class TransactionalStore::D
     enum Context { TxContext, NonTxContext };
 
 public:
-    D(Store *store, DirectWriteBehaviour dwb) :
+    D(TransactionalStore *ts, Store *store, DirectWriteBehaviour dwb) :
+        m_ts(ts),
         m_store(store),
         m_dwb(dwb),
         m_currentTx(NoTransaction),
@@ -88,19 +89,22 @@ public:
     }
 
     void commitTransaction(Transaction *tx) {
-        QMutexLocker locker(&m_mutex);
-        DEBUG << "TransactionalStore::commitTransaction" << endl;
-        if (tx != m_currentTx) {
-            throw RDFException("Transaction integrity error");
+        {
+            QMutexLocker locker(&m_mutex);
+            DEBUG << "TransactionalStore::commitTransaction" << endl;
+            if (tx != m_currentTx) {
+                throw RDFException("Transaction integrity error");
+            }
+            enterTransactionContext();
+            // The store is now in transaction context, which means
+            // its changes have been committed; resetting m_currentTx
+            // now ensures they will remain committed.  Reset
+            // m_context as well for symmetry with the initial state
+            // in the constructor, though it shouldn't be necessary
+            m_currentTx = NoTransaction;
+            m_context = NonTxContext;
         }
-        enterTransactionContext();
-        // The store is now in transaction context, which means its
-        // changes have been committed; resetting m_currentTx now
-        // ensures they will remain committed.  Reset m_context as
-        // well for symmetry with the initial state in the
-        // constructor, though it shouldn't be necessary
-        m_currentTx = NoTransaction;
-        m_context = NonTxContext;
+        m_ts->transactionCommitted();
     }
 
     void rollbackTransaction(Transaction *tx) {
@@ -230,6 +234,7 @@ private:
     // manipulates the Store extensively when entering and leaving
     // transaction context, which can happen on any supposedly
     // read-only access
+    TransactionalStore *m_ts;
     mutable Store *m_store;
     DirectWriteBehaviour m_dwb;
     mutable QMutex m_mutex;
@@ -494,7 +499,7 @@ private:
 };
 
 TransactionalStore::TransactionalStore(Store *store, DirectWriteBehaviour dwb) :
-    m_d(new D(store, dwb))
+    m_d(new D(this, store, dwb))
 {
 }
 

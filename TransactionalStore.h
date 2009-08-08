@@ -67,8 +67,10 @@ namespace Dataquay
  *
  * TransactionalStore is thread-safe.
  */
-class TransactionalStore : public Store
+class TransactionalStore : public QObject, public Store
 {
+    Q_OBJECT
+
 public:
     /**
      * DirectWriteBehaviour controls how TransactionalStore responds
@@ -122,6 +124,9 @@ public:
     Node queryFirst(QString sparql, QString bindingName) const;
     QUrl getUniqueUri(QString prefix) const;
     QUrl expand(QString uri) const;
+
+signals:
+    void transactionCommitted();
 
 private:
     class D;
