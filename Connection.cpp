@@ -56,6 +56,8 @@ public:
     Node queryFirst(QString sparql, QString bindingName) const;
     QUrl getUniqueUri(QString prefix) const;
     QUrl expand(QString uri) const;
+    void save(QString filename) const;
+    void import(QString url, ImportDuplicatesMode idm);
     
     void commit();
     void rollback();
@@ -180,6 +182,18 @@ Connection::D::expand(QString uri) const
     return getStore()->expand(uri);
 }
 
+void
+Connection::D::save(QString filename) const
+{
+    getStore()->save(filename);
+}
+
+void
+Connection::D::import(QString uri, ImportDuplicatesMode idm)
+{
+    getStore()->import(uri, idm);
+}
+
 Connection::Connection(TransactionalStore *ts) :
     m_d(new D(ts))
 {
@@ -254,6 +268,18 @@ QUrl
 Connection::expand(QString uri) const
 {
     return m_d->expand(uri);
+}
+
+void
+Connection::save(QString filename) const
+{
+    m_d->save(filename);
+}
+
+void
+Connection::import(QString uri, ImportDuplicatesMode idm)
+{
+    m_d->import(uri, idm);
 }
 
 void 

@@ -111,6 +111,8 @@ public:
     Node queryFirst(QString sparql, QString bindingName) const;
     QUrl getUniqueUri(QString prefix) const;
     QUrl expand(QString uri) const;
+    void save(QString filename) const;
+    void import(QString url, ImportDuplicatesMode idm);
 
 private:
     class D;

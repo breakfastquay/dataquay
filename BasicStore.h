@@ -108,26 +108,12 @@ public:
     QUrl getUniqueUri(QString prefix) const;
     QUrl expand(QString uri) const;
 
-    /**
-     * Export the store to an RDF/TTL file with the given filename.
-     * If the file already exists, it will if possible be overwritten.
-     * May throw RDFException, FileOperationFailed, FailedToOpenFile
-     * etc.
-     */
     void save(QString filename) const;
+    void import(QString url, ImportDuplicatesMode idm);
 
     /**
-     * Import the RDF document found at the given URL into the current
-     * store (in addition to its existing contents).  May throw
-     * RDFException, FileNotFound etc.
-     *
-     * Note that prefixes are not restored from the imported file.
-    */
-    void import(QString url);
-
-    /**
-     * Construct a new Store from the RDF document at the given URL.
-     * May throw RDFException, FileNotFound etc.
+     * Construct a new BasicStore from the RDF document at the given
+     * URL.  May throw RDFException, FileNotFound etc.
      *
      * Note that query prefixes added using addQueryPrefix are not
      * restored from in the imported file.

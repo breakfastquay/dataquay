@@ -64,6 +64,20 @@ protected:
     QString m_data;
 };
 
+/**
+ * \class RDFDuplicateImportException RDFException.h <dataquay/RDFException.h>
+ *
+ * Exception resulting from an import into a store from an RDF
+ * document in ImportFailOnDuplicates mode, where the document
+ * contains a triple that already exists in the store.
+ */
+class RDFDuplicateImportException : virtual public RDFException
+{
+public:
+    RDFDuplicateImportException(QString message, QString data = "") throw() :
+        RDFException(message, data) { }
+};
+
 }
 
 #endif

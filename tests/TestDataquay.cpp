@@ -491,7 +491,7 @@ testBasicStore()
         if (haveBaseUri) {
             cerr << "Testing import into original store..." << endl;
 
-            store.import("file:test2.ttl");
+            store.import("file:test2.ttl", Store::ImportIgnoreDuplicates);
 
             results = store.query(q);
             if (results.size() != 1) {
@@ -505,7 +505,86 @@ testBasicStore()
     std::cerr << "testBasicStore done" << std::endl;
     return true;
 }
+  
+bool
+testImportOptions()
+{
+    BasicStore store;
 
+    cerr << "testImportOptions starting..." << endl;
+
+    store.setBaseUri("http://blather-de-hoop/");
+
+    QString base = store.getBaseUri();
+
+    int count = 0;
+
+    if (!store.add(Triple(Node(Node::URI, ":fred"),
+                          Node(Node::URI, "http://xmlns.com/foaf/0.1/name"),
+                          Node(Node::Literal, "Fred Jenkins")))) {
+        cerr << "Failed to add triple to store (count = " << count << ")" << endl;
+        return false;
+    }
+    ++count;
+
+    if (!store.add(Triple(":fred",
+                          ":age",
+                          Node::fromVariant(QVariant(42))))) {
+        cerr << "Failed to add variant integer node to store" << endl;
+    }
+    ++count;
+
+    if (!store.add(Triple(":fred",
+                          ":has_some_uri",
+                          Node::fromVariant(QUrl("http://breakfastquay.com/rdf/person/fred"))))) {
+        cerr << "Failed to add variant URI to store" << endl;
+    }
+    ++count;
+
+    if (!store.add(Triple(":fred",
+                          ":has_some_local_uri",
+                          Node::fromVariant(store.expand(":pootle"))))) {
+        cerr << "Failed to add variant local URI to store" << endl;
+    }
+    ++count;
+
+    if (!store.add(Triple(":fred",
+                          ":likes_to_think_his_age_is",
+                          Node::fromVariant(QVariant(21.9))))) {
+        cerr << "Failed to add variant double node to store" << endl;
+    }
+    ++count;
+
+    store.save("test3.ttl");
+    
+    try {
+        store.import("test3.ttl", Store::ImportFailOnDuplicates);
+    } catch (RDFDuplicateImportException) {
+        cerr << "Correctly caught RDFDuplicateImportException when importing duplicate store" << endl;
+    }
+
+    Triples triples = store.match(Triple());
+    if (triples.size() != count) {
+        cerr << "Wrong number of triples in store after failed import: expected " << count << ", found " << triples.size() << endl;
+        return false;
+    }
+
+    try {
+        store.import("test3.ttl", Store::ImportIgnoreDuplicates);
+    } catch (RDFDuplicateImportException) {
+        cerr << "Wrongly caught RDFDuplicateImportException when importing duplicate store with ImportIgnoreDuplicates" << endl;
+        return false;
+    }
+
+    triples = store.match(Triple());
+    if (triples.size() != count) {
+        cerr << "Wrong number of triples in store after failed import: expected " << count << ", found " << triples.size() << endl;
+        return false;
+    }
+
+    return true;
+}
+    
 bool
 testTransactionalStore()
 {
@@ -836,6 +915,7 @@ int
 main()
 {
     Dataquay::Test::testBasicStore();
+    Dataquay::Test::testImportOptions();
     Dataquay::Test::testTransactionalStore();
     Dataquay::Test::testConnection();
 

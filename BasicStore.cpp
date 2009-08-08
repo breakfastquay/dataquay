@@ -282,16 +282,60 @@ public:
         }
     }
 
-    void import(QString url) {
+    void import(QString url, ImportDuplicatesMode idm) {
         QMutexLocker locker(&m_mutex);
         librdf_uri *luri = stringToUri(url);
+        librdf_model *im = librdf_new_model(m_w.getWorld(), m_storage, 0);
+        if (!im) throw RDFException("Failed to create import RDF data model");
         librdf_parser *parser = librdf_new_parser(m_w.getWorld(), "guess", NULL, NULL);
         if (!parser) throw RDFException("Failed to construct RDF parser");
-        librdf_uri *base_uri = stringToUri(m_baseUri);
-        if (librdf_parser_parse_into_model(parser, luri, base_uri, m_model)) {
-            librdf_free_parser(parser);
-            throw RDFException("Failed to import model from URL", url);
-        } else {
+
+        try { // so as to free parser and im on exception
+
+            librdf_uri *base_uri = stringToUri(m_baseUri);
+            if (librdf_parser_parse_into_model(parser, luri, base_uri, im)) {
+                throw RDFException("Failed to import model from URL", url);
+            }
+            librdf_statement *all = tripleToStatement(Triple());
+
+            if (idm == ImportFailOnDuplicates) {
+                // Need to query twice, first time to check for dupes
+                librdf_stream *stream = librdf_model_find_statements(im, all);
+                if (!stream) {
+                    librdf_free_statement(all);
+                    throw RDFException("Failed to list imported RDF model in duplicates check");
+                }
+                while (!librdf_stream_end(stream)) {
+                    librdf_statement *current = librdf_stream_get_object(stream);
+                    if (!current) continue;
+                    if (librdf_model_contains_statement(m_model, current)) {
+                        librdf_free_statement(current);
+                        librdf_free_stream(stream);
+                        librdf_free_statement(all);
+                        throw RDFDuplicateImportException("Duplicate statement encountered on import in ImportFailOnDuplicates mode");
+                    }
+                    librdf_stream_next(stream);
+                }
+                librdf_free_stream(stream);
+            }
+
+            // Now import.  Have to do this "manually" because librdf
+            // allows duplicates and we want to avoid them
+            librdf_stream *stream = librdf_model_find_statements(im, all);
+            librdf_free_statement(all);
+            if (!stream) {
+                throw RDFException("Failed to list imported RDF model");
+            }
+            while (!librdf_stream_end(stream)) {
+                librdf_statement *current = librdf_stream_get_object(stream);
+                if (!current) continue;
+                if (!librdf_model_contains_statement(m_model, current)) {
+                    librdf_model_add_statement(m_model, current);
+                }
+                librdf_stream_next(stream);
+            }
+            librdf_free_stream(stream);
+                    
             int namespaces = librdf_parser_get_namespaces_seen_count(parser);
             DEBUG << "Parser found " << namespaces << " namespaces" << endl;
             for (int i = 0; i < namespaces; ++i) {
@@ -320,8 +364,12 @@ public:
                     m_prefixes[qpfx] = quri;
                 }
             }
+        } catch (...) {
             librdf_free_parser(parser);
+            librdf_free_model(im);
+            throw;
         }
+        librdf_free_parser(parser);
     }
 
 private:
@@ -726,16 +774,17 @@ BasicStore::save(QString filename) const
 }
 
 void
-BasicStore::import(QString url)
+BasicStore::import(QString url, ImportDuplicatesMode idm)
 {
-    m_d->import(url);
+    m_d->import(url, idm);
 }
 
 BasicStore *
 BasicStore::load(QString url)
 {
     BasicStore *s = new BasicStore();
-    s->import(url);
+    // store is empty, ImportIgnoreDuplicates is faster
+    s->import(url, ImportIgnoreDuplicates);
     return s;
 }
 
