@@ -119,16 +119,27 @@ public:
     /**
      * ImportDuplicatesMode determines the outcome when an import
      * operation encounters a triple in the imported data set that
-     * already exists in the store.  If ImportDuplicatesMode is
-     * ImportIgnoreDuplicates, then the duplicate is discarded without
-     * comment.  If ImportDuplicatesMode is ImportFailOnDuplicates,
-     * then the import will fail with an RDFDuplicateImportException
-     * and nothing will be imported.  (There is no option to import
-     * the duplicate as an additional triple.)
+     * already exists in the store.
+     *
+     * ImportIgnoreDuplicates: Any duplicate of a triple that is
+     * already in the store is discarded without comment.
+     *
+     * ImportFailOnDuplicates: Import will fail with an
+     * RDFDuplicateImportException if any duplicate of a triple
+     * already in the store is found, and nothing will be imported.
+     *
+     * ImportPermitDuplicates: No tests for duplicate triples will be
+     * carried out, and the behaviour when duplicates are imported
+     * will depend on the underlying store implementation (which may
+     * merge them or store them as separate duplicate triples).  This
+     * is usually inadvisable: besides its unpredictability, this
+     * class does not generally handle duplicate triples well in other
+     * contexts.
      */
     enum ImportDuplicatesMode {
         ImportIgnoreDuplicates,
-        ImportFailOnDuplicates
+        ImportFailOnDuplicates,
+        ImportPermitDuplicates
     };
 
     /**

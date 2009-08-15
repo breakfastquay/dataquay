@@ -287,80 +287,99 @@ public:
 
         QMutexLocker locker(&m_mutex);
 
-        // This is complicated by our desire to avoid storing any
-        // duplicate triples on import, and optionally to be able to
-        // fail if any are found.  So we import into a separate model
-        // and then transfer over.  Not very efficient
+        librdf_uri *luri = stringToUri(url);
+        librdf_uri *base_uri = stringToUri(m_baseUri);
 
-        librdf_storage *is = librdf_new_storage(m_w.getWorld(), "trees", 0, 0);
-        if (!is) is = librdf_new_storage(m_w.getWorld(), 0, 0, 0);
-        if (!is) {
-            throw RDFException("Failed to create import RDF data storage");
-        }
-        librdf_model *im = librdf_new_model(m_w.getWorld(), is, 0);
-        if (!im) {
-            throw RDFException("Failed to create import RDF data model");
-        }
-        librdf_parser *parser = librdf_new_parser(m_w.getWorld(), "guess", NULL, NULL);
+        librdf_parser *parser = librdf_new_parser
+            (m_w.getWorld(), "guess", NULL, NULL);
         if (!parser) {
             throw RDFException("Failed to construct RDF parser");
         }
 
-        librdf_uri *luri = stringToUri(url);
-
-        librdf_stream *stream = 0;
-        librdf_statement *all = 0;
-
-        try { // so as to free parser and im on exception
-
-            librdf_uri *base_uri = stringToUri(m_baseUri);
-            if (librdf_parser_parse_into_model(parser, luri, base_uri, im)) {
+        if (idm == ImportPermitDuplicates) {
+            // The normal Redland behaviour, so the easy case.
+            if (librdf_parser_parse_into_model
+                (parser, luri, base_uri, m_model)) {
+                librdf_free_parser(parser);
                 throw RDFException("Failed to import model from URL", url);
             }
-            all = tripleToStatement(Triple());
+        } else { // ImportFailOnDuplicates and ImportIgnoreDuplicates modes
 
-            if (idm == ImportFailOnDuplicates) {
-                // Need to query twice, first time to check for dupes
+            // This is complicated by our desire to avoid storing any
+            // duplicate triples on import, and optionally to be able
+            // to fail if any are found.  So we import into a separate
+            // model and then transfer over.  Not very efficient, but
+            // scalability is not generally the primary concern for us
+
+            librdf_storage *is = librdf_new_storage(m_w.getWorld(), "trees", 0, 0);
+            if (!is) is = librdf_new_storage(m_w.getWorld(), 0, 0, 0);
+            if (!is) {
+                librdf_free_parser(parser);
+                throw RDFException("Failed to create import RDF data storage");
+            }
+            librdf_model *im = librdf_new_model(m_w.getWorld(), is, 0);
+            if (!im) {
+                librdf_free_storage(is);
+                librdf_free_parser(parser);
+                throw RDFException("Failed to create import RDF data model");
+            }
+
+            librdf_stream *stream = 0;
+            librdf_statement *all = 0;
+
+            try { // so as to free parser and im on exception
+
+                if (librdf_parser_parse_into_model(parser, luri, base_uri, im)) {
+                    throw RDFException("Failed to import model from URL", url);
+                }
+                all = tripleToStatement(Triple());
+
+                if (idm == ImportFailOnDuplicates) {
+                    // Need to query twice, first time to check for dupes
+                    stream = librdf_model_find_statements(im, all);
+                    if (!stream) {
+                        throw RDFException("Failed to list imported RDF model in duplicates check");
+                    }
+                    while (!librdf_stream_end(stream)) {
+                        librdf_statement *current = librdf_stream_get_object(stream);
+                        if (!current) continue;
+                        if (librdf_model_contains_statement(m_model, current)) {
+                            throw RDFDuplicateImportException("Duplicate statement encountered on import in ImportFailOnDuplicates mode");
+                        }
+                        librdf_stream_next(stream);
+                    }
+                    librdf_free_stream(stream);
+                    stream = 0;
+                }
+
+                // Now import.  Have to do this "manually" because librdf
+                // allows duplicates and we want to avoid them
                 stream = librdf_model_find_statements(im, all);
                 if (!stream) {
-                    throw RDFException("Failed to list imported RDF model in duplicates check");
+                    throw RDFException("Failed to list imported RDF model");
                 }
                 while (!librdf_stream_end(stream)) {
                     librdf_statement *current = librdf_stream_get_object(stream);
                     if (!current) continue;
-                    if (librdf_model_contains_statement(m_model, current)) {
-                        throw RDFDuplicateImportException("Duplicate statement encountered on import in ImportFailOnDuplicates mode");
+                    if (!librdf_model_contains_statement(m_model, current)) {
+                        librdf_model_add_statement(m_model, current);
                     }
                     librdf_stream_next(stream);
                 }
                 librdf_free_stream(stream);
                 stream = 0;
+
+            } catch (...) {
+                if (stream) librdf_free_stream(stream);
+                if (all) librdf_free_statement(all);
+                librdf_free_parser(parser);
+                librdf_free_model(im);
+                librdf_free_storage(is);
+                throw;
             }
 
-            // Now import.  Have to do this "manually" because librdf
-            // allows duplicates and we want to avoid them
-            stream = librdf_model_find_statements(im, all);
-            if (!stream) {
-                throw RDFException("Failed to list imported RDF model");
-            }
-            while (!librdf_stream_end(stream)) {
-                librdf_statement *current = librdf_stream_get_object(stream);
-                if (!current) continue;
-                if (!librdf_model_contains_statement(m_model, current)) {
-                    librdf_model_add_statement(m_model, current);
-                }
-                librdf_stream_next(stream);
-            }
-            librdf_free_stream(stream);
-            stream = 0;
-
-        } catch (...) {
-            if (stream) librdf_free_stream(stream);
-            if (all) librdf_free_statement(all);
-            librdf_free_parser(parser);
             librdf_free_model(im);
             librdf_free_storage(is);
-            throw;
         }
 
         int namespaces = librdf_parser_get_namespaces_seen_count(parser);
@@ -393,8 +412,6 @@ public:
         }
 
         librdf_free_parser(parser);
-        librdf_free_model(im);
-        librdf_free_storage(is);
     }
 
 private:

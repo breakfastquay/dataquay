@@ -562,8 +562,20 @@ testImportOptions()
         cerr << "Wrong number of triples in store after failed import: expected " << count << ", found " << triples.size() << endl;
         return false;
     }
+    
+    try {
+        store.import("file:test3.ttl", BasicStore::ImportPermitDuplicates);
+    } catch (RDFDuplicateImportException) {
+        cerr << "Correctly caught RDFDuplicateImportException when importing duplicate store with duplicates permitted" << endl;
+    }
+
+    triples = store.match(Triple());
+    cerr << "Note: Imported " << count << " triples twice with duplicates permitted, query then returned " << triples.size() << endl;
+
+    store.clear();
 
     try {
+        store.import("file:test3.ttl", BasicStore::ImportIgnoreDuplicates);
         store.import("file:test3.ttl", BasicStore::ImportIgnoreDuplicates);
     } catch (RDFDuplicateImportException) {
         cerr << "Wrongly caught RDFDuplicateImportException when importing duplicate store with ImportIgnoreDuplicates" << endl;
@@ -908,10 +920,10 @@ testConnection()
 int
 main()
 {
-    Dataquay::Test::testBasicStore();
-    Dataquay::Test::testImportOptions();
-    Dataquay::Test::testTransactionalStore();
-    Dataquay::Test::testConnection();
+    if (!Dataquay::Test::testBasicStore()) return false;
+    if (!Dataquay::Test::testImportOptions()) return false;
+    if (!Dataquay::Test::testTransactionalStore()) return false;
+    if (!Dataquay::Test::testConnection()) return false;
 
     std::cerr << "testDataquay successfully completed" << std::endl;
     return true;
