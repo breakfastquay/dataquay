@@ -287,11 +287,20 @@ public:
 
         QMutexLocker locker(&m_mutex);
 
-        librdf_model *im = librdf_new_model(m_w.getWorld(), m_storage, 0);
+        // This is complicated by our desire to avoid storing any
+        // duplicate triples on import, and optionally to be able to
+        // fail if any are found.  So we import into a separate model
+        // and then transfer over.  Not very efficient
+
+        librdf_storage *is = librdf_new_storage(m_w.getWorld(), "trees", 0, 0);
+        if (!is) is = librdf_new_storage(m_w.getWorld(), 0, 0, 0);
+        if (!is) {
+            throw RDFException("Failed to create import RDF data storage");
+        }
+        librdf_model *im = librdf_new_model(m_w.getWorld(), is, 0);
         if (!im) {
             throw RDFException("Failed to create import RDF data model");
         }
-
         librdf_parser *parser = librdf_new_parser(m_w.getWorld(), "guess", NULL, NULL);
         if (!parser) {
             throw RDFException("Failed to construct RDF parser");
@@ -350,10 +359,9 @@ public:
             if (all) librdf_free_statement(all);
             librdf_free_parser(parser);
             librdf_free_model(im);
+            librdf_free_storage(is);
             throw;
         }
-
-        librdf_free_model(im);
 
         int namespaces = librdf_parser_get_namespaces_seen_count(parser);
         DEBUG << "Parser found " << namespaces << " namespaces" << endl;
@@ -385,6 +393,8 @@ public:
         }
 
         librdf_free_parser(parser);
+        librdf_free_model(im);
+        librdf_free_storage(is);
     }
 
 private:

@@ -137,18 +137,19 @@ public:
      * when a triple is encountered that already exists in the store
      * is controlled by the ImportDuplicatesMode.
      * 
-     * May throw RDFException, FileNotFound etc.
+     * May throw RDFException.
      *
-     * Note that prefixes are not restored from the imported file.
+     * Note that the URL must be a URL, not just a filename
+     * (i.e. local files need the file: prefix).
      */
     void import(QString url, ImportDuplicatesMode idm);
 
     /**
      * Construct a new BasicStore from the RDF document at the given
-     * URL.  May throw RDFException, FileNotFound etc.
+     * URL.  May throw RDFException.
      *
-     * Note that query prefixes added using addQueryPrefix are not
-     * restored from in the imported file.
+     * Note that the URL must be a URL, not just a filename
+     * (i.e. local files need the file: prefix).
      */
     static BasicStore *load(QString url);
 
