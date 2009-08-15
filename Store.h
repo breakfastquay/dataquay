@@ -167,41 +167,6 @@ public:
      */
     virtual QUrl expand(QString uri) const = 0;
 
-    /**
-     * Export the store to an RDF/TTL file with the given filename.
-     * If the file already exists, it will if possible be overwritten.
-     * May throw RDFException, FileOperationFailed, FailedToOpenFile
-     * etc.
-     */
-    virtual void save(QString filename) const = 0;
-
-    /**
-     * ImportDuplicatesMode determines the outcome when an import
-     * operation encounters a triple in the imported data set that
-     * already exists in the store.  If ImportDuplicatesMode is
-     * ImportIgnoreDuplicates, then the duplicate is discarded without
-     * comment.  If ImportDuplicatesMode is ImportFailOnDuplicates,
-     * then the import will fail with an RDFDuplicateImportException
-     * and nothing will be imported.  (There is no option to import
-     * the duplicate as an additional triple.)
-     */
-    enum ImportDuplicatesMode {
-        ImportIgnoreDuplicates,
-        ImportFailOnDuplicates
-    };
-
-    /**
-     * Import the RDF document found at the given URL into the current
-     * store (in addition to its existing contents).  Its behaviour
-     * when a triple is encountered that already exists in the store
-     * is controlled by the ImportDuplicatesMode.
-     * 
-     * May throw RDFException, FileNotFound etc.
-     *
-     * Note that prefixes are not restored from the imported file.
-     */
-    virtual void import(QString url, ImportDuplicatesMode idm) = 0;
-
 protected:
     virtual ~Store() { }
 };

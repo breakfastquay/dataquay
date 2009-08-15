@@ -438,15 +438,9 @@ testBasicStore()
 
         BasicStore *store2 = BasicStore::load("file:test.ttl");
 
-        //!!! todo: have the store read these from parser!
-//        if (haveBaseUri) {
-//            store2->setBaseUri(base);
-//        }
-//        store2->addPrefix("foaf", "http://xmlns.com/foaf/0.1/");
-
+        cerr << "Testing file re-save..." << endl;
 
         store2->save("test2.ttl");
-
 
         cerr << "Testing match on loaded store..." << endl;
 
@@ -491,7 +485,7 @@ testBasicStore()
         if (haveBaseUri) {
             cerr << "Testing import into original store..." << endl;
 
-            store.import("file:test2.ttl", Store::ImportIgnoreDuplicates);
+            store.import("file:test2.ttl", BasicStore::ImportIgnoreDuplicates);
 
             results = store.query(q);
             if (results.size() != 1) {
@@ -558,7 +552,7 @@ testImportOptions()
     store.save("test3.ttl");
     
     try {
-        store.import("test3.ttl", Store::ImportFailOnDuplicates);
+        store.import("file:test3.ttl", BasicStore::ImportFailOnDuplicates);
     } catch (RDFDuplicateImportException) {
         cerr << "Correctly caught RDFDuplicateImportException when importing duplicate store" << endl;
     }
@@ -570,7 +564,7 @@ testImportOptions()
     }
 
     try {
-        store.import("test3.ttl", Store::ImportIgnoreDuplicates);
+        store.import("file:test3.ttl", BasicStore::ImportIgnoreDuplicates);
     } catch (RDFDuplicateImportException) {
         cerr << "Wrongly caught RDFDuplicateImportException when importing duplicate store with ImportIgnoreDuplicates" << endl;
         return false;

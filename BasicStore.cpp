@@ -86,6 +86,7 @@ public:
         if (!m_storage) {
             DEBUG << "Failed to create RDF trees storage, falling back to default storage type" << endl;
             m_storage = librdf_new_storage(m_w.getWorld(), 0, 0, 0);
+            if (!m_storage) throw RDFException("Failed to create RDF data storage");
         }
         m_model = librdf_new_model(m_w.getWorld(), m_storage, 0);
         if (!m_model) throw RDFException("Failed to create RDF data model");
@@ -283,12 +284,23 @@ public:
     }
 
     void import(QString url, ImportDuplicatesMode idm) {
+
         QMutexLocker locker(&m_mutex);
-        librdf_uri *luri = stringToUri(url);
+
         librdf_model *im = librdf_new_model(m_w.getWorld(), m_storage, 0);
-        if (!im) throw RDFException("Failed to create import RDF data model");
+        if (!im) {
+            throw RDFException("Failed to create import RDF data model");
+        }
+
         librdf_parser *parser = librdf_new_parser(m_w.getWorld(), "guess", NULL, NULL);
-        if (!parser) throw RDFException("Failed to construct RDF parser");
+        if (!parser) {
+            throw RDFException("Failed to construct RDF parser");
+        }
+
+        librdf_uri *luri = stringToUri(url);
+
+        librdf_stream *stream = 0;
+        librdf_statement *all = 0;
 
         try { // so as to free parser and im on exception
 
@@ -296,33 +308,29 @@ public:
             if (librdf_parser_parse_into_model(parser, luri, base_uri, im)) {
                 throw RDFException("Failed to import model from URL", url);
             }
-            librdf_statement *all = tripleToStatement(Triple());
+            all = tripleToStatement(Triple());
 
             if (idm == ImportFailOnDuplicates) {
                 // Need to query twice, first time to check for dupes
-                librdf_stream *stream = librdf_model_find_statements(im, all);
+                stream = librdf_model_find_statements(im, all);
                 if (!stream) {
-                    librdf_free_statement(all);
                     throw RDFException("Failed to list imported RDF model in duplicates check");
                 }
                 while (!librdf_stream_end(stream)) {
                     librdf_statement *current = librdf_stream_get_object(stream);
                     if (!current) continue;
                     if (librdf_model_contains_statement(m_model, current)) {
-                        librdf_free_statement(current);
-                        librdf_free_stream(stream);
-                        librdf_free_statement(all);
                         throw RDFDuplicateImportException("Duplicate statement encountered on import in ImportFailOnDuplicates mode");
                     }
                     librdf_stream_next(stream);
                 }
                 librdf_free_stream(stream);
+                stream = 0;
             }
 
             // Now import.  Have to do this "manually" because librdf
             // allows duplicates and we want to avoid them
-            librdf_stream *stream = librdf_model_find_statements(im, all);
-            librdf_free_statement(all);
+            stream = librdf_model_find_statements(im, all);
             if (!stream) {
                 throw RDFException("Failed to list imported RDF model");
             }
@@ -335,40 +343,47 @@ public:
                 librdf_stream_next(stream);
             }
             librdf_free_stream(stream);
-                    
-            int namespaces = librdf_parser_get_namespaces_seen_count(parser);
-            DEBUG << "Parser found " << namespaces << " namespaces" << endl;
-            for (int i = 0; i < namespaces; ++i) {
-                DEBUG << "namespace " << i << ":" <<endl;
-                const char *pfx = librdf_parser_get_namespaces_seen_prefix(parser, i);
-                librdf_uri *uri = librdf_parser_get_namespaces_seen_uri(parser, i);
-                QString qpfx = QString::fromUtf8(pfx);
-                QString quri = uriToString(uri);
-                if (qpfx == "" && quri != "#") {
-                    // base uri
-                    if (m_baseUri == "#") {
-                        std::cerr << "BasicStore::import: NOTE: Loading file into store with no base URI; setting base URI to <" << quri.toStdString() << "> from file" << std::endl;
-                        m_baseUri = quri;
-                        m_prefixes[""] = m_baseUri;
-                    } else {
-                        if (quri != m_baseUri) {
-                            std::cerr << "BasicStore::import: NOTE: Base URI of loaded file differs from base URI of store (<" << quri.toStdString() << "> != <" << m_baseUri.toStdString() << ">)" << std::endl;
-                        }
-                    }
-                }
-                // don't call addPrefix; it tries to lock the mutex,
-                // and anyway we want to add the prefix only if it
-                // isn't already there (to avoid surprisingly changing
-                // a prefix in unusual cases, or changing the base URI)
-                if (m_prefixes.find(qpfx) == m_prefixes.end()) {
-                    m_prefixes[qpfx] = quri;
-                }
-            }
+            stream = 0;
+
         } catch (...) {
+            if (stream) librdf_free_stream(stream);
+            if (all) librdf_free_statement(all);
             librdf_free_parser(parser);
             librdf_free_model(im);
             throw;
         }
+
+        librdf_free_model(im);
+
+        int namespaces = librdf_parser_get_namespaces_seen_count(parser);
+        DEBUG << "Parser found " << namespaces << " namespaces" << endl;
+        for (int i = 0; i < namespaces; ++i) {
+            const char *pfx = librdf_parser_get_namespaces_seen_prefix(parser, i);
+            librdf_uri *uri = librdf_parser_get_namespaces_seen_uri(parser, i);
+            QString qpfx = QString::fromUtf8(pfx);
+            QString quri = uriToString(uri);
+            DEBUG << "namespace " << i << ": " << qpfx << " -> " << quri << endl;
+            if (qpfx == "" && quri != "#") {
+                // base uri
+                if (m_baseUri == "#") {
+                    std::cerr << "BasicStore::import: NOTE: Loading file into store with no base URI; setting base URI to <" << quri.toStdString() << "> from file" << std::endl;
+                    m_baseUri = quri;
+                    m_prefixes[""] = m_baseUri;
+                } else {
+                    if (quri != m_baseUri) {
+                        std::cerr << "BasicStore::import: NOTE: Base URI of loaded file differs from base URI of store (<" << quri.toStdString() << "> != <" << m_baseUri.toStdString() << ">)" << std::endl;
+                    }
+                }
+            }
+            // don't call addPrefix; it tries to lock the mutex,
+            // and anyway we want to add the prefix only if it
+            // isn't already there (to avoid surprisingly changing
+            // a prefix in unusual cases, or changing the base URI)
+            if (m_prefixes.find(qpfx) == m_prefixes.end()) {
+                m_prefixes[qpfx] = quri;
+            }
+        }
+
         librdf_free_parser(parser);
     }
 

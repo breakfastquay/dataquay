@@ -201,17 +201,6 @@ public:
         return m_store->expand(uri);
     }
 
-    void save(Transaction *tx, QString filename) const {
-        Operation op(this, tx);
-        m_store->save(filename);
-    }
-
-    void import(const Transaction *tx, QString filename,
-                ImportDuplicatesMode idm) {
-        Operation op(this, tx);
-        m_store->import(filename, idm);
-    }
-
     bool hasWrap() const {
         return m_dwb == AutoTransaction;
     }
@@ -492,26 +481,6 @@ public:
         return m_td->expand(uri);
     }
 
-    void save(QString filename) const {
-        check();
-        try {
-            m_td->save(m_tx, filename);
-        } catch (RDFException) {
-            abandon();
-            throw;
-        }
-    }
-
-    void import(QString filename, ImportDuplicatesMode idm) {
-        check();
-        try {
-            m_td->import(m_tx, filename, idm);
-        } catch (RDFException) {
-            abandon();
-            throw;
-        }
-    }
-
     ChangeSet getChanges() const {
         return m_changes;
     }
@@ -640,23 +609,6 @@ TransactionalStore::expand(QString uri) const
     return m_d->expand(uri);
 }
 
-void
-TransactionalStore::save(QString filename) const
-{
-    D::NonTransactionalAccess ntxa(m_d);
-    m_d->getStore()->save(filename);
-}
-
-void
-TransactionalStore::import(QString filename, ImportDuplicatesMode idm)
-{
-    if (!m_d->hasWrap()) {
-        throw RDFException("TransactionalStore::import() called without Transaction");
-    }
-    auto_ptr<Transaction> tx(startTransaction());
-    tx->import(filename, idm);
-}
-
 TransactionalStore::TSTransaction::TSTransaction(TransactionalStore::D *td) :
     m_d(new D(this, td))
 {
@@ -732,19 +684,6 @@ QUrl
 TransactionalStore::TSTransaction::expand(QString uri) const
 {
     return m_d->expand(uri);
-}
-
-void
-TransactionalStore::TSTransaction::save(QString filename) const
-{
-    m_d->save(filename);
-}
-
-void
-TransactionalStore::TSTransaction::import(QString filename,
-                                          ImportDuplicatesMode idm)
-{
-    m_d->import(filename, idm);
 }
 
 ChangeSet
