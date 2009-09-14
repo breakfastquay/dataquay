@@ -34,10 +34,11 @@
 #ifndef _DATAQUAY_INTERNAL_DEBUG_H_
 #define _DATAQUAY_INTERNAL_DEBUG_H_
 
-#include <QDebug>
 #include <QTextStream>
 
 #ifndef NDEBUG
+
+#include <QDebug>
 
 #define DEBUG QDebug(QtDebugMsg) << "[dataquay] "
 
@@ -66,6 +67,8 @@ public:
 
     template <typename T>
     inline NoDebug &operator<<(const T &) { return *this; }
+
+    inline NoDebug &operator<<(QTextStreamFunction) { return *this; }
 };
 
 }
