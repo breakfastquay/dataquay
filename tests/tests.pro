@@ -14,3 +14,6 @@ LIBS += -ldataquay -lext
 
 SOURCES += TestDataquay.cpp
 
+solaris* {
+  LIBS += -lsocket -lnsl
+}
