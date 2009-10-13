@@ -153,11 +153,18 @@ public:
     virtual Node queryFirst(QString sparql, QString bindingName) const = 0;
     
     /**
-     * Get a new URI, starting with the given prefix, that does not
-     * currently exist within this store.  The URI will be prefix
-     * expanded.
+     * Get a new URI, starting with the given prefix (e.g. ":event_"),
+     * that does not currently exist within this store.  The URI will
+     * be prefix expanded.
      */
     virtual QUrl getUniqueUri(QString prefix) const = 0;
+
+    /**
+     * Create and return a new blank node.  This node can only be
+     * referred to using the given Node object, and only during its
+     * lifetime within this instance of the store.
+     */
+    virtual Node addBlankNode() = 0;
 
     /**
      * Expand the given URI (which may use local namespaces) and

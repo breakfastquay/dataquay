@@ -45,6 +45,7 @@
 
 #include "Debug.h"
 
+#include <cstdlib>
 #include <iostream>
 
 namespace Dataquay
@@ -256,6 +257,13 @@ public:
 
     QUrl expand(QString uri) const {
         return QUrl(prefixExpand(uri));
+    }
+
+    Node addBlankNode() {
+        QMutexLocker locker(&m_mutex);
+        librdf_node *node = librdf_new_node_from_blank_identifier(m_w.getWorld(), 0);
+        if (!node) throw RDFException("Failed to create new blank node");
+        return lrdfNodeToNode(node);
     }
 
     void save(QString filename) const {
@@ -525,8 +533,15 @@ private:
         switch (v.type) {
         case Node::Nothing:
             return 0;
-        case Node::Blank:
-            throw RDFException("Not equipped to add blank nodes");
+        case Node::Blank: {
+            QByteArray b = v.value.toUtf8();
+            const unsigned char *bident = (const unsigned char *)b.data();
+            node = librdf_new_node_from_blank_identifier(m_w.getWorld(), bident);
+            if (!node) throw RDFException
+                           ("Failed to construct node from blank identifier",
+                            v.value);
+        }
+            break;
         case Node::URI: {
             QString value = prefixExpand(v.value);
             librdf_uri *uri = stringToUri(value);
@@ -582,7 +597,7 @@ private:
         } else if (librdf_node_is_blank(node)) {
 
             v.type = Node::Blank;
-            const char *s = (const char *)librdf_node_get_literal_value(node);
+            const char *s = (const char *)librdf_node_get_blank_identifier(node);
             if (s) v.value = s;
         }
 
@@ -807,6 +822,12 @@ QUrl
 BasicStore::expand(QString uri) const
 {
     return m_d->expand(uri);
+}
+
+Node
+BasicStore::addBlankNode()
+{
+    return m_d->addBlankNode();
 }
 
 void

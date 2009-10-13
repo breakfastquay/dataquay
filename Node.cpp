@@ -38,12 +38,35 @@
 #include <QDataStream>
 #include <QTextStream>
 #include <QUrl>
+#include <QTime>
 #include <QByteArray>
 
 namespace Dataquay
 {
 
 static const QString encodedVariantTypeURI = "http://breakfastquay.com/dataquay/datatype/encodedvariant";
+
+static
+QString
+qTimeToXsdDuration(QTime t)
+{
+    if (t.hour() != 0) {
+        return
+            QString("PT%1H%2M%3S")
+            .arg(t.hour())
+            .arg(t.minute())
+            .arg(t.second() + double(t.msec())/1000.0);
+    } else if (t.minute() != 0) {
+        return
+            QString("PT%1M%2S")
+            .arg(t.minute())
+            .arg(t.second() + double(t.msec())/1000.0);
+    } else {
+        return
+            QString("PT%1S")
+            .arg(t.second() + double(t.msec())/1000.0);
+    }
+}
 
 Node
 Node::fromVariant(QVariant v)
@@ -79,6 +102,11 @@ Node::fromVariant(QVariant v)
     case QVariant::Double:
         n.datatype = pfx + "double";
         n.value = v.toString();
+        break;
+
+    case QVariant::Time:
+        n.datatype = pfx + "duration";
+        n.value = qTimeToXsdDuration(v.toTime());
         break;
         
     default:

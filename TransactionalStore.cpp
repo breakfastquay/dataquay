@@ -150,51 +150,48 @@ public:
 
     bool add(Transaction *tx, Triple t) {
         Operation op(this, tx);
-        bool result = m_store->add(t);
-        return result;
+        return m_store->add(t);
     }
 
     bool remove(Transaction *tx, Triple t) {
         Operation op(this, tx);
-        bool result = m_store->remove(t);
-        return result;
+        return m_store->remove(t);
     }
 
     bool contains(const Transaction *tx, Triple t) const {
         Operation op(this, tx);
-        bool result = m_store->contains(t);
-        return result;
+        return m_store->contains(t);
     }
 
     Triples match(const Transaction *tx, Triple t) const {
         Operation op(this, tx);
-        Triples result = m_store->match(t);
-        return result;
+        return m_store->match(t);
     }
 
     ResultSet query(const Transaction *tx, QString sparql) const {
         Operation op(this, tx);
-        ResultSet result = m_store->query(sparql);
-        return result;
+        return m_store->query(sparql);
     }
 
     Triple matchFirst(const Transaction *tx, Triple t) const {
         Operation op(this, tx);
-        Triple result = m_store->matchFirst(t);
-        return result;
+        return m_store->matchFirst(t);
     }
 
     Node queryFirst(const Transaction *tx, QString sparql,
                         QString bindingName) const {
         Operation op(this, tx);
-        Node result = m_store->queryFirst(sparql, bindingName);
-        return result;
+        return m_store->queryFirst(sparql, bindingName);
     }
 
     QUrl getUniqueUri(const Transaction *tx, QString prefix) const {
         Operation op(this, tx);
-        QUrl result = m_store->getUniqueUri(prefix);
-        return result;
+        return m_store->getUniqueUri(prefix);
+    }
+
+    Node addBlankNode(Transaction *tx) const {
+        Operation op(this, tx);
+        return m_store->addBlankNode();
     }
 
     QUrl expand(QString uri) const {
@@ -477,6 +474,16 @@ public:
         }
     }
 
+    Node addBlankNode() {
+        check();
+        try {
+            return m_td->addBlankNode(m_tx);
+        } catch (RDFException) {
+            abandon();
+            throw;
+        }
+    }
+
     QUrl expand(QString uri) const {
         return m_td->expand(uri);
     }
@@ -603,6 +610,16 @@ TransactionalStore::getUniqueUri(QString prefix) const
     return result;
 }
 
+Node
+TransactionalStore::addBlankNode()
+{
+    if (!m_d->hasWrap()) {
+        throw RDFException("TransactionalStore::addBlankNode() called without Transaction");
+    }
+    auto_ptr<Transaction> tx(startTransaction());
+    return tx->addBlankNode();
+}
+
 QUrl
 TransactionalStore::expand(QString uri) const
 {
@@ -678,6 +695,12 @@ QUrl
 TransactionalStore::TSTransaction::getUniqueUri(QString prefix) const
 {
     return m_d->getUniqueUri(prefix);
+}
+
+Node
+TransactionalStore::TSTransaction::addBlankNode()
+{
+    return m_d->addBlankNode();
 }
 
 QUrl

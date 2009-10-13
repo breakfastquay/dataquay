@@ -55,6 +55,7 @@ public:
     Triple matchFirst(Triple t) const;
     Node queryFirst(QString sparql, QString bindingName) const;
     QUrl getUniqueUri(QString prefix) const;
+    Node addBlankNode();
     QUrl expand(QString uri) const;
     
     void commit();
@@ -174,6 +175,13 @@ Connection::D::getUniqueUri(QString prefix) const
     return getStore()->getUniqueUri(prefix);
 }
 
+Node
+Connection::D::addBlankNode()
+{
+    start();
+    return m_tx->addBlankNode();
+}
+
 QUrl
 Connection::D::expand(QString uri) const
 {
@@ -248,6 +256,12 @@ QUrl
 Connection::getUniqueUri(QString prefix) const
 {
     return m_d->getUniqueUri(prefix);
+}
+
+Node
+Connection::addBlankNode()
+{
+    return m_d->addBlankNode();
 }
 
 QUrl 

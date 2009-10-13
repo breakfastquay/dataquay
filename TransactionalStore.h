@@ -123,6 +123,7 @@ public:
     Triple matchFirst(Triple t) const;
     Node queryFirst(QString sparql, QString bindingName) const;
     QUrl getUniqueUri(QString prefix) const;
+    Node addBlankNode();
     QUrl expand(QString uri) const;
 
 signals:
@@ -146,6 +147,7 @@ private:
         Triple matchFirst(Triple t) const;
         Node queryFirst(QString sparql, QString bindingName) const;
         QUrl getUniqueUri(QString prefix) const;
+        Node addBlankNode();
         QUrl expand(QString uri) const;
 
         // Transaction interface

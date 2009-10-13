@@ -79,6 +79,17 @@ public:
         b(Node::URI, b_uri),
         c(_c) { }
 
+    /**
+     * Construct a triple of Node, URI, and an arbitrary node.
+     * 
+     * This constructor simplifies constructing complete RDF
+     * statements -- with URI, URI, and URI or Literal nodes.
+     */
+    Triple(Node _a, QString b_uri, Node _c) :
+        a(_a),
+        b(Node::URI, b_uri),
+        c(_c) { }
+
     ~Triple() { }
 
     Node a;

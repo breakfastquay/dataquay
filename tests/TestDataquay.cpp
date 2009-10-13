@@ -261,6 +261,29 @@ testBasicStore()
 
         ++count;
 
+        // something involving blank nodes
+        
+        Node blankNode = store.addBlankNode();
+
+        if (!store.add(Triple(":fred",
+                              "http://xmlns.com/foaf/0.1/maker",
+                              blankNode))) {
+            cerr << "Failed to add triple containing final blank node to store" << endl;
+            return false;
+        }
+
+        ++count;
+        ++fromFred;
+
+        if (!store.add(Triple(blankNode,
+                              "foaf:name",
+                              Node(Node::Literal, "Omnipotent Being")))) {
+            cerr << "Failed to add triple containing initial blank node to store" << endl;
+            return false;
+        }
+
+        ++count;
+
         Triples triples;
 
         cerr << "Testing matching..." << endl;
