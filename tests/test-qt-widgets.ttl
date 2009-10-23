@@ -1,0 +1,42 @@
+@base <http://uh.i.dunno.breakfastquay.com/> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix : <> .
+@prefix qtype: <http://breakfastquay.com/rdf/dataquay/qtype/> .
+@prefix dq: <http://breakfastquay.com/rdf/dataquay/common/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+:mainwindow
+	a qtype:QFrame .
+
+:menubar
+	dq:parent :mainwindow ;
+	a qtype:QMenuBar .
+
+:menu
+	dq:parent :menubar ;
+	a qtype:QMenu ;
+	qtype:text "File" .
+
+:action
+	dq:parent :menu ;
+	a qtype:QAction ;
+	qtype:text "Exit" .
+
+:vbox
+	dq:parent :mainwindow ;
+	dq:layout_of :mainwindow ;
+	a qtype:QVBoxLayout .
+
+:label_1
+	a qtype:QLabel ;
+	dq:parent :mainwindow ;
+	dq:layout :vbox ;
+	qtype:text "Hello! I am the first label." .
+
+:label_2
+	a qtype:QLabel ;
+	dq:parent :mainwindow ;
+	dq:layout :vbox ;
+	dq:follows :label_1 ;
+	qtype:text "Hello! I am the second label." .
+
