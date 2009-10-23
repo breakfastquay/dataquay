@@ -6,7 +6,7 @@
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 :mainwindow
-	a qtype:QFrame .
+	a qtype:QMainWindow .
 
 :menubar
 	dq:parent :mainwindow ;
@@ -15,7 +15,7 @@
 :menu
 	dq:parent :menubar ;
 	a qtype:QMenu ;
-	qtype:text "File" .
+	qtype:title "File" .
 
 :action
 	dq:parent :menu ;

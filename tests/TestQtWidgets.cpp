@@ -33,17 +33,17 @@ using std::endl;
 static QString qtypePrefix = "http://breakfastquay.com/rdf/dataquay/qtype/";
 
 struct MakerBase {
-    virtual QObject *make() = 0;
-};
-
-template <typename T>
-struct Maker : public MakerBase {
-    virtual QObject *make() { return new T(); }
+    virtual QObject *make(QObject *) = 0;
 };
 
 template <typename T>
 struct Maker0 : public MakerBase {
-    virtual QObject *make() { return new T(0); }
+    virtual QObject *make(QObject *) { return new T(); }
+};
+
+template <typename T, typename P>
+struct Maker1 : public MakerBase {
+    virtual QObject *make(QObject *p) { return new T(dynamic_cast<P *>(p)); }
 };
 
 typedef QHash<QString, MakerBase *> MakerMap;
@@ -55,18 +55,18 @@ makers()
     static QMutex mutex;
     QMutexLocker locker(&mutex);
     if (map.empty()) {
-#define MAP(x) map[qtypePrefix + #x] = new Maker<x>();
-	MAP(QMainWindow);
-	MAP(QFrame);
-	MAP(QLabel);
-	MAP(QGridLayout);
-	MAP(QVBoxLayout);
-	MAP(QMenu);
-	MAP(QMenuBar);
-#undef MAP
-#define MAP(x) map[qtypePrefix + #x] = new Maker0<x>();
-	MAP(QAction);
-#undef MAP
+#define MAP0(x) map[qtypePrefix + #x] = new Maker0<x>();
+#define MAP1(x,y) map[qtypePrefix + #x] = new Maker1<x,y>();
+	MAP0(QMainWindow);
+	MAP1(QFrame, QWidget);
+	MAP1(QLabel, QWidget);
+	MAP1(QGridLayout, QWidget);
+	MAP1(QVBoxLayout, QWidget);
+	MAP1(QMenu, QWidget);
+	MAP1(QMenuBar, QWidget);
+	MAP1(QAction, QObject);
+#undef MAP0
+#undef MAP1
     }
     return map;
 }
@@ -74,6 +74,106 @@ makers()
 #include <QApplication>
 
 using namespace Dataquay;
+
+typedef QHash<QString, QObject *> UriObjectMap;
+
+QObject *
+load(Store &store, UriObjectMap &map, QUrl objectUri)
+{
+    if (map.contains(objectUri.toString())) {
+	std::cerr << "returning: " << objectUri.toString().toStdString() << std::endl;
+	return map[objectUri.toString()];
+    }
+
+    std::cerr << "loading: " << objectUri.toString().toStdString() << std::endl;
+
+    // - Look up the dq properties: parent, layout_of, layout.  For
+    // each of these, make sure the referred object is loaded before
+    // we proceed.  Then create our object.
+
+    // Note that (at the time of writing) librdf queries do not
+    // properly support OPTIONAL.  So we don't have the option of
+    // looking these up in a single SPARQL query.  Let's use a
+    // PropertyObject instead
+
+    QObject *parent = 0;
+    QObject *layout = 0;
+    QObject *layoutOf = 0;
+    
+    PropertyObject pod(&store, "dq:", objectUri);
+    if (pod.hasProperty("parent")) {
+	parent = load(store, map, pod.getProperty("parent").toUrl());
+    }
+    if (pod.hasProperty("layout")) {
+	layout = load(store, map, pod.getProperty("layout").toUrl());
+    }
+    if (pod.hasProperty("layout_of")) {
+	layoutOf = load(store, map, pod.getProperty("layout_of").toUrl());
+    }
+    if (pod.hasProperty("follows")) {
+	load(store, map, pod.getProperty("follows").toUrl());
+    }
+
+    Triple typeTriple = store.matchFirst(Triple(objectUri, "a", Node()));
+    if (typeTriple == Triple() || typeTriple.c.type != Node::URI) {
+	return 0;
+    }
+
+    QString type = typeTriple.c.value;
+    if (!type.startsWith(qtypePrefix)) {
+	std::cerr << "not a qtypePrefix property: " << type.toStdString() << std::endl;
+	return 0;
+    }
+
+    MakerMap mo = makers();
+    if (!mo.contains(type)) {
+	std::cerr << "not a known type: " << type.toStdString() << std::endl;
+	return 0;
+    }
+    
+    std::cerr << "Making object <" << objectUri.toString().toStdString()
+	      << "> of type <" << type.toStdString() << ">" << std::endl;
+
+    QObject *o = mo[type]->make(parent);
+    if (!o) {
+	std::cerr << "Failed to make object!" << std::endl;
+	return o;
+    }
+
+    if (layoutOf) {
+	QWidget *w = dynamic_cast<QWidget *>(layoutOf);
+	QLayout *l = dynamic_cast<QLayout *>(o);
+	if (w && l) {
+	    w->setLayout(l);
+	    std::cerr << "added layout to widget" << std::endl;
+	}
+    }
+
+    if (layout) {
+	QLayout *cl = dynamic_cast<QLayout *>(layout);
+	if (cl) {
+	    QWidget *w = dynamic_cast<QWidget *>(o);
+	    if (w) cl->addWidget(w);
+	    std::cerr << "added widget to layout" << std::endl;
+	}
+    }
+
+    PropertyObject po(&store, "qtype:", objectUri);
+    QStringList pl = po.getProperties();
+    foreach (QString property, pl) {
+	QByteArray ba = property.toLocal8Bit();
+	QVariant value = po.getProperty(property);
+	if (!o->setProperty(ba.data(), value)) {
+	    std::cerr << "property set failed for " << ba.data() << " to " << value.toString().toStdString() << std::endl;
+	} else {
+	    std::cerr << "property set succeeded" << std::endl;
+	}
+    }
+
+    map[objectUri.toString()] = o;
+    
+    return o;
+}
 
 int
 main(int argc, char **argv)
@@ -94,7 +194,7 @@ main(int argc, char **argv)
     
     MakerMap mo = makers();
 
-    QHash<QString, QObject *> uriObjectMap;
+    UriObjectMap uriObjectMap;
 
     foreach (Triple t, candidates) {
 
@@ -109,6 +209,20 @@ main(int argc, char **argv)
 	    continue;
 	}
 
+	QObject *o = load(store, uriObjectMap, t.a.value);
+	if (o) uriObjectMap[t.a.value] = o;
+
+	std::cerr << "top-level load of <" << t.a.value.toStdString() << "> succeeded" << std::endl;
+    }
+
+    foreach (QObject *o, uriObjectMap) {
+	QMainWindow *mw = dynamic_cast<QMainWindow *>(o);
+	if (mw) {
+	    std::cerr << "showing main window" << std::endl;
+	    mw->show();
+	}
+    }
+/*
 	QObject *obj = mo[u]->make();
 	if (!obj) {
 	    std::cerr << "construction failed: " << t.c.value.toStdString() << std::endl;
@@ -203,7 +317,7 @@ main(int argc, char **argv)
 	    std::cerr << "This is a label, text is: " << l->text().toStdString() << std::endl;
 	}
     }
-
+*/
     return app.exec();
 }
 
