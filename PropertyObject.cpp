@@ -39,7 +39,7 @@ namespace Dataquay
 {
 
 QString
-PropertyObject::m_defaultPrefix = "property";
+PropertyObject::m_defaultPrefix = "property:";
 
 PropertyObject::PropertyObject(Store *s, QUrl uri) :
     m_store(s), m_pfx(m_defaultPrefix), m_uri(uri)
@@ -97,6 +97,37 @@ PropertyObject::getProperty(Transaction *tx, QString name) const
     return r.c.toVariant();
 }
 
+QStringList
+PropertyObject::getProperties() const
+{
+    QStringList properties;
+    QString expfx = m_store->expand(m_pfx).toString();
+    Triples ts = m_store->match(Triple(m_uri, Node(), Node()));
+    for (int i = 0; i < ts.size(); ++i) {
+        QString propertyUri = ts[i].b.value;
+        if (propertyUri.startsWith(expfx)) {
+            properties.push_back(propertyUri.replace(expfx, ""));
+        }
+    }
+    return properties;
+}
+
+QStringList
+PropertyObject::getProperties(Transaction *tx) const
+{
+    Store *s = getStore(tx);
+    QStringList properties;
+    QString expfx = m_store->expand(m_pfx).toString();
+    Triples ts = s->match(Triple(m_uri, Node(), Node()));
+    for (int i = 0; i < ts.size(); ++i) {
+        QString propertyUri = ts[i].b.value;
+        if (propertyUri.startsWith(expfx)) {
+            properties.push_back(propertyUri.replace(expfx, ""));
+        }
+    }
+    return properties;
+}
+
 void
 PropertyObject::setProperty(Transaction *tx, QString name, QVariant value)
 {
@@ -129,7 +160,7 @@ PropertyObject::getPropertyUri(QString name) const
 {
     if (name == "a") return m_store->expand(name);
     if (name.contains(':')) return m_store->expand(name);
-    return m_store->expand(m_pfx + ":" + name);
+    return m_store->expand(m_pfx + name);
 }
 
 void
@@ -173,25 +204,23 @@ CacheingPropertyObject::hasProperty(Transaction *tx, QString name) const
 QVariant
 CacheingPropertyObject::getProperty(QString name) const
 {
-    StringVariantMap::iterator i = m_cache.find(name);
-    if (i == m_cache.end()) {
+    if (!m_cache.contains(name)) {
         QVariant value = m_po.getProperty(name);
         m_cache[name] = value;
         return value;
     }
-    return i->second;
+    return m_cache[name];
 }
 
 QVariant
 CacheingPropertyObject::getProperty(Transaction *tx, QString name) const
 {
-    StringVariantMap::iterator i = m_cache.find(name);
-    if (i == m_cache.end()) {
+    if (!m_cache.contains(name)) {
         QVariant value = m_po.getProperty(tx, name);
         m_cache[name] = value;
         return value;
     }
-    return i->second;
+    return m_cache[name];
 }
 
 void
@@ -205,7 +234,7 @@ void
 CacheingPropertyObject::removeProperty(Transaction *tx, QString name)
 {
     m_po.removeProperty(tx, name);
-    m_cache.erase(name);
+    m_cache.remove(name);
 }
 
 Store *

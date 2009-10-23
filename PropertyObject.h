@@ -35,8 +35,9 @@
 #define _DATAQUAY_PROPERTY_OBJECT_H_
 
 #include <QString>
+#include <QStringList>
 #include <QUrl>
-#include <map>
+#include <QHash>
 
 namespace Dataquay
 {
@@ -69,14 +70,14 @@ class Store;
  * first).  As an exception, if the prefix is the special name "a",
  * it will be expanded (by the store) as "rdf:type".
  *
- * Example: If the property prefix is "myprops" and the property name
+ * Example: If the property prefix is "myprops:" and the property name
  * passed to getProperty is "some_property", the returned value from
  * getProperty will be the result of matching on the triple (myUri,
  * "myprops:some_property", ()).  Hopefully, the RDF store will have
  * already been told about the "myprops" prefix and will know how to
  * expand it.
  *
- * Example: If the property prefix is "myprops" and the property name
+ * Example: If the property prefix is "myprops:" and the property name
  * passed to getProperty is "yourprops:some_property", the returned
  * value from getProperty will be the result of matching on the triple
  * (myUri, "yourprops:some_property", ()).  The property prefix is not
@@ -150,6 +151,24 @@ public:
      * match, return QVariant().
      */
     QVariant getProperty(Transaction *tx, QString name) const;
+
+    /**
+     * Get the names of this object's properties.  That is, find all
+     * triples in the store whose subject matches my URI and whose
+     * predicate begins with our property prefix, and return a list of
+     * the remainder of their predicate URIs following the property
+     * prefix.
+     */
+    QStringList getProperties() const;
+
+    /**
+     * Get the names of this object's properties, querying through the
+     * given transaction.  That is, find all triples in the store
+     * whose subject matches my URI and whose predicate begins with
+     * our property prefix, and return a list of the remainder of
+     * their predicate URIs following the property prefix.
+     */
+    QStringList getProperties(Transaction *tx) const;
 
     /**
      * Set the given property to the given value.  That is, first
@@ -229,7 +248,7 @@ public:
 
 private:
     PropertyObject m_po;
-    typedef std::map<QString, QVariant> StringVariantMap;
+    typedef QHash<QString, QVariant> StringVariantMap;
     mutable StringVariantMap m_cache;
 };
 
