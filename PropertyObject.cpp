@@ -61,6 +61,29 @@ PropertyObject::PropertyObject(Store *s, QString pfx, QString uri) :
 {
 }
 
+QUrl
+PropertyObject::getObjectType() const
+{
+    Triple t = m_store->matchFirst(Triple(m_uri, "a", Node()));
+    if (t != Triple()) {
+        return QUrl(t.c.value);
+    } else {
+        return QUrl();
+    }
+}
+
+QUrl
+PropertyObject::getObjectType(Transaction *tx) const
+{
+    Store *s = getStore(tx);
+    Triple t = s->matchFirst(Triple(m_uri, "a", Node()));
+    if (t != Triple()) {
+        return QUrl(t.c.value);
+    } else {
+        return QUrl();
+    }
+}
+
 bool
 PropertyObject::hasProperty(QString name) const
 {

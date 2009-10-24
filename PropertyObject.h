@@ -116,6 +116,19 @@ public:
     PropertyObject(Store *s, QString propertyPrefix, QString myUri);
 
     /**
+     * Return the rdf:type of my URI, if any.  If more than one is
+     * defined, return the first one found.
+     */
+    QUrl getObjectType() const;
+
+    /**
+     * Return the rdf:type of my URI, if any, querying through the
+     * given transaction.  If more than one is defined, return the
+     * first one found.
+     */
+    QUrl getObjectType(Transaction *tx) const;
+
+    /**
      * Return true if the property object has the given property.  That
      * is, if the store contains at least one triple whose subject and
      * predicate match those for my URI and the expansion of the given

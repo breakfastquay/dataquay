@@ -31,6 +31,7 @@ using std::endl;
 #include <QMetaProperty>
 
 static QString qtypePrefix = "http://breakfastquay.com/rdf/dataquay/qtype/";
+static QString dqPrefix = "http://breakfastquay.com/rdf/dataquay/common/";
 
 struct MakerBase {
     virtual QObject *make(QObject *) = 0;
@@ -97,29 +98,18 @@ load(Store &store, UriObjectMap &map, QUrl objectUri)
     // PropertyObject instead
 
     QObject *parent = 0;
-    QObject *layout = 0;
-    QObject *layoutOf = 0;
-    
+  
     PropertyObject pod(&store, "dq:", objectUri);
-    if (pod.hasProperty("parent")) {
-	parent = load(store, map, pod.getProperty("parent").toUrl());
-    }
-    if (pod.hasProperty("layout")) {
-	layout = load(store, map, pod.getProperty("layout").toUrl());
-    }
-    if (pod.hasProperty("layout_of")) {
-	layoutOf = load(store, map, pod.getProperty("layout_of").toUrl());
-    }
+
     if (pod.hasProperty("follows")) {
 	load(store, map, pod.getProperty("follows").toUrl());
     }
 
-    Triple typeTriple = store.matchFirst(Triple(objectUri, "a", Node()));
-    if (typeTriple == Triple() || typeTriple.c.type != Node::URI) {
-	return 0;
+    if (pod.hasProperty("parent")) {
+	parent = load(store, map, pod.getProperty("parent").toUrl());
     }
 
-    QString type = typeTriple.c.value;
+    QString type = pod.getObjectType().toString();
     if (!type.startsWith(qtypePrefix)) {
 	std::cerr << "not a qtypePrefix property: " << type.toStdString() << std::endl;
 	return 0;
@@ -138,6 +128,39 @@ load(Store &store, UriObjectMap &map, QUrl objectUri)
     if (!o) {
 	std::cerr << "Failed to make object!" << std::endl;
 	return o;
+    }
+
+    if (dynamic_cast<QMainWindow *>(parent) &&
+	dynamic_cast<QMenu *>(o)) {
+	dynamic_cast<QMainWindow *>(parent)->menuBar()->addMenu
+	    (dynamic_cast<QMenu *>(o));
+    }
+    if (dynamic_cast<QMenu *>(parent) &&
+	dynamic_cast<QAction *>(o)) {
+	dynamic_cast<QMenu *>(parent)->addAction(dynamic_cast<QAction *>(o));
+    }
+
+    QObject *layout = 0;  
+    QObject *layoutOf = 0;
+    QObject *centralOf = 0;
+
+    if (pod.hasProperty("layout")) {
+	layout = load(store, map, pod.getProperty("layout").toUrl());
+    }
+    if (pod.hasProperty("layout_of")) {
+	layoutOf = load(store, map, pod.getProperty("layout_of").toUrl());
+    }
+    if (pod.hasProperty("central_widget_of")) {
+	centralOf = load(store, map, pod.getProperty("central_widget_of").toUrl());
+    }
+
+    if (centralOf) {
+	QMainWindow *m = dynamic_cast<QMainWindow *>(centralOf);
+	QWidget *w = dynamic_cast<QWidget *>(o);
+	if (m && w) {
+	    m->setCentralWidget(w);
+	    std::cerr << "added central widget" << std::endl;
+	}
     }
 
     if (layoutOf) {
@@ -215,6 +238,39 @@ main(int argc, char **argv)
 	std::cerr << "top-level load of <" << t.a.value.toStdString() << "> succeeded" << std::endl;
     }
 
+    candidates = store.match(Triple(Node(), "a", store.expand("dq:Connection")));
+
+    QString slotTemplate = SLOT(xxx());
+    QString signalTemplate = SIGNAL(xxx());
+
+    foreach (Triple t, candidates) {
+
+	PropertyObject po(&store, "dq:", t.a.value);
+
+	QObject *source = 0;
+	QObject *target = 0;
+
+	if (po.hasProperty("source")) {
+	    source = load(store, uriObjectMap, po.getProperty("source").toUrl());
+	}
+	if (po.hasProperty("target")) {
+	    target = load(store, uriObjectMap, po.getProperty("target").toUrl());
+	}
+
+	if (!source || !target) continue;
+
+	if (po.hasProperty("source_signal") && po.hasProperty("target_slot")) {
+	    QString signal = signalTemplate.replace
+		("xxx", po.getProperty("source_signal").toString());
+	    QString slot = slotTemplate.replace
+		("xxx", po.getProperty("target_slot").toString());
+	    QByteArray sigba = signal.toLocal8Bit();
+	    QByteArray slotba = slot.toLocal8Bit();
+	    QObject::connect(source, sigba.data(), target, slotba.data());
+	}
+    }
+		 
+
     foreach (QObject *o, uriObjectMap) {
 	QMainWindow *mw = dynamic_cast<QMainWindow *>(o);
 	if (mw) {
@@ -222,102 +278,7 @@ main(int argc, char **argv)
 	    mw->show();
 	}
     }
-/*
-	QObject *obj = mo[u]->make();
-	if (!obj) {
-	    std::cerr << "construction failed: " << t.c.value.toStdString() << std::endl;
-	    continue;
-	}
-	uriObjectMap[t.a.value] = obj;
 
-	std::cerr << "object's properties:" << std::endl;
-	for (int i = 0; i < obj->metaObject()->propertyCount(); ++i) {
-	    if (i == obj->metaObject()->propertyOffset()) {
-		std::cerr << "[properties for this class:]" << std::endl;
-	    }
-	    std::cerr << obj->metaObject()->property(i).name() << ", type "
-		      << obj->metaObject()->property(i).typeName()
-		      << ", scriptable "
-		      << obj->metaObject()->property(i).isScriptable()
-		      << ", writable "
-		      << obj->metaObject()->property(i).isWritable() << std::endl;
-	}
-	
-	PropertyObject po(&store, "qtype:", t.a.value);
-	QStringList sl = po.getProperties();
-	for (int i = 0; i < sl.size(); ++i) {
-	    QByteArray ba = sl[i].toLocal8Bit();
-	    std::cerr << "property: " << sl[i].toStdString() << std::endl;
-	    std::cerr << "index = " << obj->metaObject()->indexOfProperty(ba.data()) << std::endl;
-	    QVariant value = po.getProperty(sl[i]);
-	    if (!obj->setProperty(ba.data(), value)) {
-		std::cerr << "property set failed for " << ba.data() << " to " << value.toString().toStdString() << std::endl;
-	    } else {
-		std::cerr << "property set succeeded" << std::endl;
-	    }
-	}
-    }
-
-    foreach (QString uri, uriObjectMap.keys()) {
-
-	QObject *obj = uriObjectMap[uri];
-
-	PropertyObject pod(&store, "dq:", uri);
-	QStringList sl = pod.getProperties();
-	foreach (QString property, sl) {
-	    if (property == "parent") {
-		QString parent = pod.getProperty(property).toUrl().toString();
-		if (!uriObjectMap.contains(parent)) {
-		    std::cerr << "unknown parent \"" << parent.toStdString() << "\"" << std::endl;
-		} else {
-		    obj->setParent(uriObjectMap[parent]);
-		}
-	    } else if (property == "layout_of") {
-		QString target = pod.getProperty(property).toUrl().toString();
-		if (uriObjectMap.contains(target)) {
-		    QObject *tobj = uriObjectMap[target];
-		    if (dynamic_cast<QWidget *>(tobj) &&
-			dynamic_cast<QLayout *>(obj)) {
-			dynamic_cast<QWidget *>(tobj)->setLayout
-			    (dynamic_cast<QLayout *>(obj));
-			std::cerr << "added layout to widget" << std::endl;
-		    }
-		}
-	    } else if (property == "layout") {
-		QString layout = pod.getProperty(property).toUrl().toString();
-		if (!uriObjectMap.contains(layout)) {
-		    std::cerr << "unknown layout \"" << layout.toStdString() << "\"" << std::endl;
-		} else {
-		    QLayout *qlayout = dynamic_cast<QLayout *>(uriObjectMap[layout]);
-		    if (!qlayout) {
-			std::cerr << "not a layout \"" << layout.toStdString() << "\"" << std::endl;
-		    } else {
-			if (dynamic_cast<QWidget *>(obj)) {
-			    qlayout->addWidget(dynamic_cast<QWidget *>(obj));
-			    std::cerr << "added to layout" << std::endl;
-//			} else if (dynamic_cast<QLayout *>(obj)) {
-//			    qlayout->addLayout(dynamic_cast<QLayout *>(obj));
-			}
-		    }			    
-		}
-	    }
-	}
-    }
-    
-    foreach (QString uri, uriObjectMap.keys()) {
-
-	QObject *obj = uriObjectMap[uri];
-
-	QWidget *w = dynamic_cast<QWidget *>(obj);
-	if (w) w->show();
-	else std::cerr << "not a qwidget: " << uri.toStdString() << std::endl;
-
-	QLabel *l = dynamic_cast<QLabel *>(obj);
-	if (l) {
-	    std::cerr << "This is a label, text is: " << l->text().toStdString() << std::endl;
-	}
-    }
-*/
     return app.exec();
 }
 

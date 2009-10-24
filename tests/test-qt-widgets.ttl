@@ -8,35 +8,43 @@
 :mainwindow
 	a qtype:QMainWindow .
 
-:menubar
-	dq:parent :mainwindow ;
-	a qtype:QMenuBar .
-
 :menu
-	dq:parent :menubar ;
+	dq:parent :mainwindow ;
 	a qtype:QMenu ;
 	qtype:title "File" .
 
-:action
+:exit
 	dq:parent :menu ;
 	a qtype:QAction ;
 	qtype:text "Exit" .
 
-:vbox
+:exit_connection
+	a dq:Connection ;
+	dq:source :exit ;
+	dq:source_signal "triggered" ;
+	dq:target :mainwindow ;
+	dq:target_slot "close" .
+
+:frame
 	dq:parent :mainwindow ;
-	dq:layout_of :mainwindow ;
+	dq:central_widget_of :mainwindow ;
+	a qtype:QFrame .
+
+:vbox
+	dq:parent :frame ;
+	dq:layout_of :frame ;
 	a qtype:QVBoxLayout .
 
 :label_1
 	a qtype:QLabel ;
-	dq:parent :mainwindow ;
+	dq:parent :frame ;
+	dq:follows :label_2 ;
 	dq:layout :vbox ;
-	qtype:text "Hello! I am the first label." .
+	qtype:text "Hello! I am the first label (but I go second)." .
 
 :label_2
 	a qtype:QLabel ;
-	dq:parent :mainwindow ;
+	dq:parent :frame ;
 	dq:layout :vbox ;
-	dq:follows :label_1 ;
-	qtype:text "Hello! I am the second label." .
+	qtype:text "Hello! I am the second label (but I go first)." .
 
