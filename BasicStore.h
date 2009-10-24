@@ -158,7 +158,9 @@ public:
 
     /**
      * Construct a new BasicStore from the RDF document at the given
-     * URL.  May throw RDFException.
+     * URL.  May throw RDFException.  The returned BasicStore is owned
+     * by the caller and must be deleted using delete when finished
+     * with.
      *
      * Note that the URL must be a URL, not just a filename
      * (i.e. local files need the file: prefix).

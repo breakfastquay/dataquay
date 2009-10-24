@@ -198,6 +198,65 @@ load(Store &store, UriObjectMap &map, QUrl objectUri)
     return o;
 }
 
+
+typedef QMap<QObject *, QString> ObjectUriMap;
+
+bool
+save(Store &store, ObjectUriMap &map, QObject *o)
+{
+    QString cname = o->metaObject()->className();
+
+    QUrl uri;
+    if (!map.contains(o)) {
+	uri = store.getUniqueUri(":" + cname.toLower().right(cname.length()-1) + "_");
+	map[o] = uri.toString();
+    } else {
+	uri = map[o];
+    }
+
+    QUrl type = store.expand(QString("qtype:%1").arg(cname));
+    store.add(Triple(uri, "a", type));
+
+    if (o->parent() && map.contains(o->parent())) {
+	store.add(Triple(uri, "dq:parent",
+			 store.expand(map[o->parent()])));
+    }
+
+    MakerMap mm = makers();
+    PropertyObject po(&store, "qtype:", uri);
+    for (int i = 0; i < o->metaObject()->propertyCount(); ++i) {
+	if (o->metaObject()->property(i).isStored()) {
+	    QString pname = o->metaObject()->property(i).name();
+	    QByteArray pnba = pname.toLocal8Bit();
+	    bool write = true;
+	    if (mm.contains(type.toString())) {
+		QObject *deft = mm[type.toString()]->make(o->parent());
+		if (o->property(pnba.data()) == deft->property(pnba.data())) {
+		    std::cerr << "unchanged: " << pnba.data() << std::endl;
+		    write = false;
+		}
+		delete deft;
+	    }
+	    if (write) {
+		po.setProperty(0, pname, o->property(pnba.data()));
+	    }
+	}
+    }
+
+    QObject *previous = 0;
+    foreach (QObject *child, o->children()) {
+	if (save(store, map, child)) {
+	    if (previous) {
+		store.add(Triple(map[child], "dq:follows",
+				 store.expand(map[previous])));
+	    }
+	    previous = child;
+	}
+    }
+
+    return true;
+}
+
 int
 main(int argc, char **argv)
 {
@@ -269,15 +328,25 @@ main(int argc, char **argv)
 	    QObject::connect(source, sigba.data(), target, slotba.data());
 	}
     }
-		 
 
+    QMainWindow *mw;
     foreach (QObject *o, uriObjectMap) {
-	QMainWindow *mw = dynamic_cast<QMainWindow *>(o);
-	if (mw) {
+	QMainWindow *hmw = dynamic_cast<QMainWindow *>(o);
+	if (hmw) {
+	    mw = hmw;
 	    std::cerr << "showing main window" << std::endl;
 	    mw->show();
 	}
     }
+
+    BasicStore store2;
+    store2.setBaseUri(store.getBaseUri());
+    store2.addPrefix("dq", dqPrefix);
+    store2.addPrefix("qtype", qtypePrefix);
+    ObjectUriMap rmap;
+//    foreach (QString s, uriObjectMap.keys()) rmap[uriObjectMap[s]] = s;
+    save(store2, rmap, mw);
+    store2.save("test-qt-widgets-out.ttl");
 
     return app.exec();
 }
