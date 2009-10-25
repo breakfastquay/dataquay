@@ -15,18 +15,20 @@ INCLUDEPATH += \
 # Input
 HEADERS += BasicStore.h \
            Connection.h \
+           Node.h \
            PropertyObject.h \
+           QObjectMapper.h \
            RDFException.h \
            Store.h \
            Transaction.h \
            TransactionalStore.h \
-           Triple.h \
-           Node.h 
+           Triple.h
            
 SOURCES += BasicStore.cpp \
            Connection.cpp \
            Node.cpp \
            PropertyObject.cpp \
+           QObjectMapper.cpp \
            Transaction.cpp \
            TransactionalStore.cpp \
            Triple.cpp

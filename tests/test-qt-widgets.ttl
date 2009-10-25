@@ -20,6 +20,8 @@
 
 :exit_connection
 	a dq:Connection ;
+#	dq:source [ dq:object :exit ; dq:signal "triggered" ] ;
+#	dq:target [ dq:object :mainwindow ; dq:slot "close" ] .
 	dq:source :exit ;
 	dq:source_signal "triggered" ;
 	dq:target :mainwindow ;

@@ -79,67 +79,11 @@ using namespace Dataquay;
 typedef QHash<QString, QObject *> UriObjectMap;
 
 QObject *
-load(Store &store, UriObjectMap &map, QUrl objectUri)
+load(Store &store, UriObjectMap &map, QUrl objectUri);
+
+void
+loadLayoutProperties(Store &store, UriObjectMap &map, CacheingPropertyObject &pod, QObject *o)
 {
-    if (map.contains(objectUri.toString())) {
-	std::cerr << "returning: " << objectUri.toString().toStdString() << std::endl;
-	return map[objectUri.toString()];
-    }
-
-    std::cerr << "loading: " << objectUri.toString().toStdString() << std::endl;
-
-    // - Look up the dq properties: parent, layout_of, layout.  For
-    // each of these, make sure the referred object is loaded before
-    // we proceed.  Then create our object.
-
-    // Note that (at the time of writing) librdf queries do not
-    // properly support OPTIONAL.  So we don't have the option of
-    // looking these up in a single SPARQL query.  Let's use a
-    // PropertyObject instead
-
-    QObject *parent = 0;
-  
-    PropertyObject pod(&store, "dq:", objectUri);
-
-    if (pod.hasProperty("follows")) {
-	load(store, map, pod.getProperty("follows").toUrl());
-    }
-
-    if (pod.hasProperty("parent")) {
-	parent = load(store, map, pod.getProperty("parent").toUrl());
-    }
-
-    QString type = pod.getObjectType().toString();
-    if (!type.startsWith(qtypePrefix)) {
-	std::cerr << "not a qtypePrefix property: " << type.toStdString() << std::endl;
-	return 0;
-    }
-
-    MakerMap mo = makers();
-    if (!mo.contains(type)) {
-	std::cerr << "not a known type: " << type.toStdString() << std::endl;
-	return 0;
-    }
-    
-    std::cerr << "Making object <" << objectUri.toString().toStdString()
-	      << "> of type <" << type.toStdString() << ">" << std::endl;
-
-    QObject *o = mo[type]->make(parent);
-    if (!o) {
-	std::cerr << "Failed to make object!" << std::endl;
-	return o;
-    }
-
-    if (dynamic_cast<QMainWindow *>(parent) &&
-	dynamic_cast<QMenu *>(o)) {
-	dynamic_cast<QMainWindow *>(parent)->menuBar()->addMenu
-	    (dynamic_cast<QMenu *>(o));
-    }
-    if (dynamic_cast<QMenu *>(parent) &&
-	dynamic_cast<QAction *>(o)) {
-	dynamic_cast<QMenu *>(parent)->addAction(dynamic_cast<QAction *>(o));
-    }
-
     QObject *layout = 0;  
     QObject *layoutOf = 0;
     QObject *centralOf = 0;
@@ -180,6 +124,71 @@ load(Store &store, UriObjectMap &map, QUrl objectUri)
 	    std::cerr << "added widget to layout" << std::endl;
 	}
     }
+}
+
+QObject *
+load(Store &store, UriObjectMap &map, QUrl objectUri)
+{
+    if (map.contains(objectUri.toString())) {
+	std::cerr << "returning: " << objectUri.toString().toStdString() << std::endl;
+	return map[objectUri.toString()];
+    }
+
+    std::cerr << "loading: " << objectUri.toString().toStdString() << std::endl;
+
+    // - Look up the dq properties: parent, layout_of, layout.  For
+    // each of these, make sure the referred object is loaded before
+    // we proceed.  Then create our object.
+
+    // Note that (at the time of writing) librdf queries do not
+    // properly support OPTIONAL.  So we don't have the option of
+    // looking these up in a single SPARQL query.  Let's use a
+    // PropertyObject instead
+
+    QObject *parent = 0;
+  
+    CacheingPropertyObject pod(&store, "dq:", objectUri);
+
+    if (pod.hasProperty("follows")) {
+	load(store, map, pod.getProperty("follows").toUrl());
+    }
+
+    if (pod.hasProperty("parent")) {
+	parent = load(store, map, pod.getProperty("parent").toUrl());
+    }
+
+    QString type = pod.getObjectType().toString();
+    if (!type.startsWith(qtypePrefix)) {
+	std::cerr << "not a qtypePrefix property: " << type.toStdString() << std::endl;
+	return 0;
+    }
+
+    MakerMap mo = makers();
+    if (!mo.contains(type)) {
+	std::cerr << "not a known type: " << type.toStdString() << std::endl;
+	return 0;
+    }
+    
+    std::cerr << "Making object <" << objectUri.toString().toStdString()
+	      << "> of type <" << type.toStdString() << ">" << std::endl;
+
+    QObject *o = mo[type]->make(parent);
+    if (!o) {
+	std::cerr << "Failed to make object!" << std::endl;
+	return o;
+    }
+
+    if (dynamic_cast<QMainWindow *>(parent) &&
+	dynamic_cast<QMenu *>(o)) {
+	dynamic_cast<QMainWindow *>(parent)->menuBar()->addMenu
+	    (dynamic_cast<QMenu *>(o));
+    }
+    if (dynamic_cast<QMenu *>(parent) &&
+	dynamic_cast<QAction *>(o)) {
+	dynamic_cast<QMenu *>(parent)->addAction(dynamic_cast<QAction *>(o));
+    }
+
+    loadLayoutProperties(store, map, pod, o);
 
     PropertyObject po(&store, "qtype:", objectUri);
     QStringList pl = po.getProperties();
@@ -198,21 +207,38 @@ load(Store &store, UriObjectMap &map, QUrl objectUri)
     return o;
 }
 
-
 typedef QMap<QObject *, QString> ObjectUriMap;
 
-bool
+QUrl
+save(Store &store, ObjectUriMap &map, QObject *o);
+
+void
+saveLayoutProperties(Store &store, ObjectUriMap &map, PropertyObject &pod, QObject *o)
+{
+    QLayout *layout = dynamic_cast<QLayout *>(o);
+    if (layout) {
+	pod.setProperty(0, "layout_of", save(store, map, o->parent()));
+    }
+    QWidget *widget = dynamic_cast<QWidget *>(o);
+    if (widget) {
+	if (widget->layout()) {
+	    pod.setProperty(0, "layout", save(store, map, widget->layout()));
+	}
+    }
+}
+
+QUrl
 save(Store &store, ObjectUriMap &map, QObject *o)
 {
+    if (map.contains(o)) {
+	std::cerr << "returning" << std::endl;
+	return map[o];
+    }
+
     QString cname = o->metaObject()->className();
 
-    QUrl uri;
-    if (!map.contains(o)) {
-	uri = store.getUniqueUri(":" + cname.toLower().right(cname.length()-1) + "_");
-	map[o] = uri.toString();
-    } else {
-	uri = map[o];
-    }
+    QUrl uri = store.getUniqueUri(":" + cname.toLower().right(cname.length()-1) + "_");
+    map[o] = uri.toString();
 
     QUrl type = store.expand(QString("qtype:%1").arg(cname));
     store.add(Triple(uri, "a", type));
@@ -230,10 +256,13 @@ save(Store &store, ObjectUriMap &map, QObject *o)
 	    QByteArray pnba = pname.toLocal8Bit();
 	    bool write = true;
 	    if (mm.contains(type.toString())) {
+		//!!! or without parent?
 		QObject *deft = mm[type.toString()]->make(o->parent());
 		if (o->property(pnba.data()) == deft->property(pnba.data())) {
 		    std::cerr << "unchanged: " << pnba.data() << std::endl;
 		    write = false;
+		} else {
+		    QDebug(QtDebugMsg) << "different: " << o->property(pnba.data()) << " from " << deft->property(pnba.data()) << endl;
 		}
 		delete deft;
 	    }
@@ -245,25 +274,29 @@ save(Store &store, ObjectUriMap &map, QObject *o)
 
     QObject *previous = 0;
     foreach (QObject *child, o->children()) {
-	if (save(store, map, child)) {
-	    if (previous) {
-		store.add(Triple(map[child], "dq:follows",
-				 store.expand(map[previous])));
-	    }
-	    previous = child;
+	QUrl childUri = save(store, map, child);
+	if (previous) {
+	    store.add(Triple(childUri, "dq:follows",
+			     store.expand(map[previous])));
 	}
+	previous = child;
     }
 
-    return true;
+    return uri;
 }
 
 int
 main(int argc, char **argv)
 {
     QApplication app(argc, argv);
-    
+
+    QString infile = "file:test-qt-widgets.ttl";
+    if (argc > 1) {
+	infile = QString("file:%1").arg(argv[1]);
+    }
+
     BasicStore store;
-    store.import("file:test-qt-widgets.ttl", BasicStore::ImportIgnoreDuplicates);
+    store.import(infile, BasicStore::ImportIgnoreDuplicates);
 
     Triples candidates = store.match(Triple(Node(), "a", Node()));
 

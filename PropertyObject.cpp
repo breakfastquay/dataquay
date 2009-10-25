@@ -152,6 +152,16 @@ PropertyObject::getProperties(Transaction *tx) const
 }
 
 void
+PropertyObject::setProperty(QString name, QVariant value)
+{
+    QUrl property = getPropertyUri(name);
+    Triple t(m_uri, property, Node());
+    m_store->remove(t); // remove all matching triples
+    t.c = Node::fromVariant(value);
+    m_store->add(t);
+}
+
+void
 PropertyObject::setProperty(Transaction *tx, QString name, QVariant value)
 {
     Store *s = getStore(tx);
@@ -212,15 +222,31 @@ CacheingPropertyObject::CacheingPropertyObject(Store *s, QString pfx, QString ur
 {
 }
 
+QUrl
+CacheingPropertyObject::getObjectType() const
+{
+    //!!! too slow
+    return m_po.getObjectType();
+}
+
+QUrl
+CacheingPropertyObject::getObjectType(Transaction *tx) const
+{
+    //!!! too slow
+    return m_po.getObjectType(tx);
+}
+
 bool
 CacheingPropertyObject::hasProperty(QString name) const
 {
+    //!!! too slow
     return m_po.hasProperty(name);
 }
 
 bool
 CacheingPropertyObject::hasProperty(Transaction *tx, QString name) const
 {
+    //!!! too slow
     return m_po.hasProperty(tx, name);
 }
 
@@ -244,6 +270,13 @@ CacheingPropertyObject::getProperty(Transaction *tx, QString name) const
         return value;
     }
     return m_cache[name];
+}
+
+void
+CacheingPropertyObject::setProperty(QString name, QVariant value)
+{
+    m_po.setProperty(name, value);
+    m_cache[name] = value;
 }
 
 void

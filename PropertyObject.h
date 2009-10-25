@@ -191,6 +191,16 @@ public:
      * of converting the given variant to a node via
      * Node::fromVariant.
      */
+    void setProperty(QString name, QVariant value);
+
+    /**
+     * Set the given property to the given value through the given
+     * transaction.  That is, first remove from the store any triples
+     * whose subject and predicate match those for my URI and the
+     * expansion of the given property name, then insert a new triple
+     * whose object part is the result of converting the given variant
+     * to a node via Node::fromVariant.
+     */
     void setProperty(Transaction *tx, QString name, QVariant value);
 
     /**
@@ -249,10 +259,13 @@ public:
     CacheingPropertyObject(Store *s, QString propertyPrefix, QUrl myUri);
     CacheingPropertyObject(Store *s, QString propertyPrefix, QString myUri);
 
+    QUrl getObjectType() const;
+    QUrl getObjectType(Transaction *tx) const;
     bool hasProperty(QString name) const;
     bool hasProperty(Transaction *tx, QString name) const;
     QVariant getProperty(QString name) const;
     QVariant getProperty(Transaction *tx, QString name) const;
+    void setProperty(QString name, QVariant value);
     void setProperty(Transaction *tx, QString name, QVariant value);
     void removeProperty(Transaction *tx, QString name);
 
