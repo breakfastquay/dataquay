@@ -52,15 +52,19 @@ public:
      */
     QObjectMapper(Store *s);
 
+    ~QObjectMapper();
+
     /**
      * Load to the given object all QObject properties defined in this
      * object mapper's store for the given object URI.
      */
     void loadProperties(QObject *o, QUrl uri);
 
+    //!!! how useful is this selection?
     enum PropertySelectionPolicy {
 	PropertiesChangedFromDefault,
 	PropertiesChangedFromUnparentedDefault, //!!!??? any use?
+        AllStoredProperties,
 	AllProperties
     };
 
@@ -93,8 +97,9 @@ public:
 	AllObjects
     };
 
-    void storeObject(QObject *o, URISourcePolicy, PropertySelectionPolicy);
-    void storeObjects(QObject *root, URISourcePolicy, ObjectSelectionPolicy, PropertySelectionPolicy);
+    QUrl storeObject(QObject *o, URISourcePolicy, PropertySelectionPolicy);
+    QUrl storeObjects(QObject *root, URISourcePolicy, ObjectSelectionPolicy,
+                      PropertySelectionPolicy);
 
 private:
     class D;

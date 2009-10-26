@@ -98,10 +98,10 @@ makers()
 class QObjectMapper::D
 {
 public:
-    typedef QHash<QUrl, QObject *> UriObjectMap;
+    typedef QHash<QString, QObject *> UriObjectMap;
     typedef QMap<QObject *, QUrl> ObjectUriMap;
 
-    D(Store *s) : m_s(s) { }
+    D(Store *s) : m_s(s), m_makers(makers()) { }
 
     void loadProperties(QObject *o, QUrl uri) {
 	PropertyObject po(m_s, qtypePrefix, uri);
@@ -119,20 +119,29 @@ public:
     void storeProperties(QObject *o, QUrl uri, PropertySelectionPolicy psp) {
 	QString cname = o->metaObject()->className();
 	QUrl type = m_s->expand(QString("%1%2").arg(qtypePrefix).arg(cname));
-	MakerMap mm = makers(); //!!! wherefrom? throw exception is psp != AllProperties and no maker map available
 	PropertyObject po(m_s, qtypePrefix, uri);
 	for (int i = 0; i < o->metaObject()->propertyCount(); ++i) {
-	    if (o->metaObject()->property(i).isStored()) {
-		QString pname = o->metaObject()->property(i).name();
-		QByteArray pnba = pname.toLocal8Bit();
-		bool write = true;
-		if (mm.contains(type.toString())) {
-		    //!!! or without parent?
-		    QObject *deft = mm[type.toString()]->make(o->parent());
-		    if (o->property(pnba.data()) == deft->property(pnba.data())) {
-			write = false;
-		    }
-		    delete deft;
+            bool write = true;
+            if (psp != AllProperties) {
+                write = o->metaObject()->property(i).isStored();
+            }
+            if (write) {
+                QString pname = o->metaObject()->property(i).name();
+                QByteArray pnba = pname.toLocal8Bit();
+                bool compare =
+                    ((psp == PropertiesChangedFromDefault ||
+                      psp == PropertiesChangedFromUnparentedDefault) &&
+                     m_makers.contains(type.toString())); 
+		if (compare) {
+                    QObject *deftParent = 0;
+                    if (psp == PropertiesChangedFromDefault) {
+                        deftParent = o->parent();
+                    }
+                    QObject *deft = m_makers[type.toString()]->make(deftParent);
+                    if (o->property(pnba.data()) == deft->property(pnba.data())) {
+                        write = false;
+                    }
+                    delete deft;
 		}
 		if (write) {
 		    po.setProperty(0, pname, o->property(pnba.data()));
@@ -150,45 +159,74 @@ public:
     }
 
     QObject *loadAllObjects(QObject *parent) {
-	//!!!
 
-	// We would pile in and load all objects in the store in the
-	// order in which we find them, recursing up to their parents
-	// as appropriate.  But we've been given a parent, which (if
-	// non-null) needs to be the parent of all in the forest.
-	// Should we add this afterwards?
+        UriObjectMap map;
+
+        Triples candidates = m_s->match(Triple(Node(), "a", Node()));
+
+        foreach (Triple t, candidates) {
+            
+            if (t.a.type != Node::URI || t.c.type != Node::URI) continue;
+
+            QString objectUri = t.a.value;
+            QString typeUri = t.c.value;
+            if (!m_makers.contains(typeUri)) continue;
+            
+            loadFrom(objectUri, map);
+        }
+
+        QObjectList rootObjects;
+        foreach (QObject *o, map) {
+            if (!o->parent()) {
+                rootObjects.push_back(o);
+            }
+        }
+
+        if (rootObjects.size() == 1) {
+            return rootObjects[0];
+        }
+
+        QObject *superRoot = new QObject;
+        foreach (QObject *o, rootObjects) {
+            o->setParent(superRoot);
+        }
+        return superRoot;
     }
 
+    QUrl storeObject(QObject *o,
+                     URISourcePolicy sourcePolicy,
+                     PropertySelectionPolicy propertyPolicy)
+    {
+        return storeSingle(o, ObjectUriMap(), sourcePolicy, propertyPolicy);
+    }
+
+    QUrl storeObjects(QObject *root,
+                      URISourcePolicy sourcePolicy,
+                      ObjectSelectionPolicy objectPolicy,
+                      PropertySelectionPolicy propertyPolicy)
+    {
+        return storeTree(root, ObjectUriMap(),
+                         sourcePolicy, objectPolicy, propertyPolicy);
+    }
 
 private:
     Store *m_s;
+    MakerMap m_makers;
 	
     QObject *loadSingle(QUrl uri, QObject *parent, UriObjectMap &map) {
 
-	if (map.contains(uri)) {
-	    return map[uri];
+	if (map.contains(uri.toString())) {
+	    return map[uri.toString()];
 	}
 
 	//!!! how to configure prefix?
 	PropertyObject pod(m_s, dqPrefix, uri);
-
 	QString type = pod.getObjectType().toString();
-	if (!type.startsWith(qtypePrefix)) {
-	    std::cerr << "not a qtypePrefix property: " << type.toStdString() << std::endl;
-	    //!!!
-	    return 0;
-	}
-
-	MakerMap mm = makers();
-	if (!mm.contains(type)) {
-	    std::cerr << "not a known type: " << type.toStdString() << std::endl;
-	    return 0;
-	}
+	if (!m_makers.contains(type)) return 0;
     
-	std::cerr << "Making object <" << objectUri.toString().toStdString()
-		  << "> of type <" << type.toStdString() << ">" << std::endl;
+        DEBUG << "Making object " << uri << " of type " << uri << endl;
 
-	QObject *o = mm[type]->make(parent);
+	QObject *o = m_makers[type]->make(parent);
 	if (!o) {
 	    std::cerr << "Failed to make object!" << std::endl;
 	    return o;
@@ -196,33 +234,145 @@ private:
 	
 	loadProperties(o, uri);
 
+        o->setProperty("uri", uri);
+        map[uri.toString()] = o;
+
 	//!!! call back on registered property/arrangement setters
 	return o;
     }
 
-    QObject *loadTree(QUrl root, QObject *parent, UriObjectMap &map) {
+    QObject *loadTree(QUrl uri, QObject *parent, UriObjectMap &map) {
 
-	PropertyObject po(m_s, dqPrefix, uri);
+        QObject *o = loadSingle(uri, parent, map);
+
+        Triples childTriples = m_s->match(Triple(Node(), "dq:parent", uri));
+        foreach (Triple t, childTriples) {
+            loadTree(t.a.value, o, map);
+        }
+
+        return o;
+    }
+
+    QObject *loadFrom(QUrl source, UriObjectMap &map) {
+
+	PropertyObject po(m_s, dqPrefix, source);
 
 	if (po.hasProperty("follows")) {
-	    loadTree(pod.getProperty("follows").toUrl(), map);
+	    loadFrom(po.getProperty("follows").toUrl(), map);
 	}
 
-	return loadSingle(root, parent, map);
-    }
-
-    QObject *loadParent(QUrl uri, UriObjectMap &map) {
-
-	PropertyObject po(m_s, dqPrefix, uri);
-
+        QObject *parent = 0;
 	if (po.hasProperty("parent")) {
-	    return loadSingle(pod.getProperty("parent").toUrl(), map);
+	    parent = loadFrom(po.getProperty("parent").toUrl(), map);
 	}
 
-	return 0;
+        QObject *o = loadSingle(source, parent, map);
+        return o;
     }
-	
+
+    QUrl storeSingle(QObject *o, ObjectUriMap &map,
+                     URISourcePolicy sourcePolicy,
+                     PropertySelectionPolicy propertyPolicy) {
+
+        if (map.contains(o)) return map[o];
+
+        QString cname = o->metaObject()->className();
+
+        QUrl uri;
+        bool setUri = false;
+        if (sourcePolicy != CreateNewURIs) {
+            QVariant uriV = o->property("uri");
+            if (uriV != QVariant()) uri = uriV.toUrl();
+            else setUri = true;
+        }
+        if (uri == QUrl()) {
+            uri = m_s->getUniqueUri
+                (":" + cname.toLower().right(cname.length()-1) + "_");
+        }
+        
+        map[o] = uri;
+        if (setUri) o->setProperty("uri", uri); //!!! document this
+        
+        QUrl type = m_s->expand(QString("qtype:%1").arg(cname));
+        m_s->add(Triple(uri, "a", type));
+
+        if (o->parent() && map.contains(o->parent())) {
+            m_s->add(Triple(uri, "dq:parent", map[o->parent()]));
+        }
+
+        storeProperties(o, uri, propertyPolicy);
+
+        return uri;
+    }
+
+    QUrl storeTree(QObject *o, ObjectUriMap &map,
+                   URISourcePolicy sourcePolicy,
+                   ObjectSelectionPolicy objectPolicy,
+                   PropertySelectionPolicy propertyPolicy) {
+
+        if (objectPolicy == ObjectsWithURIs) {
+            if (o->property("uri") == QVariant()) return QUrl();
+        }
+
+        QUrl me = storeSingle(o, map, sourcePolicy, propertyPolicy);
+
+        foreach (QObject *c, o->children()) {
+            storeTree(c, map, sourcePolicy, objectPolicy, propertyPolicy);
+        }
+    }
+
 };
+
+QObjectMapper::QObjectMapper(Store *s) :
+    m_d(new D(s))
+{ }
+
+QObjectMapper::~QObjectMapper()
+{
+    delete m_d;
+}
+
+void
+QObjectMapper::loadProperties(QObject *o, QUrl uri)
+{
+    m_d->loadProperties(o, uri);
+}
+
+void
+QObjectMapper::storeProperties(QObject *o, QUrl uri, PropertySelectionPolicy psp)
+{
+    m_d->storeProperties(o, uri, psp);
+}
+
+QObject *
+QObjectMapper::loadObject(QUrl uri, QObject *parent)
+{
+    return m_d->loadObject(uri, parent);
+}
+
+QObject *
+QObjectMapper::loadObjects(QUrl rootUri, QObject *parent)
+{
+    return m_d->loadObjects(rootUri, parent);
+}
+
+QObject *
+QObjectMapper::loadAllObjects(QObject *parent)
+{
+    return m_d->loadAllObjects(parent);
+}
+
+QUrl
+QObjectMapper::storeObject(QObject *o, URISourcePolicy usp, PropertySelectionPolicy psp)
+{
+    return m_d->storeObject(o, usp, psp);
+}
+
+QUrl
+QObjectMapper::storeObjects(QObject *root, URISourcePolicy usp, ObjectSelectionPolicy osp, PropertySelectionPolicy psp)
+{
+    return m_d->storeObjects(root, usp, osp, psp);
+}
 
 }
 
