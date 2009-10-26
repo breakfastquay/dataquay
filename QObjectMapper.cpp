@@ -74,11 +74,11 @@ makers()
     static QMutex mutex;
     QMutexLocker locker(&mutex);
 
-#ifdef ADD_WIDGETS
-    //!!!
     if (map.empty()) {
 #define MAP0(x) map[qtypePrefix + #x] = new Maker0<x>();
 #define MAP1(x,y) map[qtypePrefix + #x] = new Maker1<x,y>();
+        MAP1(QObject, QObject);
+#ifdef ADD_WIDGETS
 	MAP0(QMainWindow);
 	MAP1(QFrame, QWidget);
 	MAP1(QLabel, QWidget);
@@ -87,10 +87,10 @@ makers()
 	MAP1(QMenu, QWidget);
 	MAP1(QMenuBar, QWidget);
 	MAP1(QAction, QObject);
+#endif
 #undef MAP0
 #undef MAP1
     }
-#endif
 
     return map;
 }
@@ -101,7 +101,11 @@ public:
     typedef QHash<QString, QObject *> UriObjectMap;
     typedef QMap<QObject *, QUrl> ObjectUriMap;
 
-    D(Store *s) : m_s(s), m_makers(makers()) { }
+    D(Store *s) : m_s(s), m_makers(makers()) {
+//!!! addPrefix not a part of Store -- what to do for the best?
+//        m_s->addPrefix("qtype", qtypePrefix);
+//        m_s->addPrefix("dq", dqPrefix);
+    }
 
     void loadProperties(QObject *o, QUrl uri) {
 	PropertyObject po(m_s, qtypePrefix, uri);
@@ -170,7 +174,10 @@ public:
 
             QString objectUri = t.a.value;
             QString typeUri = t.c.value;
-            if (!m_makers.contains(typeUri)) continue;
+            if (!m_makers.contains(typeUri)) {
+                DEBUG << "Can't construct type " << typeUri << endl;
+                continue;
+            }
             
             loadFrom(objectUri, map);
         }
@@ -213,6 +220,8 @@ private:
     Store *m_s;
     MakerMap m_makers;
 	
+    //!!! should have exceptions on errors, not just returning 0
+
     QObject *loadSingle(QUrl uri, QObject *parent, UriObjectMap &map) {
 
 	if (map.contains(uri.toString())) {
@@ -222,7 +231,10 @@ private:
 	//!!! how to configure prefix?
 	PropertyObject pod(m_s, dqPrefix, uri);
 	QString type = pod.getObjectType().toString();
-	if (!m_makers.contains(type)) return 0;
+	if (!m_makers.contains(type)) {
+            DEBUG << "Can't construct type " << type << endl;
+            return 0;
+        }
     
         DEBUG << "Making object " << uri << " of type " << uri << endl;
 

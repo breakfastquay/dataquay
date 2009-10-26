@@ -35,11 +35,13 @@
 #include "../PropertyObject.h"
 #include "../TransactionalStore.h"
 #include "../Connection.h"
+#include "../QObjectMapper.h"
 #include "../RDFException.h"
 #include "../Debug.h"
 
 #include <QStringList>
 #include <QUrl>
+#include <QTimer>
 #include <iostream>
 
 #include <cassert>
@@ -936,6 +938,69 @@ testConnection()
     return true;
 }
 
+bool 
+testObjectMapper()
+{
+    cerr << "testObjectMapper starting..." << endl;
+
+    BasicStore store;
+    
+    //!!! should not have to do this:
+    store.addPrefix("qtype", "http://breakfastquay.com/rdf/dataquay/qtype/");
+    store.addPrefix("dq", "http://breakfastquay.com/rdf/dataquay/common/");
+
+    QObjectMapper mapper(&store);
+    
+    QObject *o = new QObject;
+    o->setObjectName("Test Object");
+
+    //!!! I don't think we can test all these options... must limit them
+    
+    QUrl uri = mapper.storeObject(o,
+                                  QObjectMapper::UseObjectProvidedURIs,
+                                  QObjectMapper::PropertiesChangedFromDefault);
+    cerr << "Stored QObject as " << uri << endl;
+
+    QObject *recalled = mapper.loadObject(uri, 0);
+    if (!recalled) {
+        cerr << "Failed to recall object" << endl;
+        return false;
+    }
+    if (recalled->objectName() != o->objectName()) {
+        cerr << "Wrong object name recalled" << endl;
+        return false;
+    }
+
+    QTimer *t = new QTimer;
+    t->setSingleShot(true);
+    t->setInterval(4);
+
+    QUrl turi = mapper.storeObject(t,
+                                   QObjectMapper::CreateNewURIs,
+                                   QObjectMapper::AllStoredProperties);
+    cerr << "Stored QTimer as " << uri << endl;
+
+    recalled = mapper.loadObject(turi, 0);
+    if (!recalled) {
+        cerr << "Failed to recall object" << endl;
+        return false;
+    }
+    if (recalled->objectName() != t->objectName()) {
+        cerr << "Wrong object name recalled" << endl;
+        return false;
+    }
+    if (!qobject_cast<QTimer *>(recalled)) {
+        cerr << "QTimer not a QTimer after recall" << endl;
+        return false;
+    }
+
+    return true;
+
+        
+    
+
+}
+
 }
 
 }
@@ -947,6 +1012,7 @@ main()
     if (!Dataquay::Test::testImportOptions()) return false;
     if (!Dataquay::Test::testTransactionalStore()) return false;
     if (!Dataquay::Test::testConnection()) return false;
+    if (!Dataquay::Test::testObjectMapper()) return false;
 
     std::cerr << "testDataquay successfully completed" << std::endl;
     return true;

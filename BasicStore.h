@@ -78,6 +78,8 @@ public:
     /**
      * Add a prefix/uri pair (an XML namespace, except that this class
      * doesn't directly deal in XML) for use in subsequent operations.
+     * If the prefix has already been added, this overrides any uri
+     * associated with it.
      *
      * Example: addPrefix("dc", "http://purl.org/dc/elements/1.1/") to
      * add a prefix for the Dublin Core namespace.

@@ -43,6 +43,23 @@ namespace Dataquay
 
 class Store;
 
+/*
+ * strategies for mapping qobject trees to datastore:
+ *
+ * 1. our custom qobjects are themselves written to use the rdf store
+ *    through e.g. propertyobject -- use QObjectMapper to reanimate the
+ *    tree when loading document, but don't need to use it thereafter?
+ *
+ * 2. custom qobjects emit notify signals when properties change (or
+ *    e.g. children added), QObjectMapper receives those signals and
+ *    re-writes the properties to database
+ *
+ * 3. qobjects store the data themselves, we just load the objects and
+ *    then write them all back en masse on request.
+ *
+ * How to manage transactions in each case? And commands?
+ */
+
 class QObjectMapper
 {
 public:
