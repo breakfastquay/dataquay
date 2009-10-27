@@ -978,7 +978,22 @@ testObjectMapper()
     QUrl turi = mapper.storeObject(t,
                                    QObjectMapper::CreateNewURIs,
                                    QObjectMapper::AllStoredProperties);
-    cerr << "Stored QTimer as " << uri << endl;
+    cerr << "Stored QTimer as " << turi << endl;
+
+    bool caught = false;
+    try {
+        recalled = mapper.loadObject(turi, 0);
+    } catch (QObjectMapper::UnknownTypeException) {
+        cerr << "Correctly caught UnknownTypeException when trying to recall unregistered object" << endl;
+        caught = true;
+    }
+    if (!caught) {
+        cerr << "Expected UnknownTypeException when trying to recall unregistered object did not materialise" << endl;
+        return false;
+    }
+
+    QObjectBuilder::getInstance()->
+        registerWithParentConstructor<QTimer, QObject>();
 
     recalled = mapper.loadObject(turi, 0);
     if (!recalled) {
@@ -993,6 +1008,8 @@ testObjectMapper()
         cerr << "QTimer not a QTimer after recall" << endl;
         return false;
     }
+
+    store.save("test-object-mapper.ttl");
 
     return true;
 

@@ -35,6 +35,10 @@
 #define _DATAQUAY_QOBJECT_MAPPER_H_
 
 #include <QUrl>
+#include <QHash>
+#include <QString>
+
+#include <exception>
 
 class QObject;
 
@@ -42,6 +46,69 @@ namespace Dataquay
 {
 
 class Store;
+
+class QObjectBuilder
+{
+public:
+    static QObjectBuilder *getInstance();
+
+    template <typename T>
+    void registerWithDefaultConstructor() {
+        m_map[T::staticMetaObject.className()] = new Builder0<T>();
+    }
+
+    template <typename T, typename Parent>
+    void registerWithParentConstructor() {
+        m_map[T::staticMetaObject.className()] = new Builder1<T, Parent>();
+    }
+
+    bool knows(QString className) {
+        return m_map.contains(className);
+    }
+
+    QObject *build(QString className) {
+        if (!knows(className)) return 0;
+        return m_map[className]->build(0);
+    }
+
+    QObject *build(QString className, QObject *parent) {
+        if (!knows(className)) return 0;
+        return m_map[className]->build(parent);
+    }
+
+private:
+    QObjectBuilder() {
+        registerWithParentConstructor<QObject, QObject>();
+    }
+    ~QObjectBuilder() {
+        for (BuilderMap::iterator i = m_map.begin(); i != m_map.end(); ++i) {
+            delete *i;
+        }
+    }
+
+    struct BuilderBase {
+        virtual QObject *build(QObject *) = 0;
+    };
+
+    template <typename T> 
+    struct Builder0 : public BuilderBase {
+        virtual QObject *build(QObject *p) {
+            T *t = new T();
+            if (p) t->setParent(p);
+            return t;
+        }
+    };
+
+    template <typename T, typename Parent> 
+    struct Builder1 : public BuilderBase {
+        virtual QObject *build(QObject *p) {
+            return new T(qobject_cast<Parent *>(p));
+        }
+    };
+
+    typedef QHash<QString, BuilderBase *> BuilderMap;
+    BuilderMap m_map;
+};
 
 /*
  * strategies for mapping qobject trees to datastore:
@@ -70,6 +137,33 @@ public:
     QObjectMapper(Store *s);
 
     ~QObjectMapper();
+
+    class UnknownTypeException : virtual public std::exception
+    {
+    public:
+        UnknownTypeException(QString type) throw() : m_type(type) { }
+        virtual ~UnknownTypeException() throw() { }
+        virtual const char *what() const throw() {
+            return QString("Unknown type: %1").arg(m_type).toLocal8Bit().data();
+        }
+
+    protected:
+        QString m_type;
+    };
+
+    class ConstructionFailedException : virtual public std::exception
+    {
+    public:
+        ConstructionFailedException(QString type) throw() : m_type(type) { }
+        virtual ~ConstructionFailedException() throw() { }
+        virtual const char *what() const throw() {
+            return QString("Unknown type: %1")
+                .arg(m_type).toLocal8Bit().data();
+        }
+
+    protected:
+        QString m_type;
+    };
 
     /**
      * Load to the given object all QObject properties defined in this

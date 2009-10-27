@@ -49,7 +49,7 @@ namespace Dataquay {
 
 static QString qtypePrefix = "http://breakfastquay.com/rdf/dataquay/qtype/";
 static QString dqPrefix = "http://breakfastquay.com/rdf/dataquay/common/";
-
+/*
 struct MakerBase {
     virtual QObject *make(QObject *) = 0;
 };
@@ -94,6 +94,17 @@ makers()
 
     return map;
 }
+*/
+
+QObjectBuilder *
+QObjectBuilder::getInstance()
+{
+    static QObjectBuilder *instance;
+    static QMutex mutex;
+    QMutexLocker locker(&mutex);
+    if (!instance) instance = new QObjectBuilder();
+    return instance;
+}
 
 class QObjectMapper::D
 {
@@ -101,7 +112,7 @@ public:
     typedef QHash<QString, QObject *> UriObjectMap;
     typedef QMap<QObject *, QUrl> ObjectUriMap;
 
-    D(Store *s) : m_s(s), m_makers(makers()) {
+    D(Store *s) : m_s(s) {
 //!!! addPrefix not a part of Store -- what to do for the best?
 //        m_s->addPrefix("qtype", qtypePrefix);
 //        m_s->addPrefix("dq", dqPrefix);
@@ -121,13 +132,20 @@ public:
     }
 
     void storeProperties(QObject *o, QUrl uri, PropertySelectionPolicy psp) {
+
 	QString cname = o->metaObject()->className();
-	QUrl type = m_s->expand(QString("%1%2").arg(qtypePrefix).arg(cname));
 	PropertyObject po(m_s, qtypePrefix, uri);
+
+        QObjectBuilder *builder = QObjectBuilder::getInstance();
+
 	for (int i = 0; i < o->metaObject()->propertyCount(); ++i) {
+
             bool write = true;
             if (psp != AllProperties) {
-                write = o->metaObject()->property(i).isStored();
+                write =
+                    o->metaObject()->property(i).isStored() &&
+                    o->metaObject()->property(i).isReadable() &&
+                    o->metaObject()->property(i).isWritable(); // no point in saving it unless it can be reloaded
             }
             if (write) {
                 QString pname = o->metaObject()->property(i).name();
@@ -135,13 +153,13 @@ public:
                 bool compare =
                     ((psp == PropertiesChangedFromDefault ||
                       psp == PropertiesChangedFromUnparentedDefault) &&
-                     m_makers.contains(type.toString())); 
+                     builder->knows(cname)); 
 		if (compare) {
                     QObject *deftParent = 0;
                     if (psp == PropertiesChangedFromDefault) {
                         deftParent = o->parent();
                     }
-                    QObject *deft = m_makers[type.toString()]->make(deftParent);
+                    QObject *deft = builder->build(cname, deftParent);
                     if (o->property(pnba.data()) == deft->property(pnba.data())) {
                         write = false;
                     }
@@ -155,11 +173,13 @@ public:
     }
 
     QObject *loadObject(QUrl uri, QObject *parent) {
-	return loadSingle(uri, parent, UriObjectMap());
+        UriObjectMap map;
+	return loadSingle(uri, parent, map);
     }
 
     QObject *loadObjects(QUrl root, QObject *parent) {
-	return loadTree(root, parent, UriObjectMap());
+        UriObjectMap map;
+	return loadTree(root, parent, map);
     }
 
     QObject *loadAllObjects(QObject *parent) {
@@ -168,13 +188,19 @@ public:
 
         Triples candidates = m_s->match(Triple(Node(), "a", Node()));
 
+        QObjectBuilder *builder = QObjectBuilder::getInstance();
+
         foreach (Triple t, candidates) {
             
             if (t.a.type != Node::URI || t.c.type != Node::URI) continue;
 
             QString objectUri = t.a.value;
             QString typeUri = t.c.value;
-            if (!m_makers.contains(typeUri)) {
+
+            if (!typeUri.startsWith(qtypePrefix)) continue;
+            QString type = typeUri.replace(qtypePrefix, "");
+
+            if (!builder->knows(type)) {
                 DEBUG << "Can't construct type " << typeUri << endl;
                 continue;
             }
@@ -204,7 +230,8 @@ public:
                      URISourcePolicy sourcePolicy,
                      PropertySelectionPolicy propertyPolicy)
     {
-        return storeSingle(o, ObjectUriMap(), sourcePolicy, propertyPolicy);
+        ObjectUriMap map;
+        return storeSingle(o, map, sourcePolicy, propertyPolicy);
     }
 
     QUrl storeObjects(QObject *root,
@@ -212,13 +239,12 @@ public:
                       ObjectSelectionPolicy objectPolicy,
                       PropertySelectionPolicy propertyPolicy)
     {
-        return storeTree(root, ObjectUriMap(),
-                         sourcePolicy, objectPolicy, propertyPolicy);
+        ObjectUriMap map;
+        return storeTree(root, map, sourcePolicy, objectPolicy, propertyPolicy);
     }
 
 private:
     Store *m_s;
-    MakerMap m_makers;
 	
     //!!! should have exceptions on errors, not just returning 0
 
@@ -231,25 +257,23 @@ private:
 	//!!! how to configure prefix?
 	PropertyObject pod(m_s, dqPrefix, uri);
 	QString type = pod.getObjectType().toString();
-	if (!m_makers.contains(type)) {
-            DEBUG << "Can't construct type " << type << endl;
-            return 0;
-        }
+        if (!type.startsWith(qtypePrefix)) throw UnknownTypeException(type);
+
+        type = type.replace(qtypePrefix, "");
+        QObjectBuilder *builder = QObjectBuilder::getInstance();
+	if (!builder->knows(type)) throw UnknownTypeException(type);
     
         DEBUG << "Making object " << uri << " of type " << uri << endl;
 
-	QObject *o = m_makers[type]->make(parent);
-	if (!o) {
-	    std::cerr << "Failed to make object!" << std::endl;
-	    return o;
-	}
+	QObject *o = builder->build(type, parent);
+	if (!o) throw ConstructionFailedException(type);
 	
 	loadProperties(o, uri);
 
         o->setProperty("uri", uri);
         map[uri.toString()] = o;
 
-	//!!! call back on registered property/arrangement setters
+	//!!! call back on registered property/arrangement setters (qwidget, qlayout etc)
 	return o;
     }
 
@@ -270,12 +294,18 @@ private:
 	PropertyObject po(m_s, dqPrefix, source);
 
 	if (po.hasProperty("follows")) {
-	    loadFrom(po.getProperty("follows").toUrl(), map);
+            try {
+                loadFrom(po.getProperty("follows").toUrl(), map);
+            } catch (UnknownTypeException) { }
 	}
 
         QObject *parent = 0;
 	if (po.hasProperty("parent")) {
-	    parent = loadFrom(po.getProperty("parent").toUrl(), map);
+            try {
+                parent = loadFrom(po.getProperty("parent").toUrl(), map);
+            } catch (UnknownTypeException) {
+                parent = 0;
+            }
 	}
 
         QObject *o = loadSingle(source, parent, map);
@@ -331,6 +361,8 @@ private:
         foreach (QObject *c, o->children()) {
             storeTree(c, map, sourcePolicy, objectPolicy, propertyPolicy);
         }
+        
+        return me;
     }
 
 };
