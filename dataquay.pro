@@ -17,7 +17,8 @@ HEADERS += BasicStore.h \
            Connection.h \
            Node.h \
            PropertyObject.h \
-           QObjectMapper.h \
+           ObjectBuilder.h \
+           ObjectMapper.h \
            RDFException.h \
            Store.h \
            Transaction.h \
@@ -28,7 +29,8 @@ SOURCES += BasicStore.cpp \
            Connection.cpp \
            Node.cpp \
            PropertyObject.cpp \
-           QObjectMapper.cpp \
+           ObjectBuilder.cpp \
+           ObjectMapper.cpp \
            Transaction.cpp \
            TransactionalStore.cpp \
            Triple.cpp

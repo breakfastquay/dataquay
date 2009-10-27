@@ -31,12 +31,10 @@
     authorization.
 */
 
-#ifndef _DATAQUAY_QOBJECT_MAPPER_H_
-#define _DATAQUAY_QOBJECT_MAPPER_H_
+#ifndef _DATAQUAY_OBJECT_MAPPER_H_
+#define _DATAQUAY_OBJECT_MAPPER_H_
 
 #include <QUrl>
-#include <QHash>
-#include <QString>
 
 #include <exception>
 
@@ -47,78 +45,15 @@ namespace Dataquay
 
 class Store;
 
-class QObjectBuilder
-{
-public:
-    static QObjectBuilder *getInstance();
-
-    template <typename T>
-    void registerWithDefaultConstructor() {
-        m_map[T::staticMetaObject.className()] = new Builder0<T>();
-    }
-
-    template <typename T, typename Parent>
-    void registerWithParentConstructor() {
-        m_map[T::staticMetaObject.className()] = new Builder1<T, Parent>();
-    }
-
-    bool knows(QString className) {
-        return m_map.contains(className);
-    }
-
-    QObject *build(QString className) {
-        if (!knows(className)) return 0;
-        return m_map[className]->build(0);
-    }
-
-    QObject *build(QString className, QObject *parent) {
-        if (!knows(className)) return 0;
-        return m_map[className]->build(parent);
-    }
-
-private:
-    QObjectBuilder() {
-        registerWithParentConstructor<QObject, QObject>();
-    }
-    ~QObjectBuilder() {
-        for (BuilderMap::iterator i = m_map.begin(); i != m_map.end(); ++i) {
-            delete *i;
-        }
-    }
-
-    struct BuilderBase {
-        virtual QObject *build(QObject *) = 0;
-    };
-
-    template <typename T> 
-    struct Builder0 : public BuilderBase {
-        virtual QObject *build(QObject *p) {
-            T *t = new T();
-            if (p) t->setParent(p);
-            return t;
-        }
-    };
-
-    template <typename T, typename Parent> 
-    struct Builder1 : public BuilderBase {
-        virtual QObject *build(QObject *p) {
-            return new T(qobject_cast<Parent *>(p));
-        }
-    };
-
-    typedef QHash<QString, BuilderBase *> BuilderMap;
-    BuilderMap m_map;
-};
-
 /*
  * strategies for mapping qobject trees to datastore:
  *
  * 1. our custom qobjects are themselves written to use the rdf store
- *    through e.g. propertyobject -- use QObjectMapper to reanimate the
+ *    through e.g. propertyobject -- use ObjectMapper to reanimate the
  *    tree when loading document, but don't need to use it thereafter?
  *
  * 2. custom qobjects emit notify signals when properties change (or
- *    e.g. children added), QObjectMapper receives those signals and
+ *    e.g. children added), ObjectMapper receives those signals and
  *    re-writes the properties to database
  *
  * 3. qobjects store the data themselves, we just load the objects and
@@ -127,16 +62,16 @@ private:
  * How to manage transactions in each case? And commands?
  */
 
-class QObjectMapper
+class ObjectMapper
 {
 public:
     /**
-     * Create a QObjectMapper ready to load and store objects from and
+     * Create a ObjectMapper ready to load and store objects from and
      * to the given RDF store.
      */
-    QObjectMapper(Store *s);
+    ObjectMapper(Store *s);
 
-    ~QObjectMapper();
+    ~ObjectMapper();
 
     class UnknownTypeException : virtual public std::exception {
     public:

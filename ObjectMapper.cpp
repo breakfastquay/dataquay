@@ -31,12 +31,11 @@
     authorization.
 */
 
-#include "QObjectMapper.h"
+#include "ObjectMapper.h"
+#include "ObjectBuilder.h"
 #include "PropertyObject.h"
 #include "Store.h"
 
-#include <QMutex>
-#include <QMutexLocker>
 #include <QMetaObject>
 #include <QMetaProperty>
 #include <QVariant>
@@ -52,17 +51,7 @@ namespace Dataquay {
 static QString qtypePrefix = "http://breakfastquay.com/rdf/dataquay/qtype/";
 static QString dqPrefix = "http://breakfastquay.com/rdf/dataquay/common/";
 
-QObjectBuilder *
-QObjectBuilder::getInstance()
-{
-    static QObjectBuilder *instance;
-    static QMutex mutex;
-    QMutexLocker locker(&mutex);
-    if (!instance) instance = new QObjectBuilder();
-    return instance;
-}
-
-class QObjectMapper::D
+class ObjectMapper::D
 {
 public:
     typedef QHash<QString, QObject *> UriObjectMap;
@@ -102,7 +91,7 @@ public:
 	    QVariant value = po.getProperty(property);
 	    if (!o->setProperty(ba.data(), value)) {
 		// Not an error; could be a dynamic property
-		DEBUG << "QObjectMapper::loadProperties: Property set failed for property " << ba.data() << " to value " << value << " on object " << uri << endl;
+		DEBUG << "ObjectMapper::loadProperties: Property set failed for property " << ba.data() << " to value " << value << " on object " << uri << endl;
 	    }
 	}
     }
@@ -112,7 +101,7 @@ public:
 	QString cname = o->metaObject()->className();
 	PropertyObject po(m_s, qtypePrefix, uri);
 
-        QObjectBuilder *builder = QObjectBuilder::getInstance();
+        ObjectBuilder *builder = ObjectBuilder::getInstance();
 
 	for (int i = 0; i < o->metaObject()->propertyCount(); ++i) {
 
@@ -154,7 +143,7 @@ public:
 
         Triples candidates = m_s->match(Triple(Node(), "a", Node()));
 
-        QObjectBuilder *builder = QObjectBuilder::getInstance();
+        ObjectBuilder *builder = ObjectBuilder::getInstance();
 
         foreach (Triple t, candidates) {
             
@@ -223,7 +212,7 @@ private:
         if (!type.startsWith(qtypePrefix)) throw UnknownTypeException(type);
 
         type = type.replace(qtypePrefix, "");
-        QObjectBuilder *builder = QObjectBuilder::getInstance();
+        ObjectBuilder *builder = ObjectBuilder::getInstance();
 	if (!builder->knows(type)) throw UnknownTypeException(type);
     
         DEBUG << "Making object " << uri << " of type " << uri << endl;
@@ -323,77 +312,77 @@ private:
 
 };
 
-QObjectMapper::QObjectMapper(Store *s) :
+ObjectMapper::ObjectMapper(Store *s) :
     m_d(new D(s))
 { }
 
-QObjectMapper::~QObjectMapper()
+ObjectMapper::~ObjectMapper()
 {
     delete m_d;
 }
 
 void
-QObjectMapper::setPropertySavePolicy(PropertySavePolicy policy)
+ObjectMapper::setPropertySavePolicy(PropertySavePolicy policy)
 {
     m_d->setPropertySavePolicy(policy);
 }
 
-QObjectMapper::PropertySavePolicy
-QObjectMapper::getPropertySavePolicy() const
+ObjectMapper::PropertySavePolicy
+ObjectMapper::getPropertySavePolicy() const
 {
     return m_d->getPropertySavePolicy();
 }
 
 void
-QObjectMapper::setObjectSavePolicy(ObjectSavePolicy policy)
+ObjectMapper::setObjectSavePolicy(ObjectSavePolicy policy)
 {
     m_d->setObjectSavePolicy(policy);
 }
 
-QObjectMapper::ObjectSavePolicy
-QObjectMapper::getObjectSavePolicy() const
+ObjectMapper::ObjectSavePolicy
+ObjectMapper::getObjectSavePolicy() const
 {
     return m_d->getObjectSavePolicy();
 }
 
 void
-QObjectMapper::loadProperties(QObject *o, QUrl uri)
+ObjectMapper::loadProperties(QObject *o, QUrl uri)
 {
     m_d->loadProperties(o, uri);
 }
 
 void
-QObjectMapper::storeProperties(QObject *o, QUrl uri)
+ObjectMapper::storeProperties(QObject *o, QUrl uri)
 {
     m_d->storeProperties(o, uri);
 }
 
 QObject *
-QObjectMapper::loadObject(QUrl uri, QObject *parent)
+ObjectMapper::loadObject(QUrl uri, QObject *parent)
 {
     return m_d->loadObject(uri, parent);
 }
 
 QObject *
-QObjectMapper::loadObjects(QUrl rootUri, QObject *parent)
+ObjectMapper::loadObjects(QUrl rootUri, QObject *parent)
 {
     return m_d->loadObjects(rootUri, parent);
 }
 
 QObject *
-QObjectMapper::loadAllObjects(QObject *parent)
+ObjectMapper::loadAllObjects(QObject *parent)
 {
     return m_d->loadAllObjects(parent);
 }
 
 QUrl
-QObjectMapper::storeObject(QObject *o)
+ObjectMapper::storeObject(QObject *o)
 {
     return m_d->storeObject(o);
 }
 
 QUrl
-QObjectMapper::storeObjects(QObject *root)
+ObjectMapper::storeObjects(QObject *root)
 {
     return m_d->storeObjects(root);
 }

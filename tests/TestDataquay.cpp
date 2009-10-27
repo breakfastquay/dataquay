@@ -35,7 +35,8 @@
 #include "../PropertyObject.h"
 #include "../TransactionalStore.h"
 #include "../Connection.h"
-#include "../QObjectMapper.h"
+#include "../ObjectMapper.h"
+#include "../ObjectBuilder.h"
 #include "../RDFException.h"
 #include "../Debug.h"
 
@@ -949,7 +950,7 @@ testObjectMapper()
     store.addPrefix("qtype", "http://breakfastquay.com/rdf/dataquay/qtype/");
     store.addPrefix("dq", "http://breakfastquay.com/rdf/dataquay/common/");
 
-    QObjectMapper mapper(&store);
+    ObjectMapper mapper(&store);
     
     QObject *o = new QObject;
     o->setObjectName("Test Object");
@@ -979,7 +980,7 @@ testObjectMapper()
     bool caught = false;
     try {
         recalled = mapper.loadObject(turi, 0);
-    } catch (QObjectMapper::UnknownTypeException) {
+    } catch (ObjectMapper::UnknownTypeException) {
         cerr << "Correctly caught UnknownTypeException when trying to recall unregistered object" << endl;
         caught = true;
     }
@@ -988,7 +989,7 @@ testObjectMapper()
         return false;
     }
 
-    QObjectBuilder::getInstance()->
+    ObjectBuilder::getInstance()->
         registerWithParentConstructor<QTimer, QObject>();
 
     recalled = mapper.loadObject(turi, 0);

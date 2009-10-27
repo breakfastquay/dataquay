@@ -116,6 +116,9 @@ public:
      * If the file already exists, it will if possible be overwritten.
      * May throw RDFException, FileOperationFailed, FailedToOpenFile,
      * etc.
+     *
+     * Note that unlike import and load (which take URL arguments),
+     * save takes a simple filename with no file:// prefix.
      */
     void save(QString filename) const;
 
