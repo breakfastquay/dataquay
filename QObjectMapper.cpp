@@ -43,58 +43,14 @@
 #include <QHash>
 #include <QMap>
 
+#include <memory> // auto_ptr
+
 #include "Debug.h"
 
 namespace Dataquay {
 
 static QString qtypePrefix = "http://breakfastquay.com/rdf/dataquay/qtype/";
 static QString dqPrefix = "http://breakfastquay.com/rdf/dataquay/common/";
-/*
-struct MakerBase {
-    virtual QObject *make(QObject *) = 0;
-};
-
-template <typename T>
-struct Maker0 : public MakerBase {
-    virtual QObject *make(QObject *) { return new T(); }
-};
-
-template <typename T, typename P>
-struct Maker1 : public MakerBase {
-    virtual QObject *make(QObject *p) { return new T(dynamic_cast<P *>(p)); }
-};
-
-typedef QHash<QString, MakerBase *> MakerMap;
-
-//!!! noooo.. need to register these from outside if we want them
-static MakerMap
-makers()
-{
-    static MakerMap map;
-    static QMutex mutex;
-    QMutexLocker locker(&mutex);
-
-    if (map.empty()) {
-#define MAP0(x) map[qtypePrefix + #x] = new Maker0<x>();
-#define MAP1(x,y) map[qtypePrefix + #x] = new Maker1<x,y>();
-        MAP1(QObject, QObject);
-#ifdef ADD_WIDGETS
-	MAP0(QMainWindow);
-	MAP1(QFrame, QWidget);
-	MAP1(QLabel, QWidget);
-	MAP1(QGridLayout, QWidget);
-	MAP1(QVBoxLayout, QWidget);
-	MAP1(QMenu, QWidget);
-	MAP1(QMenuBar, QWidget);
-	MAP1(QAction, QObject);
-#endif
-#undef MAP0
-#undef MAP1
-    }
-
-    return map;
-}
-*/
 
 QObjectBuilder *
 QObjectBuilder::getInstance()
@@ -112,10 +68,30 @@ public:
     typedef QHash<QString, QObject *> UriObjectMap;
     typedef QMap<QObject *, QUrl> ObjectUriMap;
 
-    D(Store *s) : m_s(s) {
+    D(Store *s) :
+        m_s(s),
+        m_psp(SaveAlways),
+        m_osp(SaveAllObjects)
+    {
 //!!! addPrefix not a part of Store -- what to do for the best?
 //        m_s->addPrefix("qtype", qtypePrefix);
 //        m_s->addPrefix("dq", dqPrefix);
+    }
+
+    void setPropertySavePolicy(PropertySavePolicy psp) {
+        m_psp = psp; 
+    }
+
+    PropertySavePolicy getPropertySavePolicy() const {
+        return m_psp;
+    }
+
+    void setObjectSavePolicy(ObjectSavePolicy osp) {
+        m_osp = osp; 
+    }
+
+    ObjectSavePolicy getObjectSavePolicy() const {
+        return m_osp;
     }
 
     void loadProperties(QObject *o, QUrl uri) {
@@ -131,7 +107,7 @@ public:
 	}
     }
 
-    void storeProperties(QObject *o, QUrl uri, PropertySelectionPolicy psp) {
+    void storeProperties(QObject *o, QUrl uri) {
 
 	QString cname = o->metaObject()->className();
 	PropertyObject po(m_s, qtypePrefix, uri);
@@ -140,35 +116,25 @@ public:
 
 	for (int i = 0; i < o->metaObject()->propertyCount(); ++i) {
 
-            bool write = true;
-            if (psp != AllProperties) {
-                write =
-                    o->metaObject()->property(i).isStored() &&
-                    o->metaObject()->property(i).isReadable() &&
-                    o->metaObject()->property(i).isWritable(); // no point in saving it unless it can be reloaded
+            if (!o->metaObject()->property(i).isStored() ||
+                !o->metaObject()->property(i).isReadable() ||
+                !o->metaObject()->property(i).isWritable()) {
+                continue;
             }
-            if (write) {
-                QString pname = o->metaObject()->property(i).name();
-                QByteArray pnba = pname.toLocal8Bit();
-                bool compare =
-                    ((psp == PropertiesChangedFromDefault ||
-                      psp == PropertiesChangedFromUnparentedDefault) &&
-                     builder->knows(cname)); 
-		if (compare) {
-                    QObject *deftParent = 0;
-                    if (psp == PropertiesChangedFromDefault) {
-                        deftParent = o->parent();
+
+            QString pname = o->metaObject()->property(i).name();
+            QByteArray pnba = pname.toLocal8Bit();
+
+            if (m_psp == SaveIfChanged) {
+                if (builder->knows(cname)) {
+                    std::auto_ptr<QObject> c(builder->build(cname, 0));
+                    if (o->property(pnba.data()) == c->property(pnba.data())) {
+                        continue;
                     }
-                    QObject *deft = builder->build(cname, deftParent);
-                    if (o->property(pnba.data()) == deft->property(pnba.data())) {
-                        write = false;
-                    }
-                    delete deft;
-		}
-		if (write) {
-		    po.setProperty(0, pname, o->property(pnba.data()));
-		}
-	    }
+                }
+            }
+
+            po.setProperty(0, pname, o->property(pnba.data()));
 	}
     }
 
@@ -226,25 +192,22 @@ public:
         return superRoot;
     }
 
-    QUrl storeObject(QObject *o,
-                     URISourcePolicy sourcePolicy,
-                     PropertySelectionPolicy propertyPolicy)
+    QUrl storeObject(QObject *o)
     {
         ObjectUriMap map;
-        return storeSingle(o, map, sourcePolicy, propertyPolicy);
+        return storeSingle(o, map);
     }
 
-    QUrl storeObjects(QObject *root,
-                      URISourcePolicy sourcePolicy,
-                      ObjectSelectionPolicy objectPolicy,
-                      PropertySelectionPolicy propertyPolicy)
+    QUrl storeObjects(QObject *root)
     {
         ObjectUriMap map;
-        return storeTree(root, map, sourcePolicy, objectPolicy, propertyPolicy);
+        return storeTree(root, map);
     }
 
 private:
     Store *m_s;
+    PropertySavePolicy m_psp;
+    ObjectSavePolicy m_osp;
 	
     //!!! should have exceptions on errors, not just returning 0
 
@@ -312,28 +275,24 @@ private:
         return o;
     }
 
-    QUrl storeSingle(QObject *o, ObjectUriMap &map,
-                     URISourcePolicy sourcePolicy,
-                     PropertySelectionPolicy propertyPolicy) {
+    QUrl storeSingle(QObject *o, ObjectUriMap &map) {
 
         if (map.contains(o)) return map[o];
 
         QString cname = o->metaObject()->className();
 
         QUrl uri;
-        bool setUri = false;
-        if (sourcePolicy != CreateNewURIs) {
-            QVariant uriV = o->property("uri");
-            if (uriV != QVariant()) uri = uriV.toUrl();
-            else setUri = true;
-        }
-        if (uri == QUrl()) {
+        QVariant uriVar = o->property("uri");
+
+        if (uriVar != QVariant()) {
+            uri = uriVar.toUrl();
+        } else {
             uri = m_s->getUniqueUri
                 (":" + cname.toLower().right(cname.length()-1) + "_");
+            o->setProperty("uri", uri); //!!! document this
         }
-        
+
         map[o] = uri;
-        if (setUri) o->setProperty("uri", uri); //!!! document this
         
         QUrl type = m_s->expand(QString("qtype:%1").arg(cname));
         m_s->add(Triple(uri, "a", type));
@@ -342,24 +301,21 @@ private:
             m_s->add(Triple(uri, "dq:parent", map[o->parent()]));
         }
 
-        storeProperties(o, uri, propertyPolicy);
+        storeProperties(o, uri);
 
         return uri;
     }
 
-    QUrl storeTree(QObject *o, ObjectUriMap &map,
-                   URISourcePolicy sourcePolicy,
-                   ObjectSelectionPolicy objectPolicy,
-                   PropertySelectionPolicy propertyPolicy) {
+    QUrl storeTree(QObject *o, ObjectUriMap &map) {
 
-        if (objectPolicy == ObjectsWithURIs) {
+        if (m_osp == SaveObjectsWithURIs) {
             if (o->property("uri") == QVariant()) return QUrl();
         }
 
-        QUrl me = storeSingle(o, map, sourcePolicy, propertyPolicy);
+        QUrl me = storeSingle(o, map);
 
         foreach (QObject *c, o->children()) {
-            storeTree(c, map, sourcePolicy, objectPolicy, propertyPolicy);
+            storeTree(c, map);
         }
         
         return me;
@@ -377,15 +333,39 @@ QObjectMapper::~QObjectMapper()
 }
 
 void
+QObjectMapper::setPropertySavePolicy(PropertySavePolicy policy)
+{
+    m_d->setPropertySavePolicy(policy);
+}
+
+QObjectMapper::PropertySavePolicy
+QObjectMapper::getPropertySavePolicy() const
+{
+    return m_d->getPropertySavePolicy();
+}
+
+void
+QObjectMapper::setObjectSavePolicy(ObjectSavePolicy policy)
+{
+    m_d->setObjectSavePolicy(policy);
+}
+
+QObjectMapper::ObjectSavePolicy
+QObjectMapper::getObjectSavePolicy() const
+{
+    return m_d->getObjectSavePolicy();
+}
+
+void
 QObjectMapper::loadProperties(QObject *o, QUrl uri)
 {
     m_d->loadProperties(o, uri);
 }
 
 void
-QObjectMapper::storeProperties(QObject *o, QUrl uri, PropertySelectionPolicy psp)
+QObjectMapper::storeProperties(QObject *o, QUrl uri)
 {
-    m_d->storeProperties(o, uri, psp);
+    m_d->storeProperties(o, uri);
 }
 
 QObject *
@@ -407,15 +387,15 @@ QObjectMapper::loadAllObjects(QObject *parent)
 }
 
 QUrl
-QObjectMapper::storeObject(QObject *o, URISourcePolicy usp, PropertySelectionPolicy psp)
+QObjectMapper::storeObject(QObject *o)
 {
-    return m_d->storeObject(o, usp, psp);
+    return m_d->storeObject(o);
 }
 
 QUrl
-QObjectMapper::storeObjects(QObject *root, URISourcePolicy usp, ObjectSelectionPolicy osp, PropertySelectionPolicy psp)
+QObjectMapper::storeObjects(QObject *root)
 {
-    return m_d->storeObjects(root, usp, osp, psp);
+    return m_d->storeObjects(root);
 }
 
 }

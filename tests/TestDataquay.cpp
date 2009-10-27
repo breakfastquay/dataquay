@@ -956,9 +956,7 @@ testObjectMapper()
 
     //!!! I don't think we can test all these options... must limit them
     
-    QUrl uri = mapper.storeObject(o,
-                                  QObjectMapper::UseObjectProvidedURIs,
-                                  QObjectMapper::PropertiesChangedFromDefault);
+    QUrl uri = mapper.storeObject(o);
     cerr << "Stored QObject as " << uri << endl;
 
     QObject *recalled = mapper.loadObject(uri, 0);
@@ -975,9 +973,7 @@ testObjectMapper()
     t->setSingleShot(true);
     t->setInterval(4);
 
-    QUrl turi = mapper.storeObject(t,
-                                   QObjectMapper::CreateNewURIs,
-                                   QObjectMapper::AllStoredProperties);
+    QUrl turi = mapper.storeObject(t);
     cerr << "Stored QTimer as " << turi << endl;
 
     bool caught = false;

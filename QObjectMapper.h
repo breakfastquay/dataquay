@@ -138,46 +138,50 @@ public:
 
     ~QObjectMapper();
 
-    class UnknownTypeException : virtual public std::exception
-    {
+    class UnknownTypeException : virtual public std::exception {
     public:
         UnknownTypeException(QString type) throw() : m_type(type) { }
         virtual ~UnknownTypeException() throw() { }
         virtual const char *what() const throw() {
             return QString("Unknown type: %1").arg(m_type).toLocal8Bit().data();
         }
-
     protected:
         QString m_type;
     };
 
-    class ConstructionFailedException : virtual public std::exception
-    {
+    class ConstructionFailedException : virtual public std::exception {
     public:
         ConstructionFailedException(QString type) throw() : m_type(type) { }
         virtual ~ConstructionFailedException() throw() { }
         virtual const char *what() const throw() {
-            return QString("Unknown type: %1")
+            return QString("Failed to construct type: %1")
                 .arg(m_type).toLocal8Bit().data();
         }
-
     protected:
         QString m_type;
     };
+
+    enum PropertySavePolicy {
+        SaveIfChanged, /// Save only properties that differ from default object
+        SaveAlways     /// Save all properties (if storable, readable & writable)
+    };
+
+    void setPropertySavePolicy(PropertySavePolicy policy);
+    PropertySavePolicy getPropertySavePolicy() const;
+
+    enum ObjectSavePolicy {
+        SaveObjectsWithURIs, /// Save only objects with non-empty "uri" properties
+        SaveAllObjects       /// Save all objects, giving them URIs as needed
+    };
+
+    void setObjectSavePolicy(ObjectSavePolicy policy);
+    ObjectSavePolicy getObjectSavePolicy() const;
 
     /**
      * Load to the given object all QObject properties defined in this
      * object mapper's store for the given object URI.
      */
     void loadProperties(QObject *o, QUrl uri);
-
-    //!!! how useful is this selection?
-    enum PropertySelectionPolicy {
-	PropertiesChangedFromDefault,
-	PropertiesChangedFromUnparentedDefault, //!!!??? any use?
-        AllStoredProperties,
-	AllProperties
-    };
 
     //!!! transaction/connection management?
 
@@ -186,7 +190,7 @@ public:
      * given object, as QObject property types associated with the
      * given object URI.
      */
-    void storeProperties(QObject *o, QUrl uri, PropertySelectionPolicy);
+    void storeProperties(QObject *o, QUrl uri);
 
     /**
      * Construct a QObject based on the properties of the given object
@@ -198,19 +202,8 @@ public:
     QObject *loadObjects(QUrl rootUri, QObject *parent);
     QObject *loadAllObjects(QObject *parent);
 
-    enum URISourcePolicy {
-	UseObjectProvidedURIs,
-	CreateNewURIs
-    };
-
-    enum ObjectSelectionPolicy {
-	ObjectsWithURIs,
-	AllObjects
-    };
-
-    QUrl storeObject(QObject *o, URISourcePolicy, PropertySelectionPolicy);
-    QUrl storeObjects(QObject *root, URISourcePolicy, ObjectSelectionPolicy,
-                      PropertySelectionPolicy);
+    QUrl storeObject(QObject *o);
+    QUrl storeObjects(QObject *root);
 
 private:
     class D;
