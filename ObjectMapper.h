@@ -65,12 +65,14 @@ class Store;
 class ObjectMapper
 {
 public:
+    typedef QHash<QString, QObject *> UriObjectMap;
+    typedef QMap<QObject *, QUrl> ObjectUriMap;
+
     /**
      * Create a ObjectMapper ready to load and store objects from and
      * to the given RDF store.
      */
     ObjectMapper(Store *s);
-
     ~ObjectMapper();
 
     class UnknownTypeException : virtual public std::exception {
@@ -96,21 +98,21 @@ public:
         QString m_type;
     };
 
-    enum PropertySavePolicy {
-        SaveIfChanged, /// Save only properties that differ from default object
-        SaveAlways     /// Save all properties (if storable, readable & writable)
+    enum PropertyStorePolicy {
+        StoreIfChanged, /// Store only properties that differ from default object
+        StoreAlways     /// Store all properties (if storable, readable & writable)
     };
 
-    void setPropertySavePolicy(PropertySavePolicy policy);
-    PropertySavePolicy getPropertySavePolicy() const;
+    void setPropertyStorePolicy(PropertyStorePolicy policy);
+    PropertyStorePolicy getPropertyStorePolicy() const;
 
-    enum ObjectSavePolicy {
-        SaveObjectsWithURIs, /// Save only objects with non-empty "uri" properties
-        SaveAllObjects       /// Save all objects, giving them URIs as needed
+    enum ObjectStorePolicy {
+        StoreObjectsWithURIs, /// Store only objects with non-empty "uri" properties
+        StoreAllObjects       /// Store all objects, giving them URIs as needed
     };
 
-    void setObjectSavePolicy(ObjectSavePolicy policy);
-    ObjectSavePolicy getObjectSavePolicy() const;
+    void setObjectStorePolicy(ObjectStorePolicy policy);
+    ObjectStorePolicy getObjectStorePolicy() const;
 
     /**
      * Load to the given object all QObject properties defined in this
@@ -139,6 +141,16 @@ public:
 
     QUrl storeObject(QObject *o);
     QUrl storeObjects(QObject *root);
+    
+    struct LoadCallback {
+        virtual void loaded(Store *, UriObjectMap &, QUrl, QObject *) = 0;
+    };
+    void addLoadCallback(LoadCallback *callback);
+
+    struct StoreCallback {
+        virtual void stored(Store *, ObjectUriMap &, QObject *, QUrl) = 0;
+    };
+    void addStoreCallback(StoreCallback *callback);
 
 private:
     class D;

@@ -54,32 +54,29 @@ static QString dqPrefix = "http://breakfastquay.com/rdf/dataquay/common/";
 class ObjectMapper::D
 {
 public:
-    typedef QHash<QString, QObject *> UriObjectMap;
-    typedef QMap<QObject *, QUrl> ObjectUriMap;
-
     D(Store *s) :
         m_s(s),
-        m_psp(SaveAlways),
-        m_osp(SaveAllObjects)
+        m_psp(StoreAlways),
+        m_osp(StoreAllObjects)
     {
 //!!! addPrefix not a part of Store -- what to do for the best?
 //        m_s->addPrefix("qtype", qtypePrefix);
 //        m_s->addPrefix("dq", dqPrefix);
     }
 
-    void setPropertySavePolicy(PropertySavePolicy psp) {
+    void setPropertyStorePolicy(PropertyStorePolicy psp) {
         m_psp = psp; 
     }
 
-    PropertySavePolicy getPropertySavePolicy() const {
+    PropertyStorePolicy getPropertyStorePolicy() const {
         return m_psp;
     }
 
-    void setObjectSavePolicy(ObjectSavePolicy osp) {
+    void setObjectStorePolicy(ObjectStorePolicy osp) {
         m_osp = osp; 
     }
 
-    ObjectSavePolicy getObjectSavePolicy() const {
+    ObjectStorePolicy getObjectStorePolicy() const {
         return m_osp;
     }
 
@@ -114,7 +111,7 @@ public:
             QString pname = o->metaObject()->property(i).name();
             QByteArray pnba = pname.toLocal8Bit();
 
-            if (m_psp == SaveIfChanged) {
+            if (m_psp == StoreIfChanged) {
                 if (builder->knows(cname)) {
                     std::auto_ptr<QObject> c(builder->build(cname, 0));
                     if (o->property(pnba.data()) == c->property(pnba.data())) {
@@ -181,22 +178,30 @@ public:
         return superRoot;
     }
 
-    QUrl storeObject(QObject *o)
-    {
+    QUrl storeObject(QObject *o) {
         ObjectUriMap map;
         return storeSingle(o, map);
     }
 
-    QUrl storeObjects(QObject *root)
-    {
+    QUrl storeObjects(QObject *root) {
         ObjectUriMap map;
         return storeTree(root, map);
     }
 
+    void addLoadCallback(LoadCallback *cb) {
+        m_loadCallbacks.push_back(cb);
+    }
+
+    void addStoreCallback(StoreCallback *cb) {
+        m_storeCallbacks.push_back(cb);
+    }
+
 private:
     Store *m_s;
-    PropertySavePolicy m_psp;
-    ObjectSavePolicy m_osp;
+    PropertyStorePolicy m_psp;
+    ObjectStorePolicy m_osp;
+    QList<LoadCallback *> m_loadCallbacks;
+    QList<StoreCallback *> m_storeCallbacks;
 	
     //!!! should have exceptions on errors, not just returning 0
 
@@ -225,8 +230,15 @@ private:
         o->setProperty("uri", uri);
         map[uri.toString()] = o;
 
-	//!!! call back on registered property/arrangement setters (qwidget, qlayout etc)
+        callLoadCallbacks(map, uri, o);
+
 	return o;
+    }
+
+    void callLoadCallbacks(UriObjectMap &map, QUrl uri, QObject *o) {
+        foreach (LoadCallback *cb, m_loadCallbacks) {
+            cb->loaded(m_s, map, uri, o);
+        }
     }
 
     QObject *loadTree(QUrl uri, QObject *parent, UriObjectMap &map) {
@@ -292,12 +304,20 @@ private:
 
         storeProperties(o, uri);
 
+        callStoreCallbacks(map, o, uri);
+
         return uri;
+    }
+
+    void callStoreCallbacks(ObjectUriMap &map, QObject *o, QUrl uri) {
+        foreach (StoreCallback *cb, m_storeCallbacks) {
+            cb->stored(m_s, map, o, uri);
+        }
     }
 
     QUrl storeTree(QObject *o, ObjectUriMap &map) {
 
-        if (m_osp == SaveObjectsWithURIs) {
+        if (m_osp == StoreObjectsWithURIs) {
             if (o->property("uri") == QVariant()) return QUrl();
         }
 
@@ -322,27 +342,27 @@ ObjectMapper::~ObjectMapper()
 }
 
 void
-ObjectMapper::setPropertySavePolicy(PropertySavePolicy policy)
+ObjectMapper::setPropertyStorePolicy(PropertyStorePolicy policy)
 {
-    m_d->setPropertySavePolicy(policy);
+    m_d->setPropertyStorePolicy(policy);
 }
 
-ObjectMapper::PropertySavePolicy
-ObjectMapper::getPropertySavePolicy() const
+ObjectMapper::PropertyStorePolicy
+ObjectMapper::getPropertyStorePolicy() const
 {
-    return m_d->getPropertySavePolicy();
+    return m_d->getPropertyStorePolicy();
 }
 
 void
-ObjectMapper::setObjectSavePolicy(ObjectSavePolicy policy)
+ObjectMapper::setObjectStorePolicy(ObjectStorePolicy policy)
 {
-    m_d->setObjectSavePolicy(policy);
+    m_d->setObjectStorePolicy(policy);
 }
 
-ObjectMapper::ObjectSavePolicy
-ObjectMapper::getObjectSavePolicy() const
+ObjectMapper::ObjectStorePolicy
+ObjectMapper::getObjectStorePolicy() const
 {
-    return m_d->getObjectSavePolicy();
+    return m_d->getObjectStorePolicy();
 }
 
 void
@@ -385,6 +405,18 @@ QUrl
 ObjectMapper::storeObjects(QObject *root)
 {
     return m_d->storeObjects(root);
+}
+
+void
+ObjectMapper::addLoadCallback(LoadCallback *cb)
+{
+    m_d->addLoadCallback(cb);
+}
+
+void
+ObjectMapper::addStoreCallback(StoreCallback *cb)
+{
+    m_d->addStoreCallback(cb);
 }
 
 }
