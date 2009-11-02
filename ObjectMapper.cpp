@@ -49,7 +49,7 @@
 namespace Dataquay {
 
 static QString qtypePrefix = "http://breakfastquay.com/rdf/dataquay/qtype/";
-static QString dqPrefix = "http://breakfastquay.com/rdf/dataquay/common/";
+static QString dqPrefix = "http://breakfastquay.com/rdf/dataquay/common/"; //???
 
 class ObjectMapper::D
 {
@@ -57,11 +57,22 @@ public:
     D(Store *s) :
         m_s(s),
         m_psp(StoreAlways),
-        m_osp(StoreAllObjects)
-    {
-//!!! addPrefix not a part of Store -- what to do for the best?
-//        m_s->addPrefix("qtype", qtypePrefix);
-//        m_s->addPrefix("dq", dqPrefix);
+        m_osp(StoreAllObjects),
+        m_typePrefix(qtypePrefix),
+        m_propertyPrefix(qtypePrefix) {
+    }
+
+    void setObjectTypePrefix(QString prefix) {
+        m_typePrefix = prefix;
+    }
+
+    void setPropertyPrefix(QString prefix) { 
+        m_propertyPrefix = prefix;
+    }
+
+    void addTypeMapping(QUrl uri, QString className) {
+        m_typeMap[uri] = className;
+        m_typeRMap[className] = uri;
     }
 
     void setPropertyStorePolicy(PropertyStorePolicy psp) {
@@ -81,7 +92,7 @@ public:
     }
 
     void loadProperties(QObject *o, QUrl uri) {
-	PropertyObject po(m_s, qtypePrefix, uri);
+	PropertyObject po(m_s, m_propertyPrefix, uri);
 	QStringList pl = po.getProperties();
 	foreach (QString property, pl) {
 	    QByteArray ba = property.toLocal8Bit();
@@ -96,7 +107,7 @@ public:
     void storeProperties(QObject *o, QUrl uri) {
 
 	QString cname = o->metaObject()->className();
-	PropertyObject po(m_s, qtypePrefix, uri);
+	PropertyObject po(m_s, m_propertyPrefix, uri);
 
         ObjectBuilder *builder = ObjectBuilder::getInstance();
 
@@ -149,10 +160,15 @@ public:
             QString objectUri = t.a.value;
             QString typeUri = t.c.value;
 
-            if (!typeUri.startsWith(qtypePrefix)) continue;
-            QString type = typeUri.replace(qtypePrefix, "");
+            QString className;
+            if (m_typeMap.contains(typeUri)) {
+                className = m_typeMap[typeUri];
+            } else {
+                if (!typeUri.startsWith(m_typePrefix)) continue;
+                className = typeUri.right(typeUri.length() - m_typePrefix.length());
+            }
 
-            if (!builder->knows(type)) {
+            if (!builder->knows(className)) {
                 DEBUG << "Can't construct type " << typeUri << endl;
                 continue;
             }
@@ -200,10 +216,12 @@ private:
     Store *m_s;
     PropertyStorePolicy m_psp;
     ObjectStorePolicy m_osp;
+    QString m_typePrefix;
+    QString m_propertyPrefix;
     QList<LoadCallback *> m_loadCallbacks;
     QList<StoreCallback *> m_storeCallbacks;
-	
-    //!!! should have exceptions on errors, not just returning 0
+    QMap<QUrl, QString> m_typeMap;
+    QHash<QString, QUrl> m_typeRMap;
 
     QObject *loadSingle(QUrl uri, QObject *parent, UriObjectMap &map) {
 
@@ -213,17 +231,26 @@ private:
 
 	//!!! how to configure prefix?
 	PropertyObject pod(m_s, dqPrefix, uri);
-	QString type = pod.getObjectType().toString();
-        if (!type.startsWith(qtypePrefix)) throw UnknownTypeException(type);
 
-        type = type.replace(qtypePrefix, "");
+	QString typeUri = pod.getObjectType().toString();
+        QString className;
+
+        if (m_typeMap.contains(typeUri)) {
+            className = m_typeMap[typeUri];
+        } else {
+            if (!typeUri.startsWith(m_typePrefix)) {
+                throw UnknownTypeException(typeUri);
+            }
+            className = typeUri.right(typeUri.length() - m_typePrefix.length());
+        }
+
         ObjectBuilder *builder = ObjectBuilder::getInstance();
-	if (!builder->knows(type)) throw UnknownTypeException(type);
+	if (!builder->knows(className)) throw UnknownTypeException(className);
     
         DEBUG << "Making object " << uri << " of type " << uri << endl;
 
-	QObject *o = builder->build(type, parent);
-	if (!o) throw ConstructionFailedException(type);
+	QObject *o = builder->build(className, parent);
+	if (!o) throw ConstructionFailedException(typeUri);
 	
 	loadProperties(o, uri);
 
@@ -243,11 +270,18 @@ private:
 
     QObject *loadTree(QUrl uri, QObject *parent, UriObjectMap &map) {
 
-        QObject *o = loadSingle(uri, parent, map);
+        QObject *o;
+        try {
+            o = loadSingle(uri, parent, map);
+        } catch (UnknownTypeException e) {
+            o = 0;
+        }
 
-        Triples childTriples = m_s->match(Triple(Node(), "dq:parent", uri));
-        foreach (Triple t, childTriples) {
-            loadTree(t.a.value, o, map);
+        if (o) {
+            Triples childTriples = m_s->match(Triple(Node(), "dq:parent", uri));
+            foreach (Triple t, childTriples) {
+                loadTree(t.a.value, o, map);
+            }
         }
 
         return o;
@@ -280,7 +314,7 @@ private:
 
         if (map.contains(o)) return map[o];
 
-        QString cname = o->metaObject()->className();
+        QString className = o->metaObject()->className();
 
         QUrl uri;
         QVariant uriVar = o->property("uri");
@@ -289,14 +323,19 @@ private:
             uri = uriVar.toUrl();
         } else {
             uri = m_s->getUniqueUri
-                (":" + cname.toLower().right(cname.length()-1) + "_");
+                (":" + className.toLower().right(className.length()-1) + "_");
             o->setProperty("uri", uri); //!!! document this
         }
 
         map[o] = uri;
-        
-        QUrl type = m_s->expand(QString("qtype:%1").arg(cname));
-        m_s->add(Triple(uri, "a", type));
+
+        QUrl typeUri;
+        if (m_typeRMap.contains(className)) {
+            typeUri = m_typeRMap[className];
+        } else {
+            typeUri = m_typePrefix + className;
+        }
+        m_s->add(Triple(uri, "a", typeUri));
 
         if (o->parent() && map.contains(o->parent())) {
             m_s->add(Triple(uri, "dq:parent", map[o->parent()]));
@@ -339,6 +378,24 @@ ObjectMapper::ObjectMapper(Store *s) :
 ObjectMapper::~ObjectMapper()
 {
     delete m_d;
+}
+
+void
+ObjectMapper::setObjectTypePrefix(QString prefix)
+{
+    m_d->setObjectTypePrefix(prefix);
+}
+
+void
+ObjectMapper::setPropertyPrefix(QString prefix)
+{
+    m_d->setPropertyPrefix(prefix);
+}
+
+void
+ObjectMapper::addTypeMapping(QUrl uri, QString className)
+{
+    m_d->addTypeMapping(uri, className);
 }
 
 void

@@ -4,6 +4,8 @@
 #include "../TransactionalStore.h"
 #include "../Connection.h"
 #include "../RDFException.h"
+#include "../ObjectMapper.h"
+#include "../ObjectBuilder.h"
 #include "../Debug.h"
 
 #include <QStringList>

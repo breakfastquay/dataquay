@@ -75,29 +75,11 @@ public:
     ObjectMapper(Store *s);
     ~ObjectMapper();
 
-    class UnknownTypeException : virtual public std::exception {
-    public:
-        UnknownTypeException(QString type) throw() : m_type(type) { }
-        virtual ~UnknownTypeException() throw() { }
-        virtual const char *what() const throw() {
-            return QString("Unknown type: %1").arg(m_type).toLocal8Bit().data();
-        }
-    protected:
-        QString m_type;
-    };
-
-    class ConstructionFailedException : virtual public std::exception {
-    public:
-        ConstructionFailedException(QString type) throw() : m_type(type) { }
-        virtual ~ConstructionFailedException() throw() { }
-        virtual const char *what() const throw() {
-            return QString("Failed to construct type: %1")
-                .arg(m_type).toLocal8Bit().data();
-        }
-    protected:
-        QString m_type;
-    };
-
+    //... document
+    void setObjectTypePrefix(QString prefix);
+    void setPropertyPrefix(QString prefix);
+    void addTypeMapping(QUrl uri, QString className);
+    
     enum PropertyStorePolicy {
         StoreIfChanged, /// Store only properties that differ from default object
         StoreAlways     /// Store all properties (if storable, readable & writable)
@@ -135,9 +117,9 @@ public:
      * will be determined by the rdf:type for the URI.
      *!!!??? type prefix? how these map to class names?
      */
-    QObject *loadObject(QUrl uri, QObject *parent);
-    QObject *loadObjects(QUrl rootUri, QObject *parent);
-    QObject *loadAllObjects(QObject *parent);
+    QObject *loadObject(QUrl uri, QObject *parent); // may throw ConstructionFailedException, UnknownTypeException
+    QObject *loadObjects(QUrl rootUri, QObject *parent); // may throw ConstructionFailedException
+    QObject *loadAllObjects(QObject *parent); // may throw ConstructionFailedException
 
     QUrl storeObject(QObject *o);
     QUrl storeObjects(QObject *root);
@@ -145,12 +127,36 @@ public:
     struct LoadCallback {
         virtual void loaded(Store *, UriObjectMap &, QUrl, QObject *) = 0;
     };
-    void addLoadCallback(LoadCallback *callback);
-
     struct StoreCallback {
         virtual void stored(Store *, ObjectUriMap &, QObject *, QUrl) = 0;
     };
+
+    void addLoadCallback(LoadCallback *callback);
     void addStoreCallback(StoreCallback *callback);
+
+
+    class UnknownTypeException : virtual public std::exception {
+    public:
+        UnknownTypeException(QString type) throw() : m_type(type) { }
+        virtual ~UnknownTypeException() throw() { }
+        virtual const char *what() const throw() {
+            return QString("Unknown type: %1").arg(m_type).toLocal8Bit().data();
+        }
+    protected:
+        QString m_type;
+    };
+
+    class ConstructionFailedException : virtual public std::exception {
+    public:
+        ConstructionFailedException(QString type) throw() : m_type(type) { }
+        virtual ~ConstructionFailedException() throw() { }
+        virtual const char *what() const throw() {
+            return QString("Failed to construct type: %1")
+                .arg(m_type).toLocal8Bit().data();
+        }
+    protected:
+        QString m_type;
+    };
 
 private:
     class D;

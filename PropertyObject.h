@@ -77,6 +77,11 @@ class Store;
  * already been told about the "myprops" prefix and will know how to
  * expand it.
  *
+ * Example: If the property prefix is "http://example.com/property/"
+ * and the property name passed to getProperty is "some_property", the
+ * returned value from getProperty will be the result of matching on
+ * the triple (myUri, "http://example.com/property/some_property", ()).
+ *
  * Example: If the property prefix is "myprops:" and the property name
  * passed to getProperty is "yourprops:some_property", the returned
  * value from getProperty will be the result of matching on the triple
