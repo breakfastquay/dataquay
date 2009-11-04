@@ -65,8 +65,18 @@ class Store;
 /**
  * \class ObjectMapper ObjectMapper.h <dataquay/ObjectMapper.h>
  *
+ * A class which maps QObject trees to RDF data in a Store.  RDF
+ * properties are mapped using QObject properties, and QObject
+ * parent/child and ordering relationships are recorded using
+ * dedicated RDF properties in the Dataquay namespace, or with a
+ * specialised RDF property mapping.
+ *
+ * ObjectMapper can by used to hibernate and reanimate active QObject
+ * trees to a datastore, or to construct QObjects to represent
+ * arbitrary RDF data using appropriate object-type and property-type
+ * mappings.
+ *!!! NOTE: dedicated property type mappings not implemented yet!
  */
-
 class ObjectMapper
 {
 public:
@@ -110,6 +120,8 @@ public:
     void loadProperties(QObject *o, QUrl uri);
 
     //!!! transaction/connection management?
+
+    //!!! what to do about updating objects that are already stored? want to minimise changes, esp. if using a transaction
 
     /**
      * Save to the object mapper's RDF store all properties for the
