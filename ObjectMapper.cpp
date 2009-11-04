@@ -147,7 +147,9 @@ public:
 
     QObject *loadObjects(QUrl root, QObject *parent) {
         UriObjectMap map;
-	return loadTree(root, parent, map);
+        QObject *rv = loadTree(root, parent, map);
+        loadConnections(map);
+        return rv;
     }
 
     QObject *loadAllObjects(QObject *parent) {
@@ -180,6 +182,8 @@ public:
             
             loadFrom(objectUri, map);
         }
+
+        loadConnections(map);
 
         QObjectList rootObjects;
         foreach (QObject *o, map) {
@@ -233,6 +237,39 @@ public:
         return o;
     }
 
+    void loadConnections(UriObjectMap &map) {
+        
+        QString slotTemplate = SLOT(xxx());
+        QString signalTemplate = SIGNAL(xxx());
+
+        // The store does not necessarily know dqPrefix
+
+        ResultSet rs = m_s->query
+            (QString
+             (" PREFIX dq: <%1> "
+              " SELECT ?sobj ?ssig ?tobj ?tslot WHERE { "
+              " ?conn a dq:Connection; dq:source ?s; dq:target ?t. "
+              " ?s dq:object ?sobj; dq:signal ?ssig. "
+              " ?t dq:object ?tobj; dq:slot ?tslot. "
+              " } ").arg(dqPrefix));
+
+        foreach (Dictionary d, rs) {
+
+            QUrl sourceUri = d["sobj"].value;
+            QUrl targetUri = d["tobj"].value;
+            if (!map.contains(sourceUri) || !map.contains(targetUri)) continue;
+
+            QString sourceSignal = signalTemplate.replace("xxx", d["ssig"].value);
+            QString targetSlot = slotTemplate.replace("xxx", d["tslot"].value);
+
+            QByteArray sigba = sourceSignal.toLocal8Bit();
+            QByteArray slotba = targetSlot.toLocal8Bit();
+                
+            QObject::connect(map[sourceUri], sigba.data(),
+                             map[targetUri], slotba.data());
+        }
+    }
+
     QUrl store(QObject *o, ObjectUriMap &map) {
         return storeSingle(o, map);
     }
@@ -263,7 +300,7 @@ private:
 	    return map[uri.toString()];
 	}
 
-	//!!! how to configure prefix?
+	//!!! how to configure this prefix?
 	PropertyObject pod(m_s, dqPrefix, uri);
 
 	QString typeUri = pod.getObjectType().toString();
