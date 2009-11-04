@@ -97,14 +97,18 @@ public:
     }
 
     void loadProperties(QObject *o, QUrl uri) {
+
 	PropertyObject po(m_s, m_propertyPrefix, uri);
-	QStringList pl = po.getProperties();
-	foreach (QString property, pl) {
+	foreach (QString property, po.getProperties()) {
+
 	    QByteArray ba = property.toLocal8Bit();
 	    QVariant value = po.getProperty(property);
+
 	    if (!o->setProperty(ba.data(), value)) {
 		// Not an error; could be a dynamic property
-		DEBUG << "ObjectMapper::loadProperties: Property set failed for property " << ba.data() << " to value " << value << " on object " << uri << endl;
+		DEBUG << "ObjectMapper::loadProperties: Property set failed "
+                      << "for property " << ba.data() << " to value "
+                      << value << " on object " << uri << endl;
 	    }
 	}
     }

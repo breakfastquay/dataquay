@@ -39,33 +39,86 @@
 
 namespace Dataquay {
 
+/**
+ * \class ObjectBuilder ObjectBuilder.h <dataquay/ObjectBuilder.h>
+ *
+ * Singleton object factory capable of constructing new objects of
+ * classes that are subclassed from QObject, given the class name as a
+ * string, and optionally a parent object.  To be capable of
+ * construction using ObjectBuilder, a class must be declared using
+ * Q_OBJECT as well as subclassed from QObject.
+ *
+ * All object classes need to be registered with the builder before
+ * they can be constructed; the only class that ObjectBuilder is able
+ * to construct without registration is QObject itself.
+ *
+ * This class permits code to construct new objects dynamically,
+ * without needing to know anything about them except for their class
+ * names, and without needing their definitions to be visible.  (The
+ * definitions must be visible when the object classes are registered,
+ * but not when the objects are constructed.)
+ */
 class ObjectBuilder
 {
 public:
+    /**
+     * Retrieve the single global instance of ObjectBuilder.
+     */
     static ObjectBuilder *getInstance();
 
-    template <typename T>
-    void registerWithDefaultConstructor() {
-        m_map[T::staticMetaObject.className()] = new Builder0<T>();
-    }
-
+    /**
+     * Register type T, a subclass of QObject, as a class that can be
+     * constructed by calling a single-argument constructor whose
+     * argument is of pointer-to-Parent type, where Parent is also a
+     * subclass of QObject.
+     *
+     * For example, calling registerWithParentConstructor<QWidget,
+     * QWidget>() declares that QWidget is a subclass of QObject that
+     * may be built using QWidget::QWidget(QWidget *parent).  A
+     * subsequent call to ObjectBuilder::build("QWidget", parent)
+     * would return a new QWidget built with that constructor (since
+     * "QWidget" is the class name of QWidget returned by its meta
+     * object).
+     */
     template <typename T, typename Parent>
     void registerWithParentConstructor() {
         m_map[T::staticMetaObject.className()] = new Builder1<T, Parent>();
     }
 
+    /**
+     * Register type T, a subclass of QObject, as a class that can be
+     * constructed by calling a zero-argument constructor.
+     */
+    template <typename T>
+    void registerWithDefaultConstructor() {
+        m_map[T::staticMetaObject.className()] = new Builder0<T>();
+    }
+
+    /**
+     * Return true if the class whose class name (according to its
+     * meta object) is className has been registered.
+     */
     bool knows(QString className) {
         return m_map.contains(className);
     }
 
-    QObject *build(QString className) {
-        if (!knows(className)) return 0;
-        return m_map[className]->build(0);
-    }
-
+    /**
+     * Return a new object whose class name (according to its meta
+     * object) is className, with the given parent (cast
+     * appropriately) passed to its single argument constructor.
+     */
     QObject *build(QString className, QObject *parent) {
         if (!knows(className)) return 0;
         return m_map[className]->build(parent);
+    }
+
+    /**
+     * Return a new object whose class name (according to its meta
+     * object) is className, constructed with no parent.
+     */
+    QObject *build(QString className) {
+        if (!knows(className)) return 0;
+        return m_map[className]->build(0);
     }
 
 private:

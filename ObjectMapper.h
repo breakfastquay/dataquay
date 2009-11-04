@@ -62,6 +62,11 @@ class Store;
  * How to manage transactions in each case? And commands?
  */
 
+/**
+ * \class ObjectMapper ObjectMapper.h <dataquay/ObjectMapper.h>
+ *
+ */
+
 class ObjectMapper
 {
 public:
