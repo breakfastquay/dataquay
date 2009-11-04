@@ -84,9 +84,8 @@ private:
 
     template <typename T> 
     struct Builder0 : public BuilderBase {
-        virtual QObject *build(QObject *p) {
+        virtual QObject *build(QObject *) {
             T *t = new T();
-            if (p) t->setParent(p);
             return t;
         }
     };

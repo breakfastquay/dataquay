@@ -1,7 +1,7 @@
 
 TEMPLATE = app
 CONFIG += debug
-QT -= gui
+#QT -= gui
 TARGET = test-dataquay
 
 INCLUDEPATH += . ..
@@ -12,7 +12,7 @@ PRE_TARGETDEPS += ../libdataquay.a
 LIBPATH += ../../ext
 LIBS += -ldataquay -lext
 
-SOURCES += TestDataquay.cpp
+SOURCES += TestDataquay.cpp TestQtWidgets.cpp
 
 solaris* {
   LIBS += -lsocket -lnsl

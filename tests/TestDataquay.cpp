@@ -55,6 +55,9 @@ namespace Dataquay
 namespace Test
 {
 
+extern int
+testQtWidgets(int argc, char **argv);
+
 std::ostream &
 operator<<(std::ostream &target, const QString &str)
 {
@@ -1020,13 +1023,15 @@ testObjectMapper()
 }
 
 int
-main()
+main(int argc, char **argv)
 {
     if (!Dataquay::Test::testBasicStore()) return false;
     if (!Dataquay::Test::testImportOptions()) return false;
     if (!Dataquay::Test::testTransactionalStore()) return false;
     if (!Dataquay::Test::testConnection()) return false;
     if (!Dataquay::Test::testObjectMapper()) return false;
+
+    if (!Dataquay::Test::testQtWidgets(argc, argv)) return false;
 
     std::cerr << "testDataquay successfully completed" << std::endl;
     return true;

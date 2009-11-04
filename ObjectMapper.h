@@ -65,7 +65,7 @@ class Store;
 class ObjectMapper
 {
 public:
-    typedef QHash<QString, QObject *> UriObjectMap;
+    typedef QMap<QUrl, QObject *> UriObjectMap;
     typedef QMap<QObject *, QUrl> ObjectUriMap;
 
     /**
@@ -74,6 +74,8 @@ public:
      */
     ObjectMapper(Store *s);
     ~ObjectMapper();
+
+    Store *getStore();
 
     //... document
     void setObjectTypePrefix(QString prefix);
@@ -121,14 +123,16 @@ public:
     QObject *loadObjects(QUrl rootUri, QObject *parent); // may throw ConstructionFailedException
     QObject *loadAllObjects(QObject *parent); // may throw ConstructionFailedException
 
+    QObject *loadFrom(QUrl sourceUri, UriObjectMap &map);
+
     QUrl storeObject(QObject *o);
     QUrl storeObjects(QObject *root);
     
     struct LoadCallback {
-        virtual void loaded(Store *, UriObjectMap &, QUrl, QObject *) = 0;
+        virtual void loaded(ObjectMapper *, UriObjectMap &, QUrl, QObject *) = 0;
     };
     struct StoreCallback {
-        virtual void stored(Store *, ObjectUriMap &, QObject *, QUrl) = 0;
+        virtual void stored(ObjectMapper *, ObjectUriMap &, QObject *, QUrl) = 0;
     };
 
     void addLoadCallback(LoadCallback *callback);

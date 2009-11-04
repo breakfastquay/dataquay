@@ -54,12 +54,17 @@ static QString dqPrefix = "http://breakfastquay.com/rdf/dataquay/common/"; //???
 class ObjectMapper::D
 {
 public:
-    D(Store *s) :
+    D(ObjectMapper *m, Store *s) :
+        m_m(m),
         m_s(s),
         m_psp(StoreAlways),
         m_osp(StoreAllObjects),
         m_typePrefix(qtypePrefix),
         m_propertyPrefix(qtypePrefix) {
+    }
+
+    Store *getStore() {
+        return m_s;
     }
 
     void setObjectTypePrefix(QString prefix) {
@@ -183,15 +188,39 @@ public:
             }
         }
 
-        if (rootObjects.size() == 1) {
+        if (!parent && (rootObjects.size() == 1)) {
             return rootObjects[0];
         }
 
-        QObject *superRoot = new QObject;
+        QObject *superRoot = parent;
+        if (!superRoot) superRoot = new QObject;
         foreach (QObject *o, rootObjects) {
             o->setParent(superRoot);
         }
         return superRoot;
+    }
+
+    QObject *loadFrom(QUrl source, UriObjectMap &map) {
+
+	PropertyObject po(m_s, dqPrefix, source);
+
+	if (po.hasProperty("follows")) {
+            try {
+                loadFrom(po.getProperty("follows").toUrl(), map);
+            } catch (UnknownTypeException) { }
+	}
+
+        QObject *parent = 0;
+	if (po.hasProperty("parent")) {
+            try {
+                parent = loadFrom(po.getProperty("parent").toUrl(), map);
+            } catch (UnknownTypeException) {
+                parent = 0;
+            }
+	}
+
+        QObject *o = loadSingle(source, parent, map);
+        return o;
     }
 
     QUrl storeObject(QObject *o) {
@@ -213,6 +242,7 @@ public:
     }
 
 private:
+    ObjectMapper *m_m;
     Store *m_s;
     PropertyStorePolicy m_psp;
     ObjectStorePolicy m_osp;
@@ -264,7 +294,9 @@ private:
 
     void callLoadCallbacks(UriObjectMap &map, QUrl uri, QObject *o) {
         foreach (LoadCallback *cb, m_loadCallbacks) {
-            cb->loaded(m_s, map, uri, o);
+            //!!! this doesn't really work out -- the callback doesn't know whether we're loading a single object or a graph; it may load any number of other related objects into the map, and if we were only supposed to load a single object, we won't know what to do with them afterwards (at the moment we just leak them)
+
+            cb->loaded(m_m, map, uri, o);
         }
     }
 
@@ -284,29 +316,6 @@ private:
             }
         }
 
-        return o;
-    }
-
-    QObject *loadFrom(QUrl source, UriObjectMap &map) {
-
-	PropertyObject po(m_s, dqPrefix, source);
-
-	if (po.hasProperty("follows")) {
-            try {
-                loadFrom(po.getProperty("follows").toUrl(), map);
-            } catch (UnknownTypeException) { }
-	}
-
-        QObject *parent = 0;
-	if (po.hasProperty("parent")) {
-            try {
-                parent = loadFrom(po.getProperty("parent").toUrl(), map);
-            } catch (UnknownTypeException) {
-                parent = 0;
-            }
-	}
-
-        QObject *o = loadSingle(source, parent, map);
         return o;
     }
 
@@ -350,7 +359,7 @@ private:
 
     void callStoreCallbacks(ObjectUriMap &map, QObject *o, QUrl uri) {
         foreach (StoreCallback *cb, m_storeCallbacks) {
-            cb->stored(m_s, map, o, uri);
+            cb->stored(m_m, map, o, uri);
         }
     }
 
@@ -372,12 +381,18 @@ private:
 };
 
 ObjectMapper::ObjectMapper(Store *s) :
-    m_d(new D(s))
+    m_d(new D(this, s))
 { }
 
 ObjectMapper::~ObjectMapper()
 {
     delete m_d;
+}
+
+Store *
+ObjectMapper::getStore()
+{
+    return m_d->getStore();
 }
 
 void
@@ -450,6 +465,12 @@ QObject *
 ObjectMapper::loadAllObjects(QObject *parent)
 {
     return m_d->loadAllObjects(parent);
+}
+
+QObject *
+ObjectMapper::loadFrom(QUrl sourceUri, UriObjectMap &map)
+{
+    return m_d->loadFrom(sourceUri, map);
 }
 
 QUrl
