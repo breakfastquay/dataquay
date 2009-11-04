@@ -156,71 +156,7 @@ testQtWidgets(int argc, char **argv)
     mapper.addLoadCallback(&loader);
 
     QObject *parent = mapper.loadAllObjects(0);
-/*
-    Triples candidates = store.match(Triple(Node(), "a", Node()));
 
-    const char *n = 0;
-    int i = 0;
-    while ((n = QMetaType::typeName(i))) {
-	std::cerr << "meta type " << i << " = " << n << std::endl;
-	++i;
-    }
-    
-    MakerMap mo = makers();
-
-    UriObjectMap uriObjectMap;
-
-    foreach (Triple t, candidates) {
-
-	if (t.a.type != Node::URI || t.c.type != Node::URI) continue;
-
-	QString u = t.c.value;
-	if (!u.startsWith(qtypePrefix)) continue;
-
-	if (!mo.contains(u)) {
-	    std::cerr << "WARNING: Unknown object URI <"
-		      << u.toStdString() << ">" << std::endl;
-	    continue;
-	}
-
-	QObject *o = load(store, uriObjectMap, t.a.value);
-	if (o) uriObjectMap[t.a.value] = o;
-
-	std::cerr << "top-level load of <" << t.a.value.toStdString() << "> succeeded" << std::endl;
-    }
-
-    candidates = store.match(Triple(Node(), "a", store.expand("dq:Connection")));
-
-    QString slotTemplate = SLOT(xxx());
-    QString signalTemplate = SIGNAL(xxx());
-
-    foreach (Triple t, candidates) {
-
-	PropertyObject po(&store, "dq:", t.a.value);
-
-	QObject *source = 0;
-	QObject *target = 0;
-
-	if (po.hasProperty("source")) {
-	    source = load(store, uriObjectMap, po.getProperty("source").toUrl());
-	}
-	if (po.hasProperty("target")) {
-	    target = load(store, uriObjectMap, po.getProperty("target").toUrl());
-	}
-
-	if (!source || !target) continue;
-
-	if (po.hasProperty("source_signal") && po.hasProperty("target_slot")) {
-	    QString signal = signalTemplate.replace
-		("xxx", po.getProperty("source_signal").toString());
-	    QString slot = slotTemplate.replace
-		("xxx", po.getProperty("target_slot").toString());
-	    QByteArray sigba = signal.toLocal8Bit();
-	    QByteArray slotba = slot.toLocal8Bit();
-	    QObject::connect(source, sigba.data(), target, slotba.data());
-	}
-    }
-*/
     QMainWindow *mw = dynamic_cast<QMainWindow *>(parent);
     if (!mw) {
 	foreach (QObject *o, parent->children()) {
@@ -238,9 +174,6 @@ testQtWidgets(int argc, char **argv)
     store2.setBaseUri(store.getBaseUri());
     store2.addPrefix("dq", dqPrefix);
     store2.addPrefix("qtype", qtypePrefix);
-//    ObjectUriMap rmap;
-//    foreach (QString s, uriObjectMap.keys()) rmap[uriObjectMap[s]] = s;
-//    save(store2, rmap, mw);
     ObjectMapper mapper2(&store2);
     mapper2.setPropertyStorePolicy(ObjectMapper::StoreIfChanged);
     mapper2.setObjectStorePolicy(ObjectMapper::StoreObjectsWithURIs);
