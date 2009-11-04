@@ -200,6 +200,16 @@ public:
         return superRoot;
     }
 
+    QUrl storeObject(QObject *o) {
+        ObjectUriMap map;
+        return storeSingle(o, map);
+    }
+
+    QUrl storeObjects(QObject *root) {
+        ObjectUriMap map;
+        return storeTree(root, map);
+    }
+
     QObject *loadFrom(QUrl source, UriObjectMap &map) {
 
 	PropertyObject po(m_s, dqPrefix, source);
@@ -223,16 +233,10 @@ public:
         return o;
     }
 
-    QUrl storeObject(QObject *o) {
-        ObjectUriMap map;
+    QUrl store(QObject *o, ObjectUriMap &map) {
         return storeSingle(o, map);
     }
-
-    QUrl storeObjects(QObject *root) {
-        ObjectUriMap map;
-        return storeTree(root, map);
-    }
-
+    
     void addLoadCallback(LoadCallback *cb) {
         m_loadCallbacks.push_back(cb);
     }
@@ -467,12 +471,6 @@ ObjectMapper::loadAllObjects(QObject *parent)
     return m_d->loadAllObjects(parent);
 }
 
-QObject *
-ObjectMapper::loadFrom(QUrl sourceUri, UriObjectMap &map)
-{
-    return m_d->loadFrom(sourceUri, map);
-}
-
 QUrl
 ObjectMapper::storeObject(QObject *o)
 {
@@ -483,6 +481,18 @@ QUrl
 ObjectMapper::storeObjects(QObject *root)
 {
     return m_d->storeObjects(root);
+}
+
+QObject *
+ObjectMapper::loadFrom(QUrl sourceUri, UriObjectMap &map)
+{
+    return m_d->loadFrom(sourceUri, map);
+}
+
+QUrl
+ObjectMapper::store(QObject *o, ObjectUriMap &map)
+{
+    return m_d->store(o, map);
 }
 
 void

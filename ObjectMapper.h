@@ -123,10 +123,11 @@ public:
     QObject *loadObjects(QUrl rootUri, QObject *parent); // may throw ConstructionFailedException
     QObject *loadAllObjects(QObject *parent); // may throw ConstructionFailedException
 
-    QObject *loadFrom(QUrl sourceUri, UriObjectMap &map);
-
     QUrl storeObject(QObject *o);
     QUrl storeObjects(QObject *root);
+
+    QObject *loadFrom(QUrl sourceUri, UriObjectMap &map);
+    QUrl store(QObject *o, ObjectUriMap &map);
     
     struct LoadCallback {
         virtual void loaded(ObjectMapper *, UriObjectMap &, QUrl, QObject *) = 0;

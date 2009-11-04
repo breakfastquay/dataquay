@@ -46,6 +46,8 @@ struct LayoutLoader : public ObjectMapper::LoadCallback {
 
     void loaded(ObjectMapper *m, ObjectMapper::UriObjectMap &map, QUrl uri, QObject *o)
     {
+	cerr << "LayoutLoader::loaded: uri " << uri.toString().toStdString() << ", object type " << o->metaObject()->className() << endl;
+
 	Store *s = m->getStore();
 	CacheingPropertyObject pod(s, dqPrefix, uri);
 
@@ -112,13 +114,12 @@ struct LayoutStorer : public ObjectMapper::StoreCallback {
 
 	QLayout *layout = dynamic_cast<QLayout *>(o);
 	if (layout) {
-	    //!!! use map for storeObject
-	    pod.setProperty(0, "layout_of", m->storeObject(o->parent()));
+	    pod.setProperty(0, "layout_of", m->store(o->parent(), map));
 	}
 	QWidget *widget = dynamic_cast<QWidget *>(o);
 	if (widget) {
 	    if (widget->layout()) {
-		pod.setProperty(0, "layout", m->storeObject(widget->layout()));
+		pod.setProperty(0, "layout", m->store(widget->layout(), map));
 	    }
 	}
     }
@@ -150,6 +151,9 @@ testQtWidgets(int argc, char **argv)
     ObjectMapper mapper(&store);
     mapper.setObjectTypePrefix(qtypePrefix);
     mapper.setPropertyPrefix(qtypePrefix);
+
+    LayoutLoader loader;
+    mapper.addLoadCallback(&loader);
 
     QObject *parent = mapper.loadAllObjects(0);
 /*
@@ -240,6 +244,8 @@ testQtWidgets(int argc, char **argv)
     ObjectMapper mapper2(&store2);
     mapper2.setPropertyStorePolicy(ObjectMapper::StoreIfChanged);
     mapper2.setObjectStorePolicy(ObjectMapper::StoreObjectsWithURIs);
+    LayoutStorer storer;
+    mapper2.addStoreCallback(&storer);
     mapper2.storeObjects(parent);
     store2.save("test-qt-widgets-out.ttl");
 
