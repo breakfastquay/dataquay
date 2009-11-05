@@ -951,11 +951,10 @@ testObjectMapper()
 
     BasicStore store;
     
-    //!!! should not have to do this:
-    store.addPrefix("qtype", "http://breakfastquay.com/rdf/dataquay/qtype/");
-    store.addPrefix("dq", "http://breakfastquay.com/rdf/dataquay/common/");
-
     ObjectMapper mapper(&store);
+    store.addPrefix("type", mapper.getObjectTypePrefix());
+    store.addPrefix("property", mapper.getPropertyPrefix());
+    store.addPrefix("rel", mapper.getRelationshipPrefix());
     
     QObject *o = new QObject;
     o->setObjectName("Test Object");

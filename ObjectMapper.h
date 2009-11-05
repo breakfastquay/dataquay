@@ -93,8 +93,15 @@ public:
     Store *getStore();
 
     //... document
+    QString getObjectTypePrefix() const;
     void setObjectTypePrefix(QString prefix);
+
+    QString getPropertyPrefix() const;
     void setPropertyPrefix(QString prefix);
+
+    QString getRelationshipPrefix() const;
+    void setRelationshipPrefix(QString prefix);
+
     void addTypeMapping(QUrl uri, QString className);
     
     enum PropertyStorePolicy {

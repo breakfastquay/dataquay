@@ -48,8 +48,9 @@
 
 namespace Dataquay {
 
-static QString qtypePrefix = "http://breakfastquay.com/rdf/dataquay/qtype/";
-static QString dqPrefix = "http://breakfastquay.com/rdf/dataquay/common/"; //???
+static QString defaultTypePrefix = "http://breakfastquay.com/rdf/dataquay/objectmapper/type/";
+static QString defaultPropertyPrefix = "http://breakfastquay.com/rdf/dataquay/objectmapper/property/";
+static QString defaultRelationshipPrefix = "http://breakfastquay.com/rdf/dataquay/objectmapper/relationship/";
 
 class ObjectMapper::D
 {
@@ -59,20 +60,37 @@ public:
         m_s(s),
         m_psp(StoreAlways),
         m_osp(StoreAllObjects),
-        m_typePrefix(qtypePrefix),
-        m_propertyPrefix(qtypePrefix) {
+        m_typePrefix(defaultTypePrefix),
+        m_propertyPrefix(defaultPropertyPrefix),
+        m_relationshipPrefix(defaultRelationshipPrefix) {
     }
 
     Store *getStore() {
         return m_s;
     }
 
+    QString getObjectTypePrefix() const {
+        return m_typePrefix;
+    }
+
     void setObjectTypePrefix(QString prefix) {
         m_typePrefix = prefix;
     }
 
+    QString getPropertyPrefix() const {
+        return m_propertyPrefix;
+    }
+
     void setPropertyPrefix(QString prefix) { 
         m_propertyPrefix = prefix;
+    }
+
+    QString getRelationshipPrefix() const {
+        return m_relationshipPrefix;
+    }
+
+    void setRelationshipPrefix(QString prefix) { 
+        m_relationshipPrefix = prefix;
     }
 
     void addTypeMapping(QUrl uri, QString className) {
@@ -182,7 +200,7 @@ public:
 
     QObject *loadFrom(QUrl source, UriObjectMap &map) {
 
-	PropertyObject po(m_s, dqPrefix, source);
+	PropertyObject po(m_s, m_relationshipPrefix, source);
 
 	if (po.hasProperty("follows")) {
             try {
@@ -222,6 +240,7 @@ private:
     ObjectStorePolicy m_osp;
     QString m_typePrefix;
     QString m_propertyPrefix;
+    QString m_relationshipPrefix;
     QList<LoadCallback *> m_loadCallbacks;
     QList<StoreCallback *> m_storeCallbacks;
     QMap<QUrl, QString> m_typeMap;
@@ -283,7 +302,12 @@ private:
                 (type == QVariant::UserType)) { //!!!
                 QObject *ref = value.value<QObject *>();
                 if (!ref) DEBUG << "failed to convert to object" << endl;
-                if (ref && map.contains(ref)) value = map[ref];
+                if (ref) {
+                    if (map.contains(ref)) value = map[ref];
+                    else if (ref->property("uri") != QVariant()) {
+                        value = ref->property("uri");
+                    }
+                }
             }
 
             po.setProperty(0, pname, value);
@@ -296,8 +320,7 @@ private:
 	    return map[uri.toString()];
 	}
 
-	//!!! how to configure this prefix?
-	PropertyObject pod(m_s, dqPrefix, uri);
+	PropertyObject pod(m_s, m_relationshipPrefix, uri);
 
 	QString typeUri = pod.getObjectType().toString();
         QString className;
@@ -342,16 +365,16 @@ private:
         QString slotTemplate = SLOT(xxx());
         QString signalTemplate = SIGNAL(xxx());
 
-        // The store does not necessarily know dqPrefix
+        // The store does not necessarily know m_relationshipPrefix
 
         ResultSet rs = m_s->query
             (QString
-             (" PREFIX dq: <%1> "
+             (" PREFIX rel: <%1> "
               " SELECT ?sobj ?ssig ?tobj ?tslot WHERE { "
-              " ?conn a dq:Connection; dq:source ?s; dq:target ?t. "
-              " ?s dq:object ?sobj; dq:signal ?ssig. "
-              " ?t dq:object ?tobj; dq:slot ?tslot. "
-              " } ").arg(dqPrefix));
+              " ?conn a rel:Connection; rel:source ?s; rel:target ?t. "
+              " ?s rel:object ?sobj; rel:signal ?ssig. "
+              " ?t rel:object ?tobj; rel:slot ?tslot. "
+              " } ").arg(m_relationshipPrefix));
 
         foreach (Dictionary d, rs) {
 
@@ -380,7 +403,8 @@ private:
         }
 
         if (o) {
-            Triples childTriples = m_s->match(Triple(Node(), "dq:parent", uri));
+            Triples childTriples = m_s->match
+                (Triple(Node(), m_relationshipPrefix + "parent", uri));
             foreach (Triple t, childTriples) {
                 loadTree(t.a.value, o, map);
             }
@@ -416,7 +440,7 @@ private:
         m_s->add(Triple(uri, "a", typeUri));
 
         if (o->parent() && map.contains(o->parent())) {
-            m_s->add(Triple(uri, "dq:parent", map[o->parent()]));
+            m_s->add(Triple(uri, m_relationshipPrefix + "parent", map[o->parent()]));
         }
 
         storeProperties(o, uri, map);
@@ -464,16 +488,40 @@ ObjectMapper::getStore()
     return m_d->getStore();
 }
 
+QString
+ObjectMapper::getObjectTypePrefix() const
+{
+    return m_d->getObjectTypePrefix();
+}
+
 void
 ObjectMapper::setObjectTypePrefix(QString prefix)
 {
     m_d->setObjectTypePrefix(prefix);
 }
 
+QString
+ObjectMapper::getPropertyPrefix() const
+{
+    return m_d->getPropertyPrefix();
+}
+
 void
 ObjectMapper::setPropertyPrefix(QString prefix)
 {
     m_d->setPropertyPrefix(prefix);
+}
+
+QString
+ObjectMapper::getRelationshipPrefix() const
+{
+    return m_d->getRelationshipPrefix();
+}
+
+void
+ObjectMapper::setRelationshipPrefix(QString prefix)
+{
+    m_d->setRelationshipPrefix(prefix);
 }
 
 void
