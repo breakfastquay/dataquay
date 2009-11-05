@@ -36,6 +36,7 @@
 
 #include <QHash>
 #include <QString>
+#include <QVariant>
 
 namespace Dataquay {
 

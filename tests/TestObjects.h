@@ -65,7 +65,7 @@ public:
     B(QObject *parent = 0) : QObject(parent) { }
 
     A *getRef() const { return m_ref; }
-    void setRef(QObject *r) { m_ref = qobject_cast<A *>(r); }
+    void setRef(A *r) { m_ref = qobject_cast<A *>(r); }
 
 private:
     A *m_ref;

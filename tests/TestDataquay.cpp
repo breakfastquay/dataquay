@@ -980,6 +980,11 @@ testObjectMapper()
     QUrl turi = mapper.storeObject(t);
     cerr << "Stored QTimer as " << turi << endl;
 
+    ObjectBuilder::getInstance()->
+        registerWithParentConstructor<A, QObject>();
+    ObjectBuilder::getInstance()->
+        registerWithParentConstructor<B, QObject>();
+
     A *a = new A(o);
     a->setRef(t);
     QUrl auri = mapper.storeObject(a);
@@ -1018,11 +1023,6 @@ testObjectMapper()
         cerr << "QTimer not a QTimer after recall" << endl;
         return false;
     }
-
-    ObjectBuilder::getInstance()->
-        registerWithParentConstructor<A, QObject>();
-    ObjectBuilder::getInstance()->
-        registerWithParentConstructor<B, QObject>();
 
     recalled = mapper.loadObject(auri, 0);
     if (!recalled) {
