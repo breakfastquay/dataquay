@@ -97,51 +97,13 @@ public:
     }
 
     void loadProperties(QObject *o, QUrl uri) {
-
-	PropertyObject po(m_s, m_propertyPrefix, uri);
-	foreach (QString property, po.getProperties()) {
-
-	    QByteArray ba = property.toLocal8Bit();
-	    QVariant value = po.getProperty(property);
-
-	    if (!o->setProperty(ba.data(), value)) {
-		// Not an error; could be a dynamic property
-		DEBUG << "ObjectMapper::loadProperties: Property set failed "
-                      << "for property " << ba.data() << " to value "
-                      << value << " on object " << uri << endl;
-	    }
-	}
+        UriObjectMap map;
+        loadProperties(o, uri, map);
     }
 
     void storeProperties(QObject *o, QUrl uri) {
-
-	QString cname = o->metaObject()->className();
-	PropertyObject po(m_s, m_propertyPrefix, uri);
-
-        ObjectBuilder *builder = ObjectBuilder::getInstance();
-
-	for (int i = 0; i < o->metaObject()->propertyCount(); ++i) {
-
-            if (!o->metaObject()->property(i).isStored() ||
-                !o->metaObject()->property(i).isReadable() ||
-                !o->metaObject()->property(i).isWritable()) {
-                continue;
-            }
-
-            QString pname = o->metaObject()->property(i).name();
-            QByteArray pnba = pname.toLocal8Bit();
-
-            if (m_psp == StoreIfChanged) {
-                if (builder->knows(cname)) {
-                    std::auto_ptr<QObject> c(builder->build(cname, 0));
-                    if (o->property(pnba.data()) == c->property(pnba.data())) {
-                        continue;
-                    }
-                }
-            }
-
-            po.setProperty(0, pname, o->property(pnba.data()));
-	}
+        ObjectUriMap map;
+        storeProperties(o, uri, map);
     }
 
     QObject *loadObject(QUrl uri, QObject *parent) {
@@ -241,39 +203,6 @@ public:
         return o;
     }
 
-    void loadConnections(UriObjectMap &map) {
-        
-        QString slotTemplate = SLOT(xxx());
-        QString signalTemplate = SIGNAL(xxx());
-
-        // The store does not necessarily know dqPrefix
-
-        ResultSet rs = m_s->query
-            (QString
-             (" PREFIX dq: <%1> "
-              " SELECT ?sobj ?ssig ?tobj ?tslot WHERE { "
-              " ?conn a dq:Connection; dq:source ?s; dq:target ?t. "
-              " ?s dq:object ?sobj; dq:signal ?ssig. "
-              " ?t dq:object ?tobj; dq:slot ?tslot. "
-              " } ").arg(dqPrefix));
-
-        foreach (Dictionary d, rs) {
-
-            QUrl sourceUri = d["sobj"].value;
-            QUrl targetUri = d["tobj"].value;
-            if (!map.contains(sourceUri) || !map.contains(targetUri)) continue;
-
-            QString sourceSignal = signalTemplate.replace("xxx", d["ssig"].value);
-            QString targetSlot = slotTemplate.replace("xxx", d["tslot"].value);
-
-            QByteArray sigba = sourceSignal.toLocal8Bit();
-            QByteArray slotba = targetSlot.toLocal8Bit();
-                
-            QObject::connect(map[sourceUri], sigba.data(),
-                             map[targetUri], slotba.data());
-        }
-    }
-
     QUrl store(QObject *o, ObjectUriMap &map) {
         return storeSingle(o, map);
     }
@@ -297,6 +226,69 @@ private:
     QList<StoreCallback *> m_storeCallbacks;
     QMap<QUrl, QString> m_typeMap;
     QHash<QString, QUrl> m_typeRMap;
+
+    void loadProperties(QObject *o, QUrl uri, UriObjectMap &map) {
+
+	PropertyObject po(m_s, m_propertyPrefix, uri);
+	foreach (QString property, po.getProperties()) {
+
+	    QByteArray ba = property.toLocal8Bit();
+	    QVariant value = po.getProperty(property);
+
+	    if (!o->setProperty(ba.data(), value)) {
+		// Not an error; could be a dynamic property
+		DEBUG << "ObjectMapper::loadProperties: Property set failed "
+                      << "for property " << ba.data() << " to value "
+                      << value << " on object " << uri << endl;
+	    }
+	}
+    }
+
+    void storeProperties(QObject *o, QUrl uri, ObjectUriMap &map) {
+
+	QString cname = o->metaObject()->className();
+	PropertyObject po(m_s, m_propertyPrefix, uri);
+
+        ObjectBuilder *builder = ObjectBuilder::getInstance();
+
+	for (int i = 0; i < o->metaObject()->propertyCount(); ++i) {
+
+            QMetaProperty property = o->metaObject()->property(i);
+
+            if (!property.isStored() ||
+                !property.isReadable() ||
+                !property.isWritable()) {
+                continue;
+            }
+
+            QString pname = property.name();
+            QByteArray pnba = pname.toLocal8Bit();
+
+            QVariant value = o->property(pnba.data());
+
+            if (m_psp == StoreIfChanged) {
+                if (builder->knows(cname)) {
+                    std::auto_ptr<QObject> c(builder->build(cname, 0));
+                    if (value == c->property(pnba.data())) {
+                        continue;
+                    }
+                }
+            }
+
+            int type = property.type();
+            int userType = property.userType();
+
+            if (type == QMetaType::QObjectStar ||
+                type == QMetaType::QWidgetStar ||
+                (type == QVariant::UserType)) { //!!!
+                QObject *ref = value.value<QObject *>();
+                if (!ref) DEBUG << "failed to convert to object" << endl;
+                if (ref && map.contains(ref)) value = map[ref];
+            }
+
+            po.setProperty(0, pname, value);
+	}
+    }
 
     QObject *loadSingle(QUrl uri, QObject *parent, UriObjectMap &map) {
 
@@ -327,7 +319,7 @@ private:
 	QObject *o = builder->build(className, parent);
 	if (!o) throw ConstructionFailedException(typeUri);
 	
-	loadProperties(o, uri);
+	loadProperties(o, uri, map);
 
         o->setProperty("uri", uri);
         map[uri.toString()] = o;
@@ -342,6 +334,39 @@ private:
             //!!! this doesn't really work out -- the callback doesn't know whether we're loading a single object or a graph; it may load any number of other related objects into the map, and if we were only supposed to load a single object, we won't know what to do with them afterwards (at the moment we just leak them)
 
             cb->loaded(m_m, map, uri, o);
+        }
+    }
+
+    void loadConnections(UriObjectMap &map) {
+        
+        QString slotTemplate = SLOT(xxx());
+        QString signalTemplate = SIGNAL(xxx());
+
+        // The store does not necessarily know dqPrefix
+
+        ResultSet rs = m_s->query
+            (QString
+             (" PREFIX dq: <%1> "
+              " SELECT ?sobj ?ssig ?tobj ?tslot WHERE { "
+              " ?conn a dq:Connection; dq:source ?s; dq:target ?t. "
+              " ?s dq:object ?sobj; dq:signal ?ssig. "
+              " ?t dq:object ?tobj; dq:slot ?tslot. "
+              " } ").arg(dqPrefix));
+
+        foreach (Dictionary d, rs) {
+
+            QUrl sourceUri = d["sobj"].value;
+            QUrl targetUri = d["tobj"].value;
+            if (!map.contains(sourceUri) || !map.contains(targetUri)) continue;
+
+            QString sourceSignal = signalTemplate.replace("xxx", d["ssig"].value);
+            QString targetSlot = slotTemplate.replace("xxx", d["tslot"].value);
+
+            QByteArray sigba = sourceSignal.toLocal8Bit();
+            QByteArray slotba = targetSlot.toLocal8Bit();
+                
+            QObject::connect(map[sourceUri], sigba.data(),
+                             map[targetUri], slotba.data());
         }
     }
 
@@ -376,8 +401,7 @@ private:
         if (uriVar != QVariant()) {
             uri = uriVar.toUrl();
         } else {
-            uri = m_s->getUniqueUri
-                (":" + className.toLower().right(className.length()-1) + "_");
+            uri = m_s->getUniqueUri(":" + className.toLower() + "_");
             o->setProperty("uri", uri); //!!! document this
         }
 
@@ -395,7 +419,7 @@ private:
             m_s->add(Triple(uri, "dq:parent", map[o->parent()]));
         }
 
-        storeProperties(o, uri);
+        storeProperties(o, uri, map);
 
         callStoreCallbacks(map, o, uri);
 

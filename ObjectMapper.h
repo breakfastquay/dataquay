@@ -142,6 +142,7 @@ public:
 
     QUrl storeObject(QObject *o);
     QUrl storeObjects(QObject *root);
+    //!!! want a method to store all objects
 
     QObject *loadFrom(QUrl sourceUri, UriObjectMap &map);
     QUrl store(QObject *o, ObjectUriMap &map);

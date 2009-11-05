@@ -31,6 +31,8 @@
     authorization.
 */
 
+#include "TestObjects.h"
+
 #include "../BasicStore.h"
 #include "../PropertyObject.h"
 #include "../TransactionalStore.h"
@@ -958,8 +960,6 @@ testObjectMapper()
     QObject *o = new QObject;
     o->setObjectName("Test Object");
 
-    //!!! I don't think we can test all these options... must limit them
-    
     QUrl uri = mapper.storeObject(o);
     cerr << "Stored QObject as " << uri << endl;
 
@@ -973,12 +973,22 @@ testObjectMapper()
         return false;
     }
 
-    QTimer *t = new QTimer;
+    QTimer *t = new QTimer(o);
     t->setSingleShot(true);
     t->setInterval(4);
 
     QUrl turi = mapper.storeObject(t);
     cerr << "Stored QTimer as " << turi << endl;
+
+    A *a = new A(o);
+    a->setRef(t);
+    QUrl auri = mapper.storeObject(a);
+    cerr << "Stored A-object as " << auri << endl;
+    
+    qRegisterMetaType<A*>("A*");
+
+    B *b = new B(o);
+    b->setRef(a);
 
     bool caught = false;
     try {
@@ -1009,7 +1019,30 @@ testObjectMapper()
         return false;
     }
 
+    ObjectBuilder::getInstance()->
+        registerWithParentConstructor<A, QObject>();
+    ObjectBuilder::getInstance()->
+        registerWithParentConstructor<B, QObject>();
+
+    recalled = mapper.loadObject(auri, 0);
+    if (!recalled) {
+        cerr << "Failed to recall A-object" << endl;
+        return false;
+    }
+    if (recalled->objectName() != a->objectName()) {
+        cerr << "Wrong A-object name recalled" << endl;
+        return false;
+    }
+    if (!qobject_cast<A *>(recalled)) {
+        cerr << "A-object not an A-object after recall" << endl;
+        return false;
+    }
+
     store.save("test-object-mapper.ttl");
+
+    mapper.storeObjects(o);
+
+    store.save("test-object-mapper-2.ttl");
 
     return true;
 
@@ -1031,7 +1064,7 @@ main(int argc, char **argv)
     if (!Dataquay::Test::testConnection()) return false;
     if (!Dataquay::Test::testObjectMapper()) return false;
 
-    if (!Dataquay::Test::testQtWidgets(argc, argv)) return false;
+//    if (!Dataquay::Test::testQtWidgets(argc, argv)) return false;
 
     std::cerr << "testDataquay successfully completed" << std::endl;
     return true;

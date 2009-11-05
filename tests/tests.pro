@@ -12,6 +12,7 @@ PRE_TARGETDEPS += ../libdataquay.a
 LIBPATH += ../../ext
 LIBS += -ldataquay -lext
 
+HEADERS += TestObjects.h
 SOURCES += TestDataquay.cpp TestQtWidgets.cpp
 
 solaris* {
