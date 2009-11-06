@@ -139,14 +139,14 @@ testQtWidgets(int argc, char **argv)
     store.import(infile, BasicStore::ImportIgnoreDuplicates);
 
     ObjectBuilder *b = ObjectBuilder::getInstance();
-    b->registerWithDefaultConstructor<QMainWindow>();
-    b->registerWithParentConstructor<QFrame, QWidget>();
-    b->registerWithParentConstructor<QLabel, QWidget>();
-    b->registerWithParentConstructor<QGridLayout, QWidget>();
-    b->registerWithParentConstructor<QVBoxLayout, QWidget>();
-    b->registerWithParentConstructor<QMenu, QWidget>();
-    b->registerWithParentConstructor<QMenuBar, QWidget>();
-    b->registerWithParentConstructor<QAction, QObject>();
+    b->registerClass<QMainWindow>();
+    b->registerClass<QFrame, QWidget>();
+    b->registerClass<QLabel, QWidget>();
+    b->registerClass<QGridLayout, QWidget>();
+    b->registerClass<QVBoxLayout, QWidget>();
+    b->registerClass<QMenu, QWidget>();
+    b->registerClass<QMenuBar, QWidget>();
+    b->registerClass<QAction, QObject>();
 
     ObjectMapper mapper(&store);
     mapper.setObjectTypePrefix(qtypePrefix);

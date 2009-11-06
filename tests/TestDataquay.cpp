@@ -979,18 +979,16 @@ testObjectMapper()
     QUrl turi = mapper.storeObject(t);
     cerr << "Stored QTimer as " << turi << endl;
 
-    ObjectBuilder::getInstance()->
-        registerWithParentConstructor<A, QObject>();
-    ObjectBuilder::getInstance()->
-        registerWithParentConstructor<B, QObject>();
+    qRegisterMetaType<A*>("A*");
+    qRegisterMetaType<B*>("B*");
+    ObjectBuilder::getInstance()->registerClass<A, QObject>("A*");
+    ObjectBuilder::getInstance()->registerClass<B, QObject>("B*");
 
     A *a = new A(o);
     a->setRef(t);
     QUrl auri = mapper.storeObject(a);
     cerr << "Stored A-object as " << auri << endl;
     
-    qRegisterMetaType<A*>("A*");
-
     B *b = new B(o);
     b->setRef(a);
 
@@ -1006,8 +1004,7 @@ testObjectMapper()
         return false;
     }
 
-    ObjectBuilder::getInstance()->
-        registerWithParentConstructor<QTimer, QObject>();
+    ObjectBuilder::getInstance()->registerClass<QTimer, QObject>();
 
     recalled = mapper.loadObject(turi, 0);
     if (!recalled) {

@@ -71,4 +71,6 @@ private:
     A *m_ref;
 };
 
+Q_DECLARE_METATYPE(B*)
+
 #endif

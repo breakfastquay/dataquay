@@ -299,9 +299,14 @@ private:
 
             if (type == QMetaType::QObjectStar ||
                 type == QMetaType::QWidgetStar ||
-                (type == QVariant::UserType)) { //!!!
-                QObject *ref = value.value<QObject *>();
-                if (!ref) DEBUG << "failed to convert to object" << endl;
+                type == QVariant::UserType) {
+                QObject *ref = 0;
+                if (type == QVariant::UserType) {
+                    const char *refname = QMetaType::typeName(userType);
+                    if (refname) ref = builder->extract(refname, value);
+                } else {
+                    ref = value.value<QObject *>();
+                }
                 if (ref) {
                     if (map.contains(ref)) value = map[ref];
                     else if (ref->property("uri") != QVariant()) {

@@ -80,10 +80,31 @@ public:
      * would return a new QWidget built with that constructor (since
      * "QWidget" is the class name of QWidget returned by its meta
      * object).
+     *!!! update the above
      */
     template <typename T, typename Parent>
-    void registerWithParentConstructor() {
-        m_map[T::staticMetaObject.className()] = new Builder1<T, Parent>();
+    void registerClass(QString pointerName) {
+        m_builders[T::staticMetaObject.className()] = new Builder1<T, Parent>();
+        m_extractors[pointerName] = new Extractor<T *>();
+    }
+
+    /**
+     * Register type T, a subclass of QObject, as a class that can be
+     * constructed by calling a single-argument constructor whose
+     * argument is of pointer-to-Parent type, where Parent is also a
+     * subclass of QObject.
+     *
+     * For example, calling registerWithParentConstructor<QWidget,
+     * QWidget>() declares that QWidget is a subclass of QObject that
+     * may be built using QWidget::QWidget(QWidget *parent).  A
+     * subsequent call to ObjectBuilder::build("QWidget", parent)
+     * would return a new QWidget built with that constructor (since
+     * "QWidget" is the class name of QWidget returned by its meta
+     * object).
+     */
+    template <typename T, typename Parent>
+    void registerClass() {
+        m_builders[T::staticMetaObject.className()] = new Builder1<T, Parent>();
     }
 
     /**
@@ -91,8 +112,8 @@ public:
      * constructed by calling a zero-argument constructor.
      */
     template <typename T>
-    void registerWithDefaultConstructor() {
-        m_map[T::staticMetaObject.className()] = new Builder0<T>();
+    void registerClass() {
+        m_builders[T::staticMetaObject.className()] = new Builder0<T>();
     }
 
     /**
@@ -100,7 +121,7 @@ public:
      * meta object) is className has been registered.
      */
     bool knows(QString className) {
-        return m_map.contains(className);
+        return m_builders.contains(className);
     }
 
     /**
@@ -110,7 +131,7 @@ public:
      */
     QObject *build(QString className, QObject *parent) {
         if (!knows(className)) return 0;
-        return m_map[className]->build(parent);
+        return m_builders[className]->build(parent);
     }
 
     /**
@@ -119,15 +140,29 @@ public:
      */
     QObject *build(QString className) {
         if (!knows(className)) return 0;
-        return m_map[className]->build(0);
+        return m_builders[className]->build(0);
+    }
+
+    bool canExtract(QString pointerName) {
+        return m_extractors.contains(pointerName);
+    }
+
+    QObject *extract(QString pointerName, QVariant &v) {
+        if (!canExtract(pointerName)) return 0;
+        return m_extractors[pointerName]->extract(v);
     }
 
 private:
     ObjectBuilder() {
-        registerWithParentConstructor<QObject, QObject>();
+        registerClass<QObject, QObject>();
     }
     ~ObjectBuilder() {
-        for (BuilderMap::iterator i = m_map.begin(); i != m_map.end(); ++i) {
+        for (BuilderMap::iterator i = m_builders.begin();
+             i != m_builders.end(); ++i) {
+            delete *i;
+        }
+        for (ExtractorMap::iterator i = m_extractors.begin();
+             i != m_extractors.end(); ++i) {
             delete *i;
         }
     }
@@ -136,23 +171,33 @@ private:
         virtual QObject *build(QObject *) = 0;
     };
 
-    template <typename T> 
-    struct Builder0 : public BuilderBase {
+    template <typename T> struct Builder0 : public BuilderBase {
         virtual QObject *build(QObject *) {
-            T *t = new T();
-            return t;
+            return new T();
         }
     };
 
-    template <typename T, typename Parent> 
-    struct Builder1 : public BuilderBase {
+    template <typename T, typename Parent> struct Builder1 : public BuilderBase {
         virtual QObject *build(QObject *p) {
             return new T(qobject_cast<Parent *>(p));
         }
     };
 
     typedef QHash<QString, BuilderBase *> BuilderMap;
-    BuilderMap m_map;
+    BuilderMap m_builders;
+
+    struct ExtractorBase {
+        virtual QObject *extract(QVariant &v) = 0;
+    };
+
+    template <typename Pointer> struct Extractor : public ExtractorBase {
+        virtual QObject *extract(QVariant &v) {
+            return v.value<Pointer>();
+        }
+    };
+
+    typedef QHash<QString, ExtractorBase *> ExtractorMap;
+    ExtractorMap m_extractors;
 };
 
 }
