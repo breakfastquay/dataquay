@@ -90,6 +90,15 @@ public:
      */
     Node(Type t, QString v, QString dt) : type(t), value(v), datatype(dt) { }
 
+    Node(const Node &n) :
+        type(n.type), value(n.value), datatype(n.datatype) {
+    }
+
+    Node &operator=(const Node &n) {
+        type = n.type; value = n.value; datatype = n.datatype;
+        return *this;
+    }
+
     ~Node() { }
 
     /**
@@ -126,6 +135,13 @@ public:
      * fromVariant).
      */
     QVariant toVariant() const;
+
+    bool operator<(const Node &n) const {
+        if (type != n.type) return type < n.type;
+        if (value != n.value) return value < n.value;
+        if (datatype != n.datatype) return datatype < n.datatype;
+        return false;
+    }
     
     Type type;
     QString value;

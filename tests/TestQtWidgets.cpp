@@ -44,7 +44,7 @@ static QString dqPrefix = "http://breakfastquay.com/rdf/dataquay/common/"; //???
 
 struct LayoutLoader : public ObjectMapper::LoadCallback {
 
-    void loaded(ObjectMapper *m, ObjectMapper::UriObjectMap &map, QUrl uri, QObject *o)
+    void loaded(ObjectMapper *m, ObjectMapper::NodeObjectMap &map, QUrl uri, QObject *o)
     {
 	cerr << "LayoutLoader::loaded: uri " << uri.toString().toStdString() << ", object type " << o->metaObject()->className() << endl;
 
@@ -108,7 +108,7 @@ struct LayoutLoader : public ObjectMapper::LoadCallback {
 
 struct LayoutStorer : public ObjectMapper::StoreCallback {
 
-    void stored(ObjectMapper *m, ObjectMapper::ObjectUriMap &map, QObject *o, QUrl uri)
+    void stored(ObjectMapper *m, ObjectMapper::ObjectNodeMap &map, QObject *o, QUrl uri)
     {
 	PropertyObject pod(m->getStore(), dqPrefix, uri);
 
@@ -157,14 +157,14 @@ testQtWidgets(int argc, char **argv)
 
     QObject *parent = mapper.loadAllObjects(0);
 
-    QMainWindow *mw = dynamic_cast<QMainWindow *>(parent);
+    QMainWindow *mw = qobject_cast<QMainWindow *>(parent);
     if (!mw) {
 	foreach (QObject *o, parent->children()) {
 	    std::cerr << "child: " << o->metaObject()->className() << std::endl;
-	    QMainWindow *hmw = dynamic_cast<QMainWindow *>(o);
+	    QMainWindow *hmw = qobject_cast<QMainWindow *>(o);
 	    if (hmw) {
 		mw = hmw;
-		std::cerr << "showing main window" << std::endl;
+		std::cerr << "showing main window (it is " << hmw << ", object name \"" << hmw->objectName().toStdString() << "\")" << std::endl;
 	    }
         }
     }

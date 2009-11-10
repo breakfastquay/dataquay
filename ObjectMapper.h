@@ -35,6 +35,7 @@
 #define _DATAQUAY_OBJECT_MAPPER_H_
 
 #include <QUrl>
+#include "Node.h"
 
 #include <exception>
 
@@ -80,8 +81,8 @@ class Store;
 class ObjectMapper
 {
 public:
-    typedef QMap<QUrl, QObject *> UriObjectMap;
-    typedef QMap<QObject *, QUrl> ObjectUriMap;
+    typedef QMap<Node, QObject *> NodeObjectMap;
+    typedef QMap<QObject *, Node> ObjectNodeMap;
 
     /**
      * Create a ObjectMapper ready to load and store objects from and
@@ -151,14 +152,14 @@ public:
     QUrl storeObjects(QObject *root);
     //!!! want a method to store all objects
 
-    QObject *loadFrom(QUrl sourceUri, UriObjectMap &map);
-    QUrl store(QObject *o, ObjectUriMap &map);
+    QObject *loadFrom(QUrl sourceUri, NodeObjectMap &map);
+    QUrl store(QObject *o, ObjectNodeMap &map);
     
     struct LoadCallback {
-        virtual void loaded(ObjectMapper *, UriObjectMap &, QUrl, QObject *) = 0;
+        virtual void loaded(ObjectMapper *, NodeObjectMap &, QUrl, QObject *) = 0;
     };
     struct StoreCallback {
-        virtual void stored(ObjectMapper *, ObjectUriMap &, QObject *, QUrl) = 0;
+        virtual void stored(ObjectMapper *, ObjectNodeMap &, QObject *, QUrl) = 0;
     };
 
     void addLoadCallback(LoadCallback *callback);
