@@ -90,6 +90,17 @@ public:
 
     /**
      * Register type T, a subclass of QObject, as a class that can be
+     * constructed by calling a zero-argument constructor.
+     *!!! update the above
+     */
+    template <typename T>
+    void registerClass(QString pointerName) {
+        m_builders[T::staticMetaObject.className()] = new Builder0<T>();
+        m_extractors[pointerName] = new Extractor<T *>();
+    }
+
+    /**
+     * Register type T, a subclass of QObject, as a class that can be
      * constructed by calling a single-argument constructor whose
      * argument is of pointer-to-Parent type, where Parent is also a
      * subclass of QObject.

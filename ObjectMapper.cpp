@@ -121,7 +121,7 @@ public:
 
     void storeProperties(QObject *o, QUrl uri) {
         ObjectUriMap map;
-        storeProperties(o, uri, map);
+        storeProperties(o, uri, map, false);
     }
 
     QObject *loadObject(QUrl uri, QObject *parent) {
@@ -157,6 +157,7 @@ public:
             } else {
                 if (!typeUri.startsWith(m_typePrefix)) continue;
                 className = typeUri.right(typeUri.length() - m_typePrefix.length());
+                className = className.replace("/", "::");
             }
 
             if (!builder->knows(className)) {
@@ -190,7 +191,7 @@ public:
 
     QUrl storeObject(QObject *o) {
         ObjectUriMap map;
-        return storeSingle(o, map);
+        return storeSingle(o, map, false);
     }
 
     QUrl storeObjects(QObject *root) {
@@ -222,7 +223,7 @@ public:
     }
 
     QUrl store(QObject *o, ObjectUriMap &map) {
-        return storeSingle(o, map);
+        return storeSingle(o, map, true);
     }
     
     void addLoadCallback(LoadCallback *cb) {
@@ -254,6 +255,8 @@ private:
 	    QByteArray ba = property.toLocal8Bit();
 	    QVariant value = po.getProperty(property);
 
+            //!!! handle QObjectStar, UserType etc as below
+
 	    if (!o->setProperty(ba.data(), value)) {
 		// Not an error; could be a dynamic property
 		DEBUG << "ObjectMapper::loadProperties: Property set failed "
@@ -263,7 +266,7 @@ private:
 	}
     }
 
-    void storeProperties(QObject *o, QUrl uri, ObjectUriMap &map) {
+    void storeProperties(QObject *o, QUrl uri, ObjectUriMap &map, bool follow) {
 
 	QString cname = o->metaObject()->className();
 	PropertyObject po(m_s, m_propertyPrefix, uri);
@@ -303,14 +306,21 @@ private:
                 QObject *ref = 0;
                 if (type == QVariant::UserType) {
                     const char *refname = QMetaType::typeName(userType);
-                    if (refname) ref = builder->extract(refname, value);
+                    DEBUG << "Property " << pname << " is of user type " << refname << ", checking for extractor" << endl;
+                    if (refname) {
+                        ref = builder->extract(refname, value);
+                        DEBUG << "Extracted object is " << ref << endl;
+                    }
                 } else {
                     ref = value.value<QObject *>();
                 }
                 if (ref) {
-                    if (map.contains(ref)) value = map[ref];
-                    else if (ref->property("uri") != QVariant()) {
+                    if (map.contains(ref)) {
+                        value = map[ref];
+                    } else if (ref->property("uri") != QVariant()) {
                         value = ref->property("uri");
+                    } else if (follow) {
+                        value = storeSingle(ref, map, true);
                     }
                 }
             }
@@ -337,6 +347,7 @@ private:
                 throw UnknownTypeException(typeUri);
             }
             className = typeUri.right(typeUri.length() - m_typePrefix.length());
+            className = className.replace("/", "::");
         }
 
         ObjectBuilder *builder = ObjectBuilder::getInstance();
@@ -418,7 +429,7 @@ private:
         return o;
     }
 
-    QUrl storeSingle(QObject *o, ObjectUriMap &map) {
+    QUrl storeSingle(QObject *o, ObjectUriMap &map, bool follow) {
 
         if (map.contains(o)) return map[o];
 
@@ -430,7 +441,9 @@ private:
         if (uriVar != QVariant()) {
             uri = uriVar.toUrl();
         } else {
-            uri = m_s->getUniqueUri(":" + className.toLower() + "_");
+            QString tag = className.toLower() + "_";
+            tag.replace("::", "_");
+            uri = m_s->getUniqueUri(":" + tag);
             o->setProperty("uri", uri); //!!! document this
         }
 
@@ -440,7 +453,7 @@ private:
         if (m_typeRMap.contains(className)) {
             typeUri = m_typeRMap[className];
         } else {
-            typeUri = m_typePrefix + className;
+            typeUri = QString(m_typePrefix + className).replace("::", "/");
         }
         m_s->add(Triple(uri, "a", typeUri));
 
@@ -448,7 +461,7 @@ private:
             m_s->add(Triple(uri, m_relationshipPrefix + "parent", map[o->parent()]));
         }
 
-        storeProperties(o, uri, map);
+        storeProperties(o, uri, map, follow);
 
         callStoreCallbacks(map, o, uri);
 
@@ -467,7 +480,7 @@ private:
             if (o->property("uri") == QVariant()) return QUrl();
         }
 
-        QUrl me = storeSingle(o, map);
+        QUrl me = storeSingle(o, map, true);
 
         foreach (QObject *c, o->children()) {
             storeTree(c, map);

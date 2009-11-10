@@ -44,6 +44,7 @@ namespace Dataquay
 
 class Transaction;
 class Store;
+class Node;
 
 /**
  * \class PropertyObject PropertyObject.h <dataquay/PropertyObject.h>
@@ -119,6 +120,16 @@ public:
      * URI (which will be prefix expanded).
      */
     PropertyObject(Store *s, QString propertyPrefix, QString myUri);
+
+    /**
+     * Construct a PropertyObject acting on the given Store, with the
+     * given default prefix for properties and the given node as its
+     * subject.  This is provided so as to permit querying the
+     * properties of blank nodes.
+     */
+    PropertyObject(Store *s, QString propertyPrefix, Node myUri);
+
+    ~PropertyObject();
 
     /**
      * Return the rdf:type of my URI, if any.  If more than one is
@@ -242,7 +253,7 @@ public:
 private:
     Store *m_store;
     QString m_pfx;
-    QUrl m_uri;
+    Node *m_node;
     static QString m_defaultPrefix;
 };
 
@@ -255,6 +266,11 @@ private:
  * usually faster than PropertyObject as it avoids datastore access,
  * but it can only be used in contexts where it is known that no other
  * agent may be modifying the same set of properties.
+ 
+ *!!! needs to be updated with newer PropertyObject functions, and its
+      cache is not very good (e.g. hasProperty followed by getProperty
+      is slow)
+
  */
 class CacheingPropertyObject
 {
