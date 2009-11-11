@@ -210,6 +210,22 @@ public:
     void setProperty(QString name, QVariant value);
 
     /**
+     * Set the given property to the given URI.  That is, first
+     * remove from the store any triples whose subject and predicate
+     * match those for my URI and the expansion of the given property
+     * name, then insert a new triple whose object part is the URI.
+     */
+    void setProperty(QString name, QUrl uri);
+
+    /**
+     * Set the given property to the given node.  That is, first
+     * remove from the store any triples whose subject and predicate
+     * match those for my URI and the expansion of the given property
+     * name, then insert a new triple whose object part is the node.
+     */
+    void setProperty(QString name, Node node);
+
+    /**
      * Set the given property to the given value through the given
      * transaction.  That is, first remove from the store any triples
      * whose subject and predicate match those for my URI and the
@@ -218,6 +234,24 @@ public:
      * to a node via Node::fromVariant.
      */
     void setProperty(Transaction *tx, QString name, QVariant value);
+
+    /**
+     * Set the given property to the given URI through the given
+     * transaction.  That is, first remove from the store any triples
+     * whose subject and predicate match those for my URI and the
+     * expansion of the given property name, then insert a new triple
+     * whose object part is the URI.
+     */
+    void setProperty(Transaction *tx, QString name, QUrl uri);
+
+    /**
+     * Set the given property to the given node through the given
+     * transaction.  That is, first remove from the store any triples
+     * whose subject and predicate match those for my URI and the
+     * expansion of the given property name, then insert a new triple
+     * whose object part is the node.
+     */
+    void setProperty(Transaction *tx, QString name, Node node);
 
     /**
      * Remove the given property.  That is, remove from the store any

@@ -304,6 +304,8 @@ private:
                 }
             }
 
+            DEBUG << "For object " << node.value << " writing property " << pname << endl;
+
             int type = property.type();
             int userType = property.userType();
 
@@ -313,39 +315,46 @@ private:
                 QObject *ref = 0;
                 if (type == QVariant::UserType) {
                     const char *refname = QMetaType::typeName(userType);
-                    DEBUG << "Property " << pname << " is of user type " << refname << ", checking for extractor" << endl;
                     if (refname) {
                         ref = builder->extract(refname, value);
-                        DEBUG << "Extracted object is " << ref << endl;
+                        DEBUG << "Object is " << ref << endl;
                     }
+                    DEBUG << "Property " << pname << " is of user type " << refname << ", object (if present) is " << ref << endl;
                 } else {
                     ref = value.value<QObject *>();
+                    DEBUG << "Property " << pname << " is of object type" << endl;
                 }
                 if (ref) {
                     if (ref->property("uri") != QVariant()) {
                         value = ref->property("uri");
+                        DEBUG << "Writing property from object's URI property " << value << endl;
                     } else {
-                        if (!map.contains(ref) || map[ref] == Node()) {
+                        bool knownObject = map.contains(ref);
+                        if (!knownObject || map[ref] == Node()) {
                             if (follow) {
-                                //!!! blank node if !map.contains(ref)
+                                if (!knownObject) {
+                                    DEBUG << "Object is not in map, writing as blank node" << endl;
+                                } else {
+                                    DEBUG << "Object is in map but with no node yet, writing with URI" << endl;
+                                }
                                 map[ref] = storeSingle(ref, map, true,
                                                        //!!! crap api
-                                                       !map.contains(ref));
+                                                       !knownObject);
                             }
                         }
                         if (map[ref].type == Node::URI) {
-                            value = map[ref].value;
+                            value = QUrl(map[ref].value);
+                            DEBUG << "Object is in map with URI node" << endl;
                         } else if (map[ref].type == Node::Blank) {
                             pnode = map[ref];
+                            DEBUG << "Object is in map with blank node" << endl;
                         }
                     }
                 }
             }
 
             if (pnode != Node()) {
-                //!!! nb unlike PropertyObject::setProperty this does not replace any previously existing triple of this sort -- we want it to, right?
-
-                m_s->add(Triple(node, po.getPropertyUri(pname), pnode));
+                po.setProperty(0, pname, pnode);
             } else {
                 po.setProperty(0, pname, value);
             }
@@ -453,6 +462,8 @@ private:
     }
 
     Node storeSingle(QObject *o, ObjectNodeMap &map, bool follow, bool blank = false) { //!!! crap api
+
+        DEBUG << "storeSingle: blank = " << blank << endl;
 
         if (map.contains(o) && map[o] != Node()) return map[o];
 

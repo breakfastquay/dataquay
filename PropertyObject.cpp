@@ -173,6 +173,26 @@ PropertyObject::setProperty(QString name, QVariant value)
 }
 
 void
+PropertyObject::setProperty(QString name, QUrl uri)
+{
+    QUrl property = getPropertyUri(name);
+    Triple t(*m_node, property, Node());
+    m_store->remove(t); // remove all matching triples
+    t.c = Node(uri);
+    m_store->add(t);
+}
+
+void
+PropertyObject::setProperty(QString name, Node node)
+{
+    QUrl property = getPropertyUri(name);
+    Triple t(*m_node, property, Node());
+    m_store->remove(t); // remove all matching triples
+    t.c = node;
+    m_store->add(t);
+}
+
+void
 PropertyObject::setProperty(Transaction *tx, QString name, QVariant value)
 {
     Store *s = getStore(tx);
@@ -180,6 +200,28 @@ PropertyObject::setProperty(Transaction *tx, QString name, QVariant value)
     Triple t(*m_node, property, Node());
     s->remove(t); // remove all matching triples
     t.c = Node::fromVariant(value);
+    s->add(t);
+}
+
+void
+PropertyObject::setProperty(Transaction *tx, QString name, QUrl uri)
+{
+    Store *s = getStore(tx);
+    QUrl property = getPropertyUri(name);
+    Triple t(*m_node, property, Node());
+    s->remove(t); // remove all matching triples
+    t.c = Node(uri);
+    s->add(t);
+}
+
+void
+PropertyObject::setProperty(Transaction *tx, QString name, Node node)
+{
+    Store *s = getStore(tx);
+    QUrl property = getPropertyUri(name);
+    Triple t(*m_node, property, Node());
+    s->remove(t); // remove all matching triples
+    t.c = node;
     s->add(t);
 }
     

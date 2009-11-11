@@ -944,6 +944,34 @@ testConnection()
     return true;
 }
 
+bool
+testReloadability(Store &s0)
+{
+    ObjectMapper m0(&s0);
+    QObject *parent = m0.loadAllObjects(0);
+    BasicStore s1;
+    ObjectMapper m1(&s1);
+    m1.storeObjects(parent);
+    QObject *newParent = m1.loadAllObjects(0);
+    BasicStore s2;
+    ObjectMapper m2(&s1);
+    m2.storeObjects(newParent);
+
+    Triples t1 = s1.match(Triple());
+    Triples t2 = s1.match(Triple());
+    if (t1 != t2) {
+        cerr << "Two stored versions of the same object tree differ:" << endl;
+        cerr << "First version:" << endl;
+        foreach (Triple t, t1) { cerr << t << endl; }
+        cerr << "Second version:" << endl;
+        foreach (Triple t, t2) { cerr << t << endl; }
+        return false;
+    }
+
+    //!!! test whether s1 and s2 are equal and whether newParent has all the same children as parent
+    return true;
+}
+
 bool 
 testObjectMapper()
 {
@@ -981,8 +1009,10 @@ testObjectMapper()
 
     qRegisterMetaType<A*>("A*");
     qRegisterMetaType<B*>("B*");
+    qRegisterMetaType<C*>("C*");
     ObjectBuilder::getInstance()->registerClass<A, QObject>("A*");
     ObjectBuilder::getInstance()->registerClass<B, QObject>("B*");
+    ObjectBuilder::getInstance()->registerClass<C, QObject>("C*");
 
     A *a = new A(o);
     a->setRef(t);
@@ -990,7 +1020,7 @@ testObjectMapper()
     cerr << "Stored A-object as " << auri << endl;
     
     B *b = new B(o);
-    b->setRef(a);
+    b->setA(a);
 
     bool caught = false;
     try {
@@ -1036,9 +1066,13 @@ testObjectMapper()
 
     store.save("test-object-mapper.ttl");
 
+    a->setRef(new C());
+
     mapper.storeObjects(o);
 
     store.save("test-object-mapper-2.ttl");
+
+    if (!testReloadability(store)) return false;
 
     return true;
 
@@ -1060,7 +1094,7 @@ main(int argc, char **argv)
     if (!Dataquay::Test::testConnection()) return false;
     if (!Dataquay::Test::testObjectMapper()) return false;
 
-    if (!Dataquay::Test::testQtWidgets(argc, argv)) return false;
+//    if (!Dataquay::Test::testQtWidgets(argc, argv)) return false;
 
     std::cerr << "testDataquay successfully completed" << std::endl;
     return true;

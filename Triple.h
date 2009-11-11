@@ -92,6 +92,13 @@ public:
 
     ~Triple() { }
 
+    bool operator<(const Triple &t) const {
+        if (a != t.a) return a < t.a;
+        if (b != t.b) return b < t.b;
+        if (c != t.c) return c < t.c;
+        return false;
+    }
+
     Node a;
     Node b;
     Node c;

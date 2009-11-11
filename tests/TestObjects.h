@@ -44,7 +44,7 @@ class A : public QObject
     Q_PROPERTY(QObject *ref READ getRef WRITE setRef STORED true)
 
 public:
-    A(QObject *parent = 0) : QObject(parent) { }
+    A(QObject *parent = 0) : QObject(parent), m_ref(0) { }
 
     QObject *getRef() const { return m_ref; }
     void setRef(QObject *r) { m_ref = r; }
@@ -59,18 +59,30 @@ class B : public QObject
 {
     Q_OBJECT
 
-    Q_PROPERTY(A *ref READ getRef WRITE setRef STORED true)
+    Q_PROPERTY(A *a READ getA WRITE setA STORED true)
 
 public:
-    B(QObject *parent = 0) : QObject(parent) { }
+    B(QObject *parent = 0) : QObject(parent), m_a(0) { }
 
-    A *getRef() const { return m_ref; }
-    void setRef(A *r) { m_ref = qobject_cast<A *>(r); }
+    A *getA() const { return m_a; }
+    void setA(A *r) { m_a = qobject_cast<A *>(r); }
 
 private:
-    A *m_ref;
+    A *m_a;
 };
 
 Q_DECLARE_METATYPE(B*)
+
+class C : public QObject
+{
+    Q_OBJECT
+
+public:
+    C(QObject *parent = 0) : QObject(parent) { }
+
+private:
+};
+
+Q_DECLARE_METATYPE(C*)
 
 #endif
