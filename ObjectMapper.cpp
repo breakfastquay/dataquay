@@ -253,11 +253,36 @@ private:
 
     void loadProperties(QObject *o, QUrl uri, NodeObjectMap &map) {
 
+        //!!! p'raps better to be iterating through object's properties as in storeProperties
+        
 	PropertyObject po(m_s, m_propertyPrefix, uri);
-	foreach (QString property, po.getProperties()) {
+	foreach (QString pname, po.getProperties()) {
 
-	    QByteArray ba = property.toLocal8Bit();
-	    QVariant value = po.getProperty(property);
+            QByteArray ba = pname.toLocal8Bit();
+            QVariant value = po.getProperty(pname); //!!! use getPropertyNode
+
+            int pindex = o->metaObject()->indexOfProperty(ba.data());
+            if (pindex >= 0) {
+
+                QMetaProperty property = o->metaObject()->property(pindex);
+
+                if (!property.isStored() ||
+                    !property.isReadable() ||
+                    !property.isWritable()) {
+                    continue;
+                }
+
+                int type = property.type();
+                int userType = property.userType();
+
+                if (type == QMetaType::QObjectStar ||
+                    type == QMetaType::QWidgetStar ||
+                    type == QVariant::UserType) {
+
+                    //!!! if our actual node is a blank node, we need to load it... but the load functions currently still use uri rather than node
+                
+                }
+            }
 
             //!!! handle QObjectStar, UserType etc as below
 

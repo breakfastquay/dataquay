@@ -131,6 +131,23 @@ PropertyObject::getProperty(Transaction *tx, QString name) const
     return r.c.toVariant();
 }
 
+Node
+PropertyObject::getPropertyNode(QString name) const
+{
+    QUrl property = getPropertyUri(name);
+    Triple r = m_store->matchFirst(Triple(*m_node, property, Node()));
+    return r.c;
+}
+
+Node
+PropertyObject::getPropertyNode(Transaction *tx, QString name) const
+{
+    Store *s = getStore(tx);
+    QUrl property = getPropertyUri(name);
+    Triple r = s->matchFirst(Triple(*m_node, property, Node()));
+    return r.c;
+}
+
 QStringList
 PropertyObject::getProperties() const
 {

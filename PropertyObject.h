@@ -182,6 +182,18 @@ public:
     QVariant getProperty(Transaction *tx, QString name) const;
 
     /**
+     * Get the node for the given property.  That is, if the store
+     * contains at least one triple whose subject and predicate match
+     * those for my URI and the expansion of the given property name,
+     * return the object part of the first such matching triple.  If
+     * there is no such match, return Node().
+     */
+    Node getPropertyNode(QString name) const;
+    
+    //!!! shall we get rid of the Transaction versions of these? after all, Transaction is a Store and we construct with a Store... though it's nice to be able to keep these hanging around persistently
+    Node getPropertyNode(Transaction *tx, QString name) const;
+
+    /**
      * Get the names of this object's properties.  That is, find all
      * triples in the store whose subject matches my URI and whose
      * predicate begins with our property prefix, and return a list of
