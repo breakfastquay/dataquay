@@ -46,6 +46,7 @@
 
 #include "Debug.h"
 
+
 namespace Dataquay {
 
 static QString defaultTypePrefix = "http://breakfastquay.com/rdf/dataquay/objectmapper/type/";
@@ -375,7 +376,7 @@ private:
         ObjectBuilder *builder = ObjectBuilder::getInstance();
 	if (!builder->knows(className)) throw UnknownTypeException(className);
     
-        DEBUG << "Making object " << uri << " of type " << uri << endl;
+        DEBUG << "Making object " << uri << " of type " << uri << " with parent " << parent << endl;
 
 	QObject *o = builder->build(className, parent);
 	if (!o) throw ConstructionFailedException(typeUri);

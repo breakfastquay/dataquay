@@ -1060,7 +1060,7 @@ main(int argc, char **argv)
     if (!Dataquay::Test::testConnection()) return false;
     if (!Dataquay::Test::testObjectMapper()) return false;
 
-//    if (!Dataquay::Test::testQtWidgets(argc, argv)) return false;
+    if (!Dataquay::Test::testQtWidgets(argc, argv)) return false;
 
     std::cerr << "testDataquay successfully completed" << std::endl;
     return true;

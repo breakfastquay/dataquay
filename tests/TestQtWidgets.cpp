@@ -151,6 +151,7 @@ testQtWidgets(int argc, char **argv)
     ObjectMapper mapper(&store);
     mapper.setObjectTypePrefix(qtypePrefix);
     mapper.setPropertyPrefix(qtypePrefix);
+    mapper.setRelationshipPrefix(dqPrefix);
 
     LayoutLoader loader;
     mapper.addLoadCallback(&loader);
