@@ -79,18 +79,29 @@ class C : public QObject
     Q_OBJECT
 
     Q_PROPERTY(QStringList strings READ getStrings WRITE setStrings STORED true)
+    Q_PROPERTY(QList<float> floats READ getFloats WRITE setFloats STORED true)
+    Q_PROPERTY(QList<B *> bees READ getBees WRITE setBees STORED true)
 
 public:
     C(QObject *parent = 0) : QObject(parent) { }
 
     QStringList getStrings() const { return m_strings; }
     void setStrings(QStringList sl) { m_strings = sl; }
-    void addString(QString s) { m_strings.push_back(s); }
+
+    QList<float> getFloats() const { return m_floats; }
+    void setFloats(QList<float> fl) { m_floats = fl; }
+
+    QList<B *> getBees() const { return m_bees; }
+    void setBees(QList<B *> bl) { m_bees = bl; }
 
 private:
     QStringList m_strings;
+    QList<float> m_floats;
+    QList<B *> m_bees;
 };
 
 Q_DECLARE_METATYPE(C*)
+Q_DECLARE_METATYPE(QList<float>)
+Q_DECLARE_METATYPE(QList<B*>)
 
 #endif

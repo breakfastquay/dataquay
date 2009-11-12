@@ -284,7 +284,9 @@ private:
                 if (pnode.type == Node::URI ||
                     pnode.type == Node::Blank) {
                     if (follow) {
-                        if (!o->setProperty(pnba.data(), loadFrom(pnode, map))) {
+                        if (!o->setProperty(pnba.data(),
+                                            QVariant::fromValue<QObject *>
+                                            (loadFrom(pnode, map)))) {
                             // Not an error; could be a dynamic property
                             DEBUG << "ObjectMapper::loadProperties: Property set failed "
                                   << "for property " << pname << " to value "
@@ -324,7 +326,6 @@ private:
             QByteArray pnba = pname.toLocal8Bit();
 
             QVariant value = o->property(pnba.data());
-            Node pnode;
 
             if (m_psp == StoreIfChanged) {
                 if (builder->knows(cname)) {
@@ -335,62 +336,70 @@ private:
                 }
             }
 
-            DEBUG << "For object " << node.value << " writing property " << pname << endl;
+            DEBUG << "For object " << node.value << " writing property " << pname << " of type " << property.type() << endl;
 
-            int type = property.type();
-            int userType = property.userType();
-
-            if (type == QMetaType::QObjectStar ||
-                type == QMetaType::QWidgetStar ||
-                type == QVariant::UserType) {
-                QObject *ref = 0;
-                if (type == QVariant::UserType) {
-                    const char *refname = QMetaType::typeName(userType);
-                    if (refname) {
-                        ref = builder->extract(refname, value);
-                        DEBUG << "Object is " << ref << endl;
-                    }
-                    DEBUG << "Property " << pname << " is of user type " << refname << ", object (if present) is " << ref << endl;
-                } else {
-                    ref = value.value<QObject *>();
-                    DEBUG << "Property " << pname << " is of object type" << endl;
-                }
-                if (ref) {
-                    if (ref->property("uri") != QVariant()) {
-                        value = ref->property("uri");
-                        DEBUG << "Writing property from object's URI property " << value << endl;
-                    } else {
-                        bool knownObject = map.contains(ref);
-                        if (!knownObject || map[ref] == Node()) {
-                            if (follow) {
-                                if (!knownObject) {
-                                    DEBUG << "Object is not in map, writing as blank node" << endl;
-                                } else {
-                                    DEBUG << "Object is in map but with no node yet, writing with URI" << endl;
-                                }
-                                map[ref] = storeSingle(ref, map, true,
-                                                       //!!! crap api
-                                                       !knownObject);
-                            }
-                        }
-                        if (map[ref].type == Node::URI) {
-                            value = QUrl(map[ref].value);
-                            DEBUG << "Object is in map with URI node" << endl;
-                        } else if (map[ref].type == Node::Blank) {
-                            pnode = map[ref];
-                            DEBUG << "Object is in map with blank node" << endl;
-                        }
-                    }
-                }
-            }
+            Node pnode = propertyToNode(property, value, map, follow);
 
             if (pnode != Node()) {
                 po.setProperty(0, pname, pnode);
-            } else {
-                po.setProperty(0, pname, value);
             }
 	}
     }
+
+    Node propertyToNode(QMetaProperty property, QVariant value,
+                        ObjectNodeMap &map, bool follow) {
+        
+        ObjectBuilder *builder = ObjectBuilder::getInstance();
+        Node pnode;
+
+        int type = property.type();
+        int userType = property.userType();
+
+        if (type == QMetaType::QObjectStar ||
+            type == QMetaType::QWidgetStar ||
+            type == QVariant::UserType) {
+
+            QObject *ref = 0;
+            if (type == QVariant::UserType) {
+                const char *refname = QMetaType::typeName(userType);
+                DEBUG << "builder says canExtractList = "
+                      << builder->canExtractList(refname) << " for refname "
+                      << refname << endl;
+                if (refname) {
+                    ref = builder->extract(refname, value);
+                    if (!ref) {
+                        std::cerr << "ObjectMapper::propertyToNode: WARNING: Failed to convert type \"" << refname << "\" to node" << std::endl;
+                    }
+                }
+            } else {
+                ref = value.value<QObject *>();
+            }
+            if (ref) {
+                if (ref->property("uri") != QVariant()) {
+                    pnode = ref->property("uri").toUrl();
+                } else {
+                    bool knownObject = map.contains(ref);
+                    if (!knownObject || map[ref] == Node()) {
+                        if (follow) {
+                            map[ref] = storeSingle(ref, map, true,
+                                                   //!!! crap api
+                                                   !knownObject);
+                        }
+                    }
+                    if (map[ref].type == Node::URI) {
+                        pnode = QUrl(map[ref].value);
+                    } else if (map[ref].type == Node::Blank) {
+                        pnode = map[ref];
+                    }
+                }
+            }
+        } else {
+            pnode = Node::fromVariant(value);
+        }
+        
+        return pnode;
+    }
+        
 
     QObject *loadSingle(Node node, QObject *parent, NodeObjectMap &map,
                         bool follow) {

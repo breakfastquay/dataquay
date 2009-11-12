@@ -85,7 +85,7 @@ public:
     template <typename T, typename Parent>
     void registerClass(QString pointerName) {
         m_builders[T::staticMetaObject.className()] = new Builder1<T, Parent>();
-        m_extractors[pointerName] = new Extractor<T *>();
+        registerExtractor<T>(pointerName);
     }
 
     /**
@@ -96,7 +96,7 @@ public:
     template <typename T>
     void registerClass(QString pointerName) {
         m_builders[T::staticMetaObject.className()] = new Builder0<T>();
-        m_extractors[pointerName] = new Extractor<T *>();
+        registerExtractor<T>(pointerName);
     }
 
     /**
@@ -158,14 +158,32 @@ public:
         return m_extractors.contains(pointerName);
     }
 
+    bool canExtractList(QString listName) {
+        return m_listExtractors.contains(listName);
+    }
+
+    bool canExtractMap(QString mapName) {
+        return m_mapExtractors.contains(mapName);
+    }
+    
     QObject *extract(QString pointerName, QVariant &v) {
         if (!canExtract(pointerName)) return 0;
         return m_extractors[pointerName]->extract(v);
     }
 
+    QList<QObject *> extractList(QString listName, QVariant &v) {
+        if (!canExtractList(listName)) return QList<QObject *>();
+        return m_listExtractors[listName]->extractList(v);
+    }
+
+    QMap<QString, QObject *> extractMap(QString mapName, QVariant &v) {
+        if (!canExtractMap(mapName)) return QMap<QString, QObject *>();
+        return m_mapExtractors[mapName]->extractMap(v);
+    }
+
 private:
     ObjectBuilder() {
-        registerClass<QObject, QObject>();
+        registerClass<QObject, QObject>("QObject*");
     }
     ~ObjectBuilder() {
         for (BuilderMap::iterator i = m_builders.begin();
@@ -176,6 +194,23 @@ private:
              i != m_extractors.end(); ++i) {
             delete *i;
         }
+        for (ExtractorMap::iterator i = m_listExtractors.begin();
+             i != m_listExtractors.end(); ++i) {
+            delete *i;
+        }
+        for (ExtractorMap::iterator i = m_mapExtractors.begin();
+             i != m_mapExtractors.end(); ++i) {
+            delete *i;
+        }
+    }
+
+    template <typename T>
+    void
+    registerExtractor(QString pointerName) {
+        ExtractorBase *e = new Extractor<T *>();
+        m_extractors[pointerName] = 
+        m_listExtractors[QString("QList<%1>").arg(pointerName)] = e;
+        m_mapExtractors[QString("QMap<QString,%1>").arg(pointerName)] = e;
     }
 
     struct BuilderBase {
@@ -199,16 +234,32 @@ private:
 
     struct ExtractorBase {
         virtual QObject *extract(QVariant &v) = 0;
+        virtual QList<QObject *> extractList(QVariant &v) = 0;
+        virtual QMap<QString, QObject *> extractMap(QVariant &v) = 0;
     };
 
     template <typename Pointer> struct Extractor : public ExtractorBase {
         virtual QObject *extract(QVariant &v) {
             return v.value<Pointer>();
         }
+        virtual QList<QObject *> extractList(QVariant &v) {
+            QVariantList vl = v.toList();
+            QObjectList ol;
+            foreach (QVariant iv, vl) ol.push_back(extract(iv));
+            return ol;
+        }
+        virtual QMap<QString, QObject *> extractMap(QVariant &v) {
+            QVariantMap vm = v.toMap();
+            QMap<QString, QObject *> om;
+            foreach (QString key, vm.keys()) om[key] = extract(vm[key]);
+            return om;
+        }
     };
 
     typedef QHash<QString, ExtractorBase *> ExtractorMap;
     ExtractorMap m_extractors;
+    ExtractorMap m_listExtractors;
+    ExtractorMap m_mapExtractors;
 };
 
 }
