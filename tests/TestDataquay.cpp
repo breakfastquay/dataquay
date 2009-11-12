@@ -1066,7 +1066,12 @@ testObjectMapper()
 
     store.save("test-object-mapper.ttl");
 
-    a->setRef(new C());
+    C *c = new C;
+    QStringList strings;
+    strings << "First string";
+    strings << "Second string";
+    c->setStrings(strings);
+    a->setRef(c);
 
     mapper.storeObjects(o);
 

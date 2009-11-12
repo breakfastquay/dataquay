@@ -36,6 +36,7 @@
 
 #include <QObject>
 #include <QMetaType>
+#include <QStringList>
 
 class A : public QObject
 {
@@ -77,10 +78,17 @@ class C : public QObject
 {
     Q_OBJECT
 
+    Q_PROPERTY(QStringList strings READ getStrings WRITE setStrings STORED true)
+
 public:
     C(QObject *parent = 0) : QObject(parent) { }
 
+    QStringList getStrings() const { return m_strings; }
+    void setStrings(QStringList sl) { m_strings = sl; }
+    void addString(QString s) { m_strings.push_back(s); }
+
 private:
+    QStringList m_strings;
 };
 
 Q_DECLARE_METATYPE(C*)

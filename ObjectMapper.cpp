@@ -117,7 +117,7 @@ public:
 
     void loadProperties(QObject *o, QUrl uri) {
         NodeObjectMap map;
-        loadProperties(o, uri, map);
+        loadProperties(o, uri, map, false);
     }
 
     void storeProperties(QObject *o, QUrl uri) {
@@ -127,7 +127,7 @@ public:
 
     QObject *loadObject(QUrl uri, QObject *parent) {
         NodeObjectMap map;
-	return loadSingle(uri, parent, map);
+	return loadSingle(uri, parent, map, false);
     }
 
     QObject *loadObjects(QUrl root, QObject *parent) {
@@ -149,7 +149,7 @@ public:
             
             if (t.a.type != Node::URI || t.c.type != Node::URI) continue;
 
-            QString objectUri = t.a.value;
+            QUrl objectUri = t.a.value;
             QString typeUri = t.c.value;
 
             QString className;
@@ -203,31 +203,31 @@ public:
         return storeTree(root, map);
     }
 
-    QObject *loadFrom(QUrl source, NodeObjectMap &map) {
+    QObject *loadFrom(Node node, NodeObjectMap &map) {
 
-	PropertyObject po(m_s, m_relationshipPrefix, source);
+	PropertyObject po(m_s, m_relationshipPrefix, node);
 
 	if (po.hasProperty("follows")) {
             try {
-                loadFrom(po.getProperty("follows").toUrl(), map);
+                loadFrom(po.getPropertyNode("follows"), map);
             } catch (UnknownTypeException) { }
 	}
 
         QObject *parent = 0;
 	if (po.hasProperty("parent")) {
             try {
-                parent = loadFrom(po.getProperty("parent").toUrl(), map);
+                parent = loadFrom(po.getPropertyNode("parent"), map);
             } catch (UnknownTypeException) {
                 parent = 0;
             }
 	}
 
-        QObject *o = loadSingle(source, parent, map);
+        QObject *o = loadSingle(node, parent, map, true);
         return o;
     }
 
-    QUrl store(QObject *o, ObjectNodeMap &map) {
-        return storeSingle(o, map, true).value;
+    Node store(QObject *o, ObjectNodeMap &map) {
+        return storeSingle(o, map, true);
     }
     
     void addLoadCallback(LoadCallback *cb) {
@@ -251,50 +251,56 @@ private:
     QMap<QUrl, QString> m_typeMap;
     QHash<QString, QUrl> m_typeRMap;
 
-    void loadProperties(QObject *o, QUrl uri, NodeObjectMap &map) {
+    void loadProperties(QObject *o, Node node, NodeObjectMap &map, bool follow) {
 
-        //!!! p'raps better to be iterating through object's properties as in storeProperties
-        
-	PropertyObject po(m_s, m_propertyPrefix, uri);
-	foreach (QString pname, po.getProperties()) {
+	PropertyObject po(m_s, m_propertyPrefix, node);
 
-            QByteArray ba = pname.toLocal8Bit();
-            QVariant value = po.getProperty(pname); //!!! use getPropertyNode
+        ObjectBuilder *builder = ObjectBuilder::getInstance();
 
-            int pindex = o->metaObject()->indexOfProperty(ba.data());
-            if (pindex >= 0) {
+	for (int i = 0; i < o->metaObject()->propertyCount(); ++i) {
 
-                QMetaProperty property = o->metaObject()->property(pindex);
+            QMetaProperty property = o->metaObject()->property(i);
 
-                if (!property.isStored() ||
-                    !property.isReadable() ||
-                    !property.isWritable()) {
-                    continue;
-                }
-
-                int type = property.type();
-                int userType = property.userType();
-
-                if (type == QMetaType::QObjectStar ||
-                    type == QMetaType::QWidgetStar ||
-                    type == QVariant::UserType) {
-
-                    //!!! if our actual node is a blank node, we need to load it... but the load functions currently still use uri rather than node
-                
-                }
+            if (!property.isStored() ||
+                !property.isReadable() ||
+                !property.isWritable()) {
+                continue;
             }
 
-            //!!! handle QObjectStar, UserType etc as below
+            QString pname = property.name();
+            if (!po.hasProperty(pname)) continue;
 
-            //!!! and blank node, whee
+            QByteArray pnba = pname.toLocal8Bit();
 
-	    if (!o->setProperty(ba.data(), value)) {
-		// Not an error; could be a dynamic property
-		DEBUG << "ObjectMapper::loadProperties: Property set failed "
-                      << "for property " << ba.data() << " to value "
-                      << value << " on object " << uri << endl;
-	    }
-	}
+            Node pnode = po.getPropertyNode(pname);
+
+            int type = property.type();
+            int userType = property.userType();
+
+            if (type == QMetaType::QObjectStar ||
+                type == QMetaType::QWidgetStar ||
+                type == QVariant::UserType) {
+
+                if (pnode.type == Node::URI ||
+                    pnode.type == Node::Blank) {
+                    if (follow) {
+                        if (!o->setProperty(pnba.data(), loadFrom(pnode, map))) {
+                            // Not an error; could be a dynamic property
+                            DEBUG << "ObjectMapper::loadProperties: Property set failed "
+                                  << "for property " << pname << " to value "
+                                  << pnode.value << " on object " << node.value << endl;
+                        }
+                    }
+                }
+            } else {
+                if (!o->setProperty(pnba.data(), pnode.toVariant())) {
+                    // Not an error; could be a dynamic property
+                    DEBUG << "ObjectMapper::loadProperties: Property set failed "
+                          << "for property " << pname << " to value "
+                          << pnode.value << " on object " << node.value << endl;
+                }
+            }
+        }
     }
 
     void storeProperties(QObject *o, Node node, ObjectNodeMap &map, bool follow) {
@@ -386,13 +392,14 @@ private:
 	}
     }
 
-    QObject *loadSingle(QUrl uri, QObject *parent, NodeObjectMap &map) {
+    QObject *loadSingle(Node node, QObject *parent, NodeObjectMap &map,
+                        bool follow) {
 
-	if (map.contains(uri)) {
-	    return map[uri];
+	if (map.contains(node)) {
+	    return map[node];
 	}
 
-	PropertyObject pod(m_s, m_relationshipPrefix, uri);
+	PropertyObject pod(m_s, m_relationshipPrefix, node);
 
 	QString typeUri = pod.getObjectType().toString();
         QString className;
@@ -410,26 +417,28 @@ private:
         ObjectBuilder *builder = ObjectBuilder::getInstance();
 	if (!builder->knows(className)) throw UnknownTypeException(className);
     
-        DEBUG << "Making object " << uri << " of type " << uri << " with parent " << parent << endl;
+        DEBUG << "Making object " << node.value << " of type " << typeUri << " with parent " << parent << endl;
 
 	QObject *o = builder->build(className, parent);
 	if (!o) throw ConstructionFailedException(typeUri);
 	
-	loadProperties(o, uri, map);
+	loadProperties(o, node, map, follow);
 
-        o->setProperty("uri", uri);
-        map[uri] = o;
+        if (node.type == Node::URI) {
+            o->setProperty("uri", m_s->expand(node.value));
+        }
+        map[node] = o;
 
-        callLoadCallbacks(map, uri, o);
+        callLoadCallbacks(map, node, o);
 
 	return o;
     }
 
-    void callLoadCallbacks(NodeObjectMap &map, QUrl uri, QObject *o) {
+    void callLoadCallbacks(NodeObjectMap &map, Node node, QObject *o) {
         foreach (LoadCallback *cb, m_loadCallbacks) {
             //!!! this doesn't really work out -- the callback doesn't know whether we're loading a single object or a graph; it may load any number of other related objects into the map, and if we were only supposed to load a single object, we won't know what to do with them afterwards (at the moment we just leak them)
 
-            cb->loaded(m_m, map, uri, o);
+            cb->loaded(m_m, map, node, o);
         }
     }
 
@@ -466,20 +475,20 @@ private:
         }
     }
 
-    QObject *loadTree(QUrl uri, QObject *parent, NodeObjectMap &map) {
+    QObject *loadTree(Node node, QObject *parent, NodeObjectMap &map) {
 
         QObject *o;
         try {
-            o = loadSingle(uri, parent, map);
+            o = loadSingle(node, parent, map, true); //!!!??? or false?
         } catch (UnknownTypeException e) {
             o = 0;
         }
 
         if (o) {
             Triples childTriples = m_s->match
-                (Triple(Node(), m_relationshipPrefix + "parent", uri));
+                (Triple(Node(), m_relationshipPrefix + "parent", node));
             foreach (Triple t, childTriples) {
-                loadTree(t.a.value, o, map);
+                loadTree(t.a, o, map);
             }
         }
 
@@ -678,12 +687,12 @@ ObjectMapper::storeObjects(QObject *root)
 }
 
 QObject *
-ObjectMapper::loadFrom(QUrl sourceUri, NodeObjectMap &map)
+ObjectMapper::loadFrom(Node source, NodeObjectMap &map)
 {
-    return m_d->loadFrom(sourceUri, map);
+    return m_d->loadFrom(source, map);
 }
 
-QUrl
+Node
 ObjectMapper::store(QObject *o, ObjectNodeMap &map)
 {
     return m_d->store(o, map);

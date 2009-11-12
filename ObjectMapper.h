@@ -138,6 +138,8 @@ public:
      */
     void storeProperties(QObject *o, QUrl uri);
 
+    //!!! want loadObject, loadTree, loadGraph, loadAllGraphs (loadGraph equivalent to loadFrom) -- and then loader callback gets passed an enum value identifying load type
+    
     /**
      * Construct a QObject based on the properties of the given object
      * URI in the object mapper's store.  The type of class created
@@ -152,14 +154,14 @@ public:
     QUrl storeObjects(QObject *root);
     //!!! want a method to store all objects
 
-    QObject *loadFrom(QUrl sourceUri, NodeObjectMap &map);
-    QUrl store(QObject *o, ObjectNodeMap &map);
+    QObject *loadFrom(Node sourceNode, NodeObjectMap &map);
+    Node store(QObject *o, ObjectNodeMap &map);
     
     struct LoadCallback {
-        virtual void loaded(ObjectMapper *, NodeObjectMap &, QUrl, QObject *) = 0;
+        virtual void loaded(ObjectMapper *, NodeObjectMap &, Node, QObject *) = 0;
     };
     struct StoreCallback {
-        virtual void stored(ObjectMapper *, ObjectNodeMap &, QObject *, QUrl) = 0;
+        virtual void stored(ObjectMapper *, ObjectNodeMap &, QObject *, Node) = 0;
     };
 
     void addLoadCallback(LoadCallback *callback);

@@ -44,12 +44,12 @@ static QString dqPrefix = "http://breakfastquay.com/rdf/dataquay/common/"; //???
 
 struct LayoutLoader : public ObjectMapper::LoadCallback {
 
-    void loaded(ObjectMapper *m, ObjectMapper::NodeObjectMap &map, QUrl uri, QObject *o)
+    void loaded(ObjectMapper *m, ObjectMapper::NodeObjectMap &map, Node node, QObject *o)
     {
-	cerr << "LayoutLoader::loaded: uri " << uri.toString().toStdString() << ", object type " << o->metaObject()->className() << endl;
+	cerr << "LayoutLoader::loaded: uri " << node.value.toStdString() << ", object type " << o->metaObject()->className() << endl;
 
 	Store *s = m->getStore();
-	CacheingPropertyObject pod(s, dqPrefix, uri);
+	PropertyObject pod(s, dqPrefix, node); //!!! was cacheing, but that doesn't support this interface yet
 
 	QObject *parent = o->parent();
 	if (dynamic_cast<QMainWindow *>(parent) &&
@@ -108,9 +108,9 @@ struct LayoutLoader : public ObjectMapper::LoadCallback {
 
 struct LayoutStorer : public ObjectMapper::StoreCallback {
 
-    void stored(ObjectMapper *m, ObjectMapper::ObjectNodeMap &map, QObject *o, QUrl uri)
+    void stored(ObjectMapper *m, ObjectMapper::ObjectNodeMap &map, QObject *o, Node node)
     {
-	PropertyObject pod(m->getStore(), dqPrefix, uri);
+	PropertyObject pod(m->getStore(), dqPrefix, node);
 
 	QLayout *layout = dynamic_cast<QLayout *>(o);
 	if (layout) {
