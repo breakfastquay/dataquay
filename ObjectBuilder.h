@@ -243,10 +243,13 @@ private:
             return v.value<Pointer>();
         }
         virtual QList<QObject *> extractList(QVariant &v) {
+            return v.value<QList<Pointer> >();
+/*
             QVariantList vl = v.toList();
             QObjectList ol;
             foreach (QVariant iv, vl) ol.push_back(extract(iv));
             return ol;
+*/
         }
         virtual QMap<QString, QObject *> extractMap(QVariant &v) {
             QVariantMap vm = v.toMap();

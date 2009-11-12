@@ -366,32 +366,21 @@ private:
                       << builder->canExtractList(refname) << " for refname "
                       << refname << endl;
                 if (refname) {
-                    ref = builder->extract(refname, value);
-                    if (!ref) {
-                        std::cerr << "ObjectMapper::propertyToNode: WARNING: Failed to convert type \"" << refname << "\" to node" << std::endl;
+                    if (builder->canExtractList(refname)) {
+                        QObjectList list = builder->extractList(refname, value);
+                        pnode = propertyListToNode(list, map, follow);
+                    } else {
+                        ref = builder->extract(refname, value);
+                        if (!ref) {
+                            std::cerr << "ObjectMapper::propertyToNode: WARNING: Failed to convert type \"" << refname << "\" to node" << std::endl;
+                        }
                     }
                 }
             } else {
                 ref = value.value<QObject *>();
             }
             if (ref) {
-                if (ref->property("uri") != QVariant()) {
-                    pnode = ref->property("uri").toUrl();
-                } else {
-                    bool knownObject = map.contains(ref);
-                    if (!knownObject || map[ref] == Node()) {
-                        if (follow) {
-                            map[ref] = storeSingle(ref, map, true,
-                                                   //!!! crap api
-                                                   !knownObject);
-                        }
-                    }
-                    if (map[ref].type == Node::URI) {
-                        pnode = QUrl(map[ref].value);
-                    } else if (map[ref].type == Node::Blank) {
-                        pnode = map[ref];
-                    }
-                }
+                pnode = propertyObjectToNode(ref, map, follow);
             }
         } else {
             pnode = Node::fromVariant(value);
@@ -400,6 +389,47 @@ private:
         return pnode;
     }
         
+    Node propertyObjectToNode(QObject *o, ObjectNodeMap map, bool follow) {
+
+        Node pnode;
+        if (o->property("uri") != QVariant()) {
+            pnode = o->property("uri").toUrl();
+        } else {
+            bool knownObject = map.contains(o);
+            if (!knownObject || map[o] == Node()) {
+                if (follow) {
+                    map[o] = storeSingle(o, map, true,
+                                         //!!! crap api
+                                         !knownObject);
+                }
+            }
+            if (map[o].type == Node::URI) {
+                pnode = QUrl(map[o].value);
+            } else if (map[o].type == Node::Blank) {
+                pnode = map[o];
+            }
+        }
+        return pnode;
+    }
+
+    Node propertyListToNode(QObjectList list, ObjectNodeMap map, bool follow) {
+
+        Node listNode = m_s->addBlankNode();
+
+        DEBUG << "propertyListToNode: have " << list.size() << " items" << endl;
+
+        int n = 0;
+        foreach (QObject *o, list) {
+            DEBUG << "writing object " << n << " of collection" << endl;
+            Node pnode = propertyObjectToNode(o, map, follow);
+            //!!! note! doesn't remove any former triples yet!
+            Triple t(listNode, QString("_:%d").arg(n), pnode);
+            m_s->add(t);
+            ++n;
+        }
+
+        return listNode;
+    }
 
     QObject *loadSingle(Node node, QObject *parent, NodeObjectMap &map,
                         bool follow) {
