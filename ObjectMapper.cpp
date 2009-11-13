@@ -97,9 +97,14 @@ public:
         m_relationshipPrefix = prefix;
     }
 
-    void addTypeMapping(QUrl uri, QString className) {
+    void addTypeMapping(QString className, QUrl uri) {
         m_typeMap[uri] = className;
         m_typeRMap[className] = uri;
+    }
+
+    void addPropertyMapping(QString className, QString propertyName, QUrl uri) {
+        m_propertyMap[className][uri] = propertyName;
+        m_propertyRMap[className][propertyName] = uri;
     }
 
     void setPropertyStorePolicy(PropertyStorePolicy psp) {
@@ -252,9 +257,12 @@ private:
     QList<StoreCallback *> m_storeCallbacks;
     QMap<QUrl, QString> m_typeMap;
     QHash<QString, QUrl> m_typeRMap;
+    QHash<QString, QMap<QUrl, QString> > m_propertyMap;
+    QHash<QString, QHash<QString, QUrl> > m_propertyRMap;
 
     void loadProperties(QObject *o, Node node, NodeObjectMap &map, bool follow) {
 
+	QString cname = o->metaObject()->className();
 	PropertyObject po(m_s, m_propertyPrefix, node);
 
 	for (int i = 0; i < o->metaObject()->propertyCount(); ++i) {
@@ -268,9 +276,17 @@ private:
             }
 
             QString pname = property.name();
-            if (!po.hasProperty(pname)) continue;
+            Node pnode;
 
-            Node pnode = po.getPropertyNode(pname);
+            if (m_propertyRMap[cname].contains(pname)) {
+                QUrl purl = m_propertyRMap[cname][pname];
+                Triple t = m_s->matchFirst(Triple(node, purl, Node()));
+                pnode = t.c;
+            } else {
+                if (!po.hasProperty(pname)) continue;
+                pnode = po.getPropertyNode(pname);
+            }
+
             QVariant value = nodeToProperty(property, pnode, map, follow);
 
             if (value.isValid()) {
@@ -353,7 +369,10 @@ private:
                != Triple()) {
 
             Node fnode = t.c;
-            QVariant value = propertyNodeToObject(fnode, map, follow);
+            QVariant value = QVariant::fromValue<QObject *>
+                (propertyNodeToObject(fnode, map, follow));
+
+            //!!! ugly:
             if (value.isValid()) {
                 QObject *o = value.value<QObject *>();
                 if (o) list.push_back(o); //!!! or else what?
@@ -404,7 +423,15 @@ private:
             Node pnode = propertyToNode(property, value, map, follow);
 
             if (pnode != Node()) {
-                po.setProperty(0, pname, pnode);
+                if (m_propertyRMap[cname].contains(pname)) {
+                    QUrl purl = m_propertyRMap[cname][pname];
+                    Triple t(node, purl, Node());
+                    m_s->remove(t);
+                    t.c = pnode;
+                    m_s->add(t);
+                } else {
+                    po.setProperty(0, pname, pnode);
+                }
             }
 	}
     }
@@ -762,9 +789,15 @@ ObjectMapper::setRelationshipPrefix(QString prefix)
 }
 
 void
-ObjectMapper::addTypeMapping(QUrl uri, QString className)
+ObjectMapper::addTypeMapping(QString className, QUrl uri)
 {
-    m_d->addTypeMapping(uri, className);
+    m_d->addTypeMapping(className, uri);
+}
+
+void
+ObjectMapper::addPropertyMapping(QString className, QString propertyName, QUrl uri)
+{
+    m_d->addPropertyMapping(className, propertyName, uri);
 }
 
 void

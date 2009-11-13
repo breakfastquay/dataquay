@@ -103,7 +103,8 @@ public:
     QString getRelationshipPrefix() const;
     void setRelationshipPrefix(QString prefix);
 
-    void addTypeMapping(QUrl uri, QString className);
+    void addTypeMapping(QString className, QUrl uri);
+    void addPropertyMapping(QString className, QString propertyName, QUrl uri);
     
     enum PropertyStorePolicy {
         StoreIfChanged, /// Store only properties that differ from default object
