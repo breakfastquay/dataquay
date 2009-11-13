@@ -38,6 +38,11 @@
 #include <QString>
 #include <QVariant>
 
+#ifndef _DATAQUAY_QOBJECTLIST_METATYPE_DECLARED_
+Q_DECLARE_METATYPE(QObjectList)
+#define _DATAQUAY_QOBJECTLIST_METATYPE_DECLARED_ 1
+#endif
+
 namespace Dataquay {
 
 /**
@@ -83,9 +88,10 @@ public:
      *!!! update the above
      */
     template <typename T, typename Parent>
-    void registerClass(QString pointerName) {
+    void registerClass(QString pointerName,
+                       QString listName = "") {
         m_builders[T::staticMetaObject.className()] = new Builder1<T, Parent>();
-        registerExtractor<T>(pointerName);
+        registerExtractor<T>(pointerName, listName);
     }
 
     /**
@@ -94,9 +100,10 @@ public:
      *!!! update the above
      */
     template <typename T>
-    void registerClass(QString pointerName) {
+    void registerClass(QString pointerName,
+                       QString listName = "") {
         m_builders[T::staticMetaObject.className()] = new Builder0<T>();
-        registerExtractor<T>(pointerName);
+        registerExtractor<T>(pointerName, listName);
     }
 
     /**
@@ -162,28 +169,28 @@ public:
         return m_listExtractors.contains(listName);
     }
 
-    bool canExtractMap(QString mapName) {
-        return m_mapExtractors.contains(mapName);
+    bool canInjectList(QString listName) {
+        return m_listExtractors.contains(listName);
     }
-    
+
     QObject *extract(QString pointerName, QVariant &v) {
         if (!canExtract(pointerName)) return 0;
         return m_extractors[pointerName]->extract(v);
     }
 
-    QList<QObject *> extractList(QString listName, QVariant &v) {
+    QObjectList extractList(QString listName, QVariant &v) {
         if (!canExtractList(listName)) return QList<QObject *>();
         return m_listExtractors[listName]->extractList(v);
     }
 
-    QMap<QString, QObject *> extractMap(QString mapName, QVariant &v) {
-        if (!canExtractMap(mapName)) return QMap<QString, QObject *>();
-        return m_mapExtractors[mapName]->extractMap(v);
+    QVariant injectList(QString listName, QObjectList &list) {
+        if (!canExtractList(listName)) return QVariant();
+        return m_listExtractors[listName]->injectList(list);
     }
 
 private:
     ObjectBuilder() {
-        registerClass<QObject, QObject>("QObject*");
+        registerClass<QObject, QObject>("QObject*", "QObjectList");
     }
     ~ObjectBuilder() {
         for (BuilderMap::iterator i = m_builders.begin();
@@ -198,19 +205,14 @@ private:
              i != m_listExtractors.end(); ++i) {
             delete *i;
         }
-        for (ExtractorMap::iterator i = m_mapExtractors.begin();
-             i != m_mapExtractors.end(); ++i) {
-            delete *i;
-        }
     }
 
     template <typename T>
     void
-    registerExtractor(QString pointerName) {
+    registerExtractor(QString pointerName, QString listName) {
         ExtractorBase *e = new Extractor<T *>();
-        m_extractors[pointerName] = 
-        m_listExtractors[QString("QList<%1>").arg(pointerName)] = e;
-        m_mapExtractors[QString("QMap<QString,%1>").arg(pointerName)] = e;
+        m_extractors[pointerName] = e;
+        if (listName != "") m_listExtractors[listName] = e;
     }
 
     struct BuilderBase {
@@ -234,28 +236,24 @@ private:
 
     struct ExtractorBase {
         virtual QObject *extract(QVariant &v) = 0;
-        virtual QList<QObject *> extractList(QVariant &v) = 0;
-        virtual QMap<QString, QObject *> extractMap(QVariant &v) = 0;
+        virtual QObjectList extractList(QVariant &v) = 0;
+        virtual QVariant injectList(QObjectList &) = 0;
     };
 
     template <typename Pointer> struct Extractor : public ExtractorBase {
         virtual QObject *extract(QVariant &v) {
             return v.value<Pointer>();
         }
-        virtual QList<QObject *> extractList(QVariant &v) {
-            return v.value<QList<Pointer> >();
-/*
-            QVariantList vl = v.toList();
+        virtual QObjectList extractList(QVariant &v) {
+            QList<Pointer> pl = v.value<QList<Pointer> >();
             QObjectList ol;
-            foreach (QVariant iv, vl) ol.push_back(extract(iv));
+            foreach (Pointer p, pl) ol.push_back(p);
             return ol;
-*/
         }
-        virtual QMap<QString, QObject *> extractMap(QVariant &v) {
-            QVariantMap vm = v.toMap();
-            QMap<QString, QObject *> om;
-            foreach (QString key, vm.keys()) om[key] = extract(vm[key]);
-            return om;
+        virtual QVariant injectList(QObjectList &ol) {
+            QList<Pointer> pl;
+            foreach (QObject *o, ol) pl.push_back(qobject_cast<Pointer>(o));
+            return QVariant::fromValue<QList<Pointer> >(pl);
         }
     };
 

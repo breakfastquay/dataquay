@@ -945,6 +945,39 @@ testConnection()
 }
 
 bool
+compare(Triples t1, Triples t2)
+{
+    if (t1 == t2) return true;
+
+    QMap<Triple, int> s1;
+    QMap<Triple, int> s2;
+    foreach (Triple t, t1) {
+        if (t.a.type == Node::Blank) t.a.value = "";
+        if (t.c.type == Node::Blank) t.c.value = "";
+        s1[t] = 1;
+    }
+    foreach (Triple t, t2) {
+        if (t.a.type == Node::Blank) t.a.value = "";
+        if (t.c.type == Node::Blank) t.c.value = "";
+        s2[t] = 1;
+    }
+    if (s1 == s2) return true;
+
+    cerr << "Two stored versions of the same object tree differ:" << endl;
+/*
+            cerr << "\nFirst version:" << endl;
+            foreach (Triple t, s1.keys()) { cerr << t << endl; }
+            cerr << "\nSecond version:" << endl;
+            foreach (Triple t, s2.keys()) { cerr << t << endl; }
+*/
+    cerr << "\nIn first but not in second:" << endl;
+    foreach (Triple t, s1.keys()) { if (!s2.contains(t)) cerr << t << endl; }
+    cerr << "\nIn second but not in first:" << endl;
+    foreach (Triple t, s2.keys()) { if (!s1.contains(t)) cerr << t << endl; }
+    return false;
+}
+    
+bool
 testReloadability(Store &s0)
 {
     ObjectMapper m0(&s0);
@@ -954,18 +987,19 @@ testReloadability(Store &s0)
     m1.storeObjects(parent);
     QObject *newParent = m1.loadAllObjects(0);
     BasicStore s2;
-    ObjectMapper m2(&s1);
+    ObjectMapper m2(&s2);
     m2.storeObjects(newParent);
+    s2.addPrefix("type", m2.getObjectTypePrefix());
+    s2.addPrefix("property", m2.getPropertyPrefix());
+    s2.addPrefix("rel", m2.getRelationshipPrefix());
+    s2.save("test-object-mapper-3.ttl");
 
     Triples t1 = s1.match(Triple());
-    Triples t2 = s1.match(Triple());
-    if (t1 != t2) {
-        cerr << "Two stored versions of the same object tree differ:" << endl;
-        cerr << "First version:" << endl;
-        foreach (Triple t, t1) { cerr << t << endl; }
-        cerr << "Second version:" << endl;
-        foreach (Triple t, t2) { cerr << t << endl; }
+    Triples t2 = s2.match(Triple());
+    if (!compare(t1, t2)) {
         return false;
+    }
+    if (t1 != t2) {
     }
 
     //!!! test whether s1 and s2 are equal and whether newParent has all the same children as parent
@@ -980,6 +1014,8 @@ testObjectMapper()
     BasicStore store;
     
     ObjectMapper mapper(&store);
+    mapper.setObjectStorePolicy(ObjectMapper::StoreAllObjects);
+    mapper.setPropertyStorePolicy(ObjectMapper::StoreIfChanged);
     store.addPrefix("type", mapper.getObjectTypePrefix());
     store.addPrefix("property", mapper.getPropertyPrefix());
     store.addPrefix("rel", mapper.getRelationshipPrefix());
@@ -1012,9 +1048,10 @@ testObjectMapper()
     qRegisterMetaType<C*>("C*");
     qRegisterMetaType<QList<float> >("QList<float>");
     qRegisterMetaType<QList<B*> >("QList<B*>");
-    ObjectBuilder::getInstance()->registerClass<A, QObject>("A*");
-    ObjectBuilder::getInstance()->registerClass<B, QObject>("B*");
-    ObjectBuilder::getInstance()->registerClass<C, QObject>("C*");
+    qRegisterMetaType<QObjectList>("QObjectList");
+    ObjectBuilder::getInstance()->registerClass<A, QObject>("A*", "QList<A*>");
+    ObjectBuilder::getInstance()->registerClass<B, QObject>("B*", "QList<B*>");
+    ObjectBuilder::getInstance()->registerClass<C, QObject>("C*", "QList<C*>");
 
     A *a = new A(o);
     a->setRef(t);
@@ -1081,22 +1118,27 @@ testObjectMapper()
     c->setFloats(floats);
     QList<B *> blist;
     B *b0 = new B;
-    b0->setA(a);
+//    b0->setA(a); //!!! restore this to test circular graphs
     b0->setObjectName("b0");
     B *b1 = new B;
     A *a1 = new A;
     a1->setObjectName("a1");
     b1->setA(a1);
     b1->setObjectName("b1");
+    B *b2 = new B;
+    b2->setObjectName("b2");
     blist << b0 << b1;
     c->setBees(blist);
+    QObjectList ol;
+    ol << b2;
+    c->setObjects(ol);
     a->setRef(c);
 
     mapper.storeObjects(o);
 
     store.save("test-object-mapper-2.ttl");
 
-//    if (!testReloadability(store)) return false;
+    if (!testReloadability(store)) return false;
 
     return true;
 

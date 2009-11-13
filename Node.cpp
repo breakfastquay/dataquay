@@ -211,7 +211,7 @@ operator<<(std::ostream &out, const Node &n)
         if (n.datatype != "") out << "^^" << n.datatype.toStdString();
         break;
     case Node::Blank:
-        out << "[blank]";
+        out << "[blank " << n.value.toStdString() << "]";
         break;
     }
     return out;
@@ -240,7 +240,7 @@ operator<<(QTextStream &out, const Node &n)
         if (n.datatype != "") out << "^^" << n.datatype;
         break;
     case Node::Blank:
-        out << "[blank]";
+        out << "[blank " << n.value << "]";
         break;
     }
     return out;

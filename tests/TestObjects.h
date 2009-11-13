@@ -60,7 +60,7 @@ class B : public QObject
 {
     Q_OBJECT
 
-    Q_PROPERTY(A *a READ getA WRITE setA STORED true)
+    Q_PROPERTY(A *aref READ getA WRITE setA STORED true)
 
 public:
     B(QObject *parent = 0) : QObject(parent), m_a(0) { }
@@ -81,6 +81,7 @@ class C : public QObject
     Q_PROPERTY(QStringList strings READ getStrings WRITE setStrings STORED true)
     Q_PROPERTY(QList<float> floats READ getFloats WRITE setFloats STORED true)
     Q_PROPERTY(QList<B *> bees READ getBees WRITE setBees STORED true)
+    Q_PROPERTY(QObjectList objects READ getObjects WRITE setObjects STORED true)
 
 public:
     C(QObject *parent = 0) : QObject(parent) { }
@@ -94,14 +95,21 @@ public:
     QList<B *> getBees() const { return m_bees; }
     void setBees(QList<B *> bl) { m_bees = bl; }
 
+    QObjectList getObjects() const { return m_objects; }
+    void setObjects(QObjectList ol) { m_objects = ol; }
+
 private:
     QStringList m_strings;
     QList<float> m_floats;
     QList<B *> m_bees;
+    QObjectList m_objects;
 };
 
 Q_DECLARE_METATYPE(C*)
 Q_DECLARE_METATYPE(QList<float>)
+//Q_DECLARE_METATYPE(QList<QObject*>)
+Q_DECLARE_METATYPE(QList<A*>)
 Q_DECLARE_METATYPE(QList<B*>)
+Q_DECLARE_METATYPE(QList<C*>)
 
 #endif

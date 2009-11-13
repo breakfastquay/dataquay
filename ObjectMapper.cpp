@@ -46,6 +46,8 @@
 
 #include "Debug.h"
 
+#include <iostream>
+
 
 namespace Dataquay {
 
@@ -58,6 +60,7 @@ class ObjectMapper::D
 public:
     D(ObjectMapper *m, Store *s) :
         m_m(m),
+        m_b(ObjectBuilder::getInstance()),
         m_s(s),
         m_psp(StoreAlways),
         m_osp(StoreAllObjects),
@@ -143,8 +146,6 @@ public:
 
         Triples candidates = m_s->match(Triple(Node(), "a", Node()));
 
-        ObjectBuilder *builder = ObjectBuilder::getInstance();
-
         foreach (Triple t, candidates) {
             
             if (t.a.type != Node::URI || t.c.type != Node::URI) continue;
@@ -161,7 +162,7 @@ public:
                 className = className.replace("/", "::");
             }
 
-            if (!builder->knows(className)) {
+            if (!m_b->knows(className)) {
                 DEBUG << "Can't construct type " << typeUri << endl;
                 continue;
             }
@@ -240,6 +241,7 @@ public:
 
 private:
     ObjectMapper *m_m;
+    ObjectBuilder *m_b;
     Store *m_s;
     PropertyStorePolicy m_psp;
     ObjectStorePolicy m_osp;
@@ -251,11 +253,88 @@ private:
     QMap<QUrl, QString> m_typeMap;
     QHash<QString, QUrl> m_typeRMap;
 
+    void pushNodeToPropertyList(Node pnode, QObjectList &list,
+                                NodeObjectMap &map, bool follow) {
+
+        DEBUG << "pushNodeToPropertyList: pnode = " << pnode << endl;
+
+        Triple t = m_s->matchFirst(Triple(pnode, "rdf:first", Node()));
+        if (t == Triple()) return;
+
+        Node fnode = t.c;
+        QVariant value = nodeToPropertyObject(fnode, map, follow);
+        if (value.isValid()) {
+            QObject *o = value.value<QObject *>();
+            if (o) list.push_back(o); //!!! or else what?
+        }
+        
+        t = m_s->matchFirst(Triple(pnode, "rdf:rest", Node()));
+        if (t == Triple()) return;
+
+        Node nnode = t.c;
+        if (nnode == m_s->expand("rdf:nil")) return;
+        pushNodeToPropertyList(nnode, list, map, follow);
+    }
+
+    QObjectList nodeToPropertyList(Node pnode, NodeObjectMap &map, bool follow) {
+        
+        QObjectList list;
+        pushNodeToPropertyList(pnode, list, map, follow);
+        DEBUG << "nodeToPropertyList: list has " << list.size() << " items" << endl;
+        return list;
+    }
+
+    //!!! bad name (because we have another thing called PropertyObject)
+    QVariant nodeToPropertyObject(Node pnode, NodeObjectMap &map, bool follow) {
+
+        QVariant value;
+
+        if (pnode.type == Node::URI || pnode.type == Node::Blank) {
+
+            if (follow) {
+                value = QVariant::fromValue<QObject *>(loadFrom(pnode, map));
+            }
+        }
+
+        return value;
+    }
+
+    QVariant nodeToProperty(QMetaProperty property, Node pnode,
+                            NodeObjectMap &map, bool follow) {
+        
+        QString pname = property.name();
+        QByteArray pnba = pname.toLocal8Bit();
+        
+        int type = property.type();
+        int userType = property.userType();
+
+        QVariant value;
+
+        if (type == QMetaType::QObjectStar ||
+            type == QMetaType::QWidgetStar ||
+            type == QVariant::UserType) {
+
+            if (type == QVariant::UserType) {
+                const char *refname = QMetaType::typeName(userType);
+                if (m_b->canInjectList(refname)) {
+                    QObjectList list = nodeToPropertyList(pnode, map, follow);
+                    value = m_b->injectList(refname, list);
+                } else {
+                    value = nodeToPropertyObject(pnode, map, follow);
+                }
+            } else {
+                value = nodeToPropertyObject(pnode, map, follow);
+            }
+        } else {
+            value = pnode.toVariant();
+        }
+
+        return value;
+    }
+
     void loadProperties(QObject *o, Node node, NodeObjectMap &map, bool follow) {
 
 	PropertyObject po(m_s, m_propertyPrefix, node);
-
-        ObjectBuilder *builder = ObjectBuilder::getInstance();
 
 	for (int i = 0; i < o->metaObject()->propertyCount(); ++i) {
 
@@ -270,36 +349,17 @@ private:
             QString pname = property.name();
             if (!po.hasProperty(pname)) continue;
 
-            QByteArray pnba = pname.toLocal8Bit();
-
             Node pnode = po.getPropertyNode(pname);
+            QVariant value = nodeToProperty(property, pnode, map, follow);
 
-            int type = property.type();
-            int userType = property.userType();
-
-            if (type == QMetaType::QObjectStar ||
-                type == QMetaType::QWidgetStar ||
-                type == QVariant::UserType) {
-
-                if (pnode.type == Node::URI ||
-                    pnode.type == Node::Blank) {
-                    if (follow) {
-                        if (!o->setProperty(pnba.data(),
-                                            QVariant::fromValue<QObject *>
-                                            (loadFrom(pnode, map)))) {
-                            // Not an error; could be a dynamic property
-                            DEBUG << "ObjectMapper::loadProperties: Property set failed "
-                                  << "for property " << pname << " to value "
-                                  << pnode.value << " on object " << node.value << endl;
-                        }
-                    }
-                }
-            } else {
-                if (!o->setProperty(pnba.data(), pnode.toVariant())) {
+            if (value.isValid()) {
+                QByteArray pnba = pname.toLocal8Bit();
+                if (!o->setProperty(pnba.data(), value)) {
                     // Not an error; could be a dynamic property
+                    //!!! actually we aren't reviewing dynamic properties here are we? not since we switched to enumerating the meta object's properties rather than the things-like-properties found in the store
                     DEBUG << "ObjectMapper::loadProperties: Property set failed "
                           << "for property " << pname << " to value "
-                          << pnode.value << " on object " << node.value << endl;
+                          << pnode.value << endl;
                 }
             }
         }
@@ -309,8 +369,6 @@ private:
 
 	QString cname = o->metaObject()->className();
 	PropertyObject po(m_s, m_propertyPrefix, node);
-
-        ObjectBuilder *builder = ObjectBuilder::getInstance();
 
 	for (int i = 0; i < o->metaObject()->propertyCount(); ++i) {
 
@@ -328,8 +386,8 @@ private:
             QVariant value = o->property(pnba.data());
 
             if (m_psp == StoreIfChanged) {
-                if (builder->knows(cname)) {
-                    std::auto_ptr<QObject> c(builder->build(cname, 0));
+                if (m_b->knows(cname)) {
+                    std::auto_ptr<QObject> c(m_b->build(cname, 0));
                     if (value == c->property(pnba.data())) {
                         continue;
                     }
@@ -349,7 +407,6 @@ private:
     Node propertyToNode(QMetaProperty property, QVariant value,
                         ObjectNodeMap &map, bool follow) {
         
-        ObjectBuilder *builder = ObjectBuilder::getInstance();
         Node pnode;
 
         int type = property.type();
@@ -362,15 +419,15 @@ private:
             QObject *ref = 0;
             if (type == QVariant::UserType) {
                 const char *refname = QMetaType::typeName(userType);
-                DEBUG << "builder says canExtractList = "
-                      << builder->canExtractList(refname) << " for refname "
+                DEBUG << "Builder says canExtractList = "
+                      << m_b->canExtractList(refname) << " for refname "
                       << refname << endl;
                 if (refname) {
-                    if (builder->canExtractList(refname)) {
-                        QObjectList list = builder->extractList(refname, value);
+                    if (m_b->canExtractList(refname)) {
+                        QObjectList list = m_b->extractList(refname, value);
                         pnode = propertyListToNode(list, map, follow);
                     } else {
-                        ref = builder->extract(refname, value);
+                        ref = m_b->extract(refname, value);
                         if (!ref) {
                             std::cerr << "ObjectMapper::propertyToNode: WARNING: Failed to convert type \"" << refname << "\" to node" << std::endl;
                         }
@@ -389,7 +446,7 @@ private:
         return pnode;
     }
         
-    Node propertyObjectToNode(QObject *o, ObjectNodeMap map, bool follow) {
+    Node propertyObjectToNode(QObject *o, ObjectNodeMap &map, bool follow) {
 
         Node pnode;
         if (o->property("uri") != QVariant()) {
@@ -412,23 +469,41 @@ private:
         return pnode;
     }
 
-    Node propertyListToNode(QObjectList list, ObjectNodeMap map, bool follow) {
-
-        Node listNode = m_s->addBlankNode();
+    Node propertyListToNode(QObjectList list, ObjectNodeMap &map, bool follow) {
 
         DEBUG << "propertyListToNode: have " << list.size() << " items" << endl;
 
         int n = 0;
+        Node node, first, previous;
+
         foreach (QObject *o, list) {
+
+            node = m_s->addBlankNode();
+
+            if (first == Node()) {
+                first = node;
+            }
+
+            if (previous != Node()) {
+                m_s->add(Triple(previous, "rdf:rest", node));
+            }
+
             DEBUG << "writing object " << n << " of collection" << endl;
+
             Node pnode = propertyObjectToNode(o, map, follow);
-            //!!! note! doesn't remove any former triples yet!
-            Triple t(listNode, QString("_:%d").arg(n), pnode);
-            m_s->add(t);
+
+            m_s->add(Triple(node, "rdf:first", pnode));
+
+            previous = node;
+
             ++n;
         }
 
-        return listNode;
+        if (node != Node()) {
+            m_s->add(Triple(node, "rdf:rest", m_s->expand("rdf:nil")));
+        }
+
+        return first;
     }
 
     QObject *loadSingle(Node node, QObject *parent, NodeObjectMap &map,
@@ -453,12 +528,11 @@ private:
             className = className.replace("/", "::");
         }
 
-        ObjectBuilder *builder = ObjectBuilder::getInstance();
-	if (!builder->knows(className)) throw UnknownTypeException(className);
+	if (!m_b->knows(className)) throw UnknownTypeException(className);
     
         DEBUG << "Making object " << node.value << " of type " << typeUri << " with parent " << parent << endl;
 
-	QObject *o = builder->build(className, parent);
+	QObject *o = m_b->build(className, parent);
 	if (!o) throw ConstructionFailedException(typeUri);
 	
 	loadProperties(o, node, map, follow);
