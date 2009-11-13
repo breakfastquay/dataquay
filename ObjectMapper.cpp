@@ -253,85 +253,6 @@ private:
     QMap<QUrl, QString> m_typeMap;
     QHash<QString, QUrl> m_typeRMap;
 
-    void pushNodeToPropertyList(Node pnode, QObjectList &list,
-                                NodeObjectMap &map, bool follow) {
-
-        DEBUG << "pushNodeToPropertyList: pnode = " << pnode << endl;
-
-        Triple t = m_s->matchFirst(Triple(pnode, "rdf:first", Node()));
-        if (t == Triple()) return;
-
-        Node fnode = t.c;
-        QVariant value = nodeToPropertyObject(fnode, map, follow);
-        if (value.isValid()) {
-            QObject *o = value.value<QObject *>();
-            if (o) list.push_back(o); //!!! or else what?
-        }
-        
-        t = m_s->matchFirst(Triple(pnode, "rdf:rest", Node()));
-        if (t == Triple()) return;
-
-        Node nnode = t.c;
-        if (nnode == m_s->expand("rdf:nil")) return;
-        pushNodeToPropertyList(nnode, list, map, follow);
-    }
-
-    QObjectList nodeToPropertyList(Node pnode, NodeObjectMap &map, bool follow) {
-        
-        QObjectList list;
-        pushNodeToPropertyList(pnode, list, map, follow);
-        DEBUG << "nodeToPropertyList: list has " << list.size() << " items" << endl;
-        return list;
-    }
-
-    //!!! bad name (because we have another thing called PropertyObject)
-    QVariant nodeToPropertyObject(Node pnode, NodeObjectMap &map, bool follow) {
-
-        QVariant value;
-
-        if (pnode.type == Node::URI || pnode.type == Node::Blank) {
-
-            if (follow) {
-                value = QVariant::fromValue<QObject *>(loadFrom(pnode, map));
-            }
-        }
-
-        return value;
-    }
-
-    QVariant nodeToProperty(QMetaProperty property, Node pnode,
-                            NodeObjectMap &map, bool follow) {
-        
-        QString pname = property.name();
-        QByteArray pnba = pname.toLocal8Bit();
-        
-        int type = property.type();
-        int userType = property.userType();
-
-        QVariant value;
-
-        if (type == QMetaType::QObjectStar ||
-            type == QMetaType::QWidgetStar ||
-            type == QVariant::UserType) {
-
-            if (type == QVariant::UserType) {
-                const char *refname = QMetaType::typeName(userType);
-                if (m_b->canInjectList(refname)) {
-                    QObjectList list = nodeToPropertyList(pnode, map, follow);
-                    value = m_b->injectList(refname, list);
-                } else {
-                    value = nodeToPropertyObject(pnode, map, follow);
-                }
-            } else {
-                value = nodeToPropertyObject(pnode, map, follow);
-            }
-        } else {
-            value = pnode.toVariant();
-        }
-
-        return value;
-    }
-
     void loadProperties(QObject *o, Node node, NodeObjectMap &map, bool follow) {
 
 	PropertyObject po(m_s, m_propertyPrefix, node);
@@ -358,11 +279,95 @@ private:
                     // Not an error; could be a dynamic property
                     //!!! actually we aren't reviewing dynamic properties here are we? not since we switched to enumerating the meta object's properties rather than the things-like-properties found in the store
                     DEBUG << "ObjectMapper::loadProperties: Property set failed "
-                          << "for property " << pname << " to value "
-                          << pnode.value << endl;
+                          << "for property " << pname << " to value of type "
+                          << value.type() << " and value " << value
+                          << " from node " << pnode.value << endl;
                 }
             }
         }
+    }
+
+    QVariant nodeToProperty(QMetaProperty property, Node pnode,
+                            NodeObjectMap &map, bool follow) {
+        
+        QString pname = property.name();
+        QByteArray pnba = pname.toLocal8Bit();
+        
+        int type = property.type();
+        int userType = property.userType();
+        const char *typeName = 0;
+
+        QVariant value;
+
+        switch (type) {
+
+        case QVariant::UserType:
+
+            typeName = QMetaType::typeName(userType);
+
+            if (m_b->canInjectList(typeName)) {
+                QObjectList list = propertyNodeToObjectList(pnode, map, follow);
+                value = m_b->injectList(typeName, list);
+
+            } else if (m_b->canInject(typeName)) {
+                QObject *pobj = propertyNodeToObject(pnode, map, follow);
+                value = m_b->inject(typeName, pobj);
+            }
+
+            break;
+
+        case QMetaType::QObjectStar:
+        case QMetaType::QWidgetStar:
+        {
+            QObject *pobj = propertyNodeToObject(pnode, map, follow);
+            value = QVariant::fromValue<QObject *>(pobj);
+            break;
+        }
+
+        default:
+            value = pnode.toVariant();
+            break;
+        }
+
+        return value;
+    }
+
+    QObject *propertyNodeToObject(Node pnode, NodeObjectMap &map, bool follow) {
+
+        if (pnode.type == Node::URI || pnode.type == Node::Blank) {
+
+            if (follow) {
+                return loadFrom(pnode, map);
+            }
+        }
+
+        return 0;
+    }
+
+    QObjectList propertyNodeToObjectList(Node pnode, NodeObjectMap &map, bool follow) {
+        
+        QObjectList list;
+        Triple t;
+
+        while ((t = m_s->matchFirst(Triple(pnode, "rdf:first", Node())))
+               != Triple()) {
+
+            Node fnode = t.c;
+            QVariant value = propertyNodeToObject(fnode, map, follow);
+            if (value.isValid()) {
+                QObject *o = value.value<QObject *>();
+                if (o) list.push_back(o); //!!! or else what?
+            }
+        
+            t = m_s->matchFirst(Triple(pnode, "rdf:rest", Node()));
+            if (t == Triple()) break;
+
+            pnode = t.c;
+            if (pnode == m_s->expand("rdf:nil")) break;
+        }
+
+        DEBUG << "nodeToPropertyList: list has " << list.size() << " items" << endl;
+        return list;
     }
 
     void storeProperties(QObject *o, Node node, ObjectNodeMap &map, bool follow) {
@@ -407,46 +412,61 @@ private:
     Node propertyToNode(QMetaProperty property, QVariant value,
                         ObjectNodeMap &map, bool follow) {
         
-        Node pnode;
-
         int type = property.type();
         int userType = property.userType();
 
-        if (type == QMetaType::QObjectStar ||
-            type == QMetaType::QWidgetStar ||
-            type == QVariant::UserType) {
+        Node pnode;
+        QObject *pobj = 0;
+        const char *typeName = 0;
 
-            QObject *ref = 0;
-            if (type == QVariant::UserType) {
-                const char *refname = QMetaType::typeName(userType);
-                DEBUG << "Builder says canExtractList = "
-                      << m_b->canExtractList(refname) << " for refname "
-                      << refname << endl;
-                if (refname) {
-                    if (m_b->canExtractList(refname)) {
-                        QObjectList list = m_b->extractList(refname, value);
-                        pnode = propertyListToNode(list, map, follow);
-                    } else {
-                        ref = m_b->extract(refname, value);
-                        if (!ref) {
-                            std::cerr << "ObjectMapper::propertyToNode: WARNING: Failed to convert type \"" << refname << "\" to node" << std::endl;
-                        }
-                    }
+        DEBUG << "propertyToNode: property " << property.name() << ", type "
+              << property.type() << ", userType " << property.userType() << endl;
+
+        switch (type) {
+
+        case QVariant::UserType:
+
+            typeName = QMetaType::typeName(userType);
+            if (!typeName) break;
+
+            if (m_b->canExtractList(typeName)) {
+                QObjectList list = m_b->extractList(typeName, value);
+                pnode = objectListToPropertyNode(list, map, follow);
+
+            } else if (m_b->canExtract(typeName)) {
+                pobj = m_b->extract(typeName, value);
+                if (!pobj) {
+                    //!!! now hang on a minute, maybe the pointer was null in the first place
+                    std::cerr << "ObjectMapper::propertyToNode: WARNING: "
+                              << "Failed to convert type \"" << typeName
+                              << "\" to node" << std::endl;
                 }
-            } else {
-                ref = value.value<QObject *>();
+
+            } else if (!QString(typeName).contains('*')) {
+                pnode = Node::fromVariant(value);
             }
-            if (ref) {
-                pnode = propertyObjectToNode(ref, map, follow);
-            }
-        } else {
+            break;
+            
+        case QMetaType::QObjectStar:
+        case QMetaType::QWidgetStar:
+            pobj = value.value<QObject *>();
+            break;
+
+        case QVariant::StringList:
+            pnode = stringListToPropertyNode(value.toStringList());
+            break;
+
+        default:
             pnode = Node::fromVariant(value);
-        }
+            break;
+        };
+
+        if (pobj) pnode = objectToPropertyNode(pobj, map, follow);
         
         return pnode;
     }
         
-    Node propertyObjectToNode(QObject *o, ObjectNodeMap &map, bool follow) {
+    Node objectToPropertyNode(QObject *o, ObjectNodeMap &map, bool follow) {
 
         Node pnode;
         if (o->property("uri") != QVariant()) {
@@ -469,34 +489,48 @@ private:
         return pnode;
     }
 
-    Node propertyListToNode(QObjectList list, ObjectNodeMap &map, bool follow) {
+    Node objectListToPropertyNode(QObjectList list, ObjectNodeMap &map, bool follow) {
 
         DEBUG << "propertyListToNode: have " << list.size() << " items" << endl;
 
-        int n = 0;
         Node node, first, previous;
 
         foreach (QObject *o, list) {
 
             node = m_s->addBlankNode();
-
-            if (first == Node()) {
-                first = node;
-            }
+            if (first == Node()) first = node;
 
             if (previous != Node()) {
                 m_s->add(Triple(previous, "rdf:rest", node));
             }
 
-            DEBUG << "writing object " << n << " of collection" << endl;
-
-            Node pnode = propertyObjectToNode(o, map, follow);
-
+            Node pnode = objectToPropertyNode(o, map, follow);
             m_s->add(Triple(node, "rdf:first", pnode));
-
             previous = node;
+        }
 
-            ++n;
+        if (node != Node()) {
+            m_s->add(Triple(node, "rdf:rest", m_s->expand("rdf:nil")));
+        }
+
+        return first;
+    }
+
+    Node stringListToPropertyNode(QStringList list) {
+
+        Node node, first, previous;
+
+        foreach (QString s, list) {
+
+            node = m_s->addBlankNode();
+            if (first == Node()) first = node;
+
+            if (previous != Node()) {
+                m_s->add(Triple(previous, "rdf:rest", node));
+            }
+
+            m_s->add(Triple(node, "rdf:first", Node::fromVariant(s)));
+            previous = node;
         }
 
         if (node != Node()) {

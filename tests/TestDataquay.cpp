@@ -981,6 +981,8 @@ bool
 testReloadability(Store &s0)
 {
     ObjectMapper m0(&s0);
+    m0.setObjectStorePolicy(ObjectMapper::StoreObjectsWithURIs);
+    m0.setPropertyStorePolicy(ObjectMapper::StoreIfChanged);
     QObject *parent = m0.loadAllObjects(0);
     BasicStore s1;
     ObjectMapper m1(&s1);

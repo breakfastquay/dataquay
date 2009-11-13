@@ -39,8 +39,10 @@
 #include <QVariant>
 
 #ifndef _DATAQUAY_QOBJECTLIST_METATYPE_DECLARED_
+#define _DATAQUAY_QOBJECTLIST_METATYPE_DECLARED_
+
 Q_DECLARE_METATYPE(QObjectList)
-#define _DATAQUAY_QOBJECTLIST_METATYPE_DECLARED_ 1
+
 #endif
 
 namespace Dataquay {
@@ -88,9 +90,40 @@ public:
      *!!! update the above
      */
     template <typename T, typename Parent>
-    void registerClass(QString pointerName,
-                       QString listName = "") {
+    void registerClass(QString pointerName, QString listName) {
         m_builders[T::staticMetaObject.className()] = new Builder1<T, Parent>();
+        registerExtractor<T>(pointerName, listName);
+    }
+
+    /**
+     * Register type T, a subclass of QObject, as a class that can be
+     * constructed by calling a single-argument constructor whose
+     * argument is of pointer-to-Parent type, where Parent is also a
+     * subclass of QObject.
+     *
+     * For example, calling registerWithParentConstructor<QWidget,
+     * QWidget>() declares that QWidget is a subclass of QObject that
+     * may be built using QWidget::QWidget(QWidget *parent).  A
+     * subsequent call to ObjectBuilder::build("QWidget", parent)
+     * would return a new QWidget built with that constructor (since
+     * "QWidget" is the class name of QWidget returned by its meta
+     * object).
+     *!!! update the above
+     */
+    template <typename T, typename Parent>
+    void registerClass(QString pointerName) {
+        m_builders[T::staticMetaObject.className()] = new Builder1<T, Parent>();
+        registerExtractor<T>(pointerName);
+    }
+
+    /**
+     * Register type T, a subclass of QObject, as a class that can be
+     * constructed by calling a zero-argument constructor.
+     *!!! update the above
+     */
+    template <typename T>
+    void registerClass(QString pointerName, QString listName) {
+        m_builders[T::staticMetaObject.className()] = new Builder0<T>();
         registerExtractor<T>(pointerName, listName);
     }
 
@@ -100,10 +133,9 @@ public:
      *!!! update the above
      */
     template <typename T>
-    void registerClass(QString pointerName,
-                       QString listName = "") {
+    void registerClass(QString pointerName) {
         m_builders[T::staticMetaObject.className()] = new Builder0<T>();
-        registerExtractor<T>(pointerName, listName);
+        registerExtractor<T>(pointerName);
     }
 
     /**
@@ -169,6 +201,10 @@ public:
         return m_listExtractors.contains(listName);
     }
 
+    bool canInject(QString pointerName) {
+        return m_extractors.contains(pointerName);
+    }
+
     bool canInjectList(QString listName) {
         return m_listExtractors.contains(listName);
     }
@@ -183,8 +219,13 @@ public:
         return m_listExtractors[listName]->extractList(v);
     }
 
+    QVariant inject(QString pointerName, QObject *p) {
+        if (!canInject(pointerName)) return QVariant();
+        return m_extractors[pointerName]->inject(p);
+    }
+
     QVariant injectList(QString listName, QObjectList &list) {
-        if (!canExtractList(listName)) return QVariant();
+        if (!canInjectList(listName)) return QVariant();
         return m_listExtractors[listName]->injectList(list);
     }
 
@@ -209,10 +250,15 @@ private:
 
     template <typename T>
     void
+    registerExtractor(QString pointerName) {
+        m_extractors[pointerName] = new Extractor<T *>();
+    }
+
+    template <typename T>
+    void
     registerExtractor(QString pointerName, QString listName) {
-        ExtractorBase *e = new Extractor<T *>();
-        m_extractors[pointerName] = e;
-        if (listName != "") m_listExtractors[listName] = e;
+        m_extractors[pointerName] = new Extractor<T *>();
+        m_listExtractors[listName] = new ListExtractor<T *>();
     }
 
     struct BuilderBase {
@@ -236,14 +282,21 @@ private:
 
     struct ExtractorBase {
         virtual QObject *extract(QVariant &v) = 0;
-        virtual QObjectList extractList(QVariant &v) = 0;
-        virtual QVariant injectList(QObjectList &) = 0;
+        virtual QVariant inject(QObject *) = 0;
+        virtual QObjectList extractList(QVariant &v) { return QObjectList(); }
+        virtual QVariant injectList(QObjectList &) { return QVariant(); }
     };
 
     template <typename Pointer> struct Extractor : public ExtractorBase {
         virtual QObject *extract(QVariant &v) {
             return v.value<Pointer>();
         }
+        virtual QVariant inject(QObject *p) {
+            return QVariant::fromValue<Pointer>(qobject_cast<Pointer>(p));
+        }
+    };
+
+    template <typename Pointer> struct ListExtractor : public Extractor<Pointer> {
         virtual QObjectList extractList(QVariant &v) {
             QList<Pointer> pl = v.value<QList<Pointer> >();
             QObjectList ol;
