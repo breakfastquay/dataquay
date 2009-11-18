@@ -35,7 +35,7 @@
 #define _DATAQUAY_OBJECT_MAPPER_H_
 
 #include <QUrl>
-#include "Node.h"
+#include "../Node.h"
 
 #include <exception>
 
