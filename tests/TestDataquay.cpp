@@ -37,8 +37,8 @@
 #include "../PropertyObject.h"
 #include "../TransactionalStore.h"
 #include "../Connection.h"
-#include "../ObjectMapper.h"
-#include "../ObjectBuilder.h"
+#include "../objectmapper/ObjectMapper.h"
+#include "../objectmapper/ObjectBuilder.h"
 #include "../RDFException.h"
 #include "../Debug.h"
 

@@ -17,20 +17,20 @@ HEADERS += BasicStore.h \
            Connection.h \
            Node.h \
            PropertyObject.h \
-           ObjectBuilder.h \
-           ObjectMapper.h \
            RDFException.h \
            Store.h \
            Transaction.h \
            TransactionalStore.h \
-           Triple.h
+           Triple.h \
+           objectmapper/ObjectBuilder.h \
+           objectmapper/ObjectMapper.h
            
 SOURCES += BasicStore.cpp \
            Connection.cpp \
            Node.cpp \
            PropertyObject.cpp \
-           ObjectBuilder.cpp \
-           ObjectMapper.cpp \
            Transaction.cpp \
            TransactionalStore.cpp \
-           Triple.cpp
+           Triple.cpp \
+           objectmapper/ObjectBuilder.cpp \
+           objectmapper/ObjectMapper.cpp
