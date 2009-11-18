@@ -41,12 +41,13 @@
 #include <QVariant>
 #include <QVariantList>
 
+#include "Node.h"
+
 namespace Dataquay
 {
 
 class Transaction;
 class Store;
-class Node;
 
 /**
  * \class PropertyObject PropertyObject.h <dataquay/PropertyObject.h>
@@ -223,6 +224,21 @@ public:
     Node getPropertyNode(Transaction *tx, QString name) const;
 
     /**
+     * Get the nodes for the given property.  That is, if the store
+     * contains at least one triple whose subject and predicate match
+     * those for my URI and the expansion of the given property name,
+     * return the object parts of all such matching triples.  If there
+     * is no such match, return an empty list.
+     *
+     * Note that the order of nodes in the returned list is arbitrary
+     * and may change from one call to the next.
+     */
+    Nodes getPropertyNodeList(QString name) const;
+
+    //!!!doc
+    Nodes getPropertyNodeList(Transaction *tx, QString name) const;
+
+    /**
      * Get the names of this object's properties.  That is, find all
      * triples in the store whose subject matches my URI and whose
      * predicate begins with our property prefix, and return a list of
@@ -302,7 +318,7 @@ public:
      * list, whose object part is the result of converting that
      * variant to a node via Node::fromVariant.
      */
-    void setPropertyList(QString name, QVariantList value);
+    void setPropertyList(QString name, QVariantList values);
 
     /**
      * Set the given property to the given values through the given
@@ -313,7 +329,25 @@ public:
      * result of converting that variant to a node via
      * Node::fromVariant.
      */
-    void setPropertyList(Transaction *tx, QString name, QVariantList value);
+    void setPropertyList(Transaction *tx, QString name, QVariantList values);
+
+    /**
+     * Set the given property to the given nodes.  That is, first
+     * remove from the store any triples whose subject and predicate
+     * match those for my URI and the expansion of the given property
+     * name, then insert a new triple for each node in the list, whose
+     * object part is that node.
+     */
+    void setPropertyList(QString name, Nodes nodes);
+
+    /**
+     * Set the given property to the given nodes through the given
+     * transaction.  That is, first remove from the store any triples
+     * whose subject and predicate match those for my URI and the
+     * expansion of the given property name, then insert a new triple
+     * for each node in the list, whose object part is that node.
+     */
+    void setPropertyList(Transaction *tx, QString name, Nodes nodes);
 
     /**
      * Remove the given property.  That is, remove from the store any

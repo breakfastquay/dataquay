@@ -173,6 +173,27 @@ PropertyObject::getPropertyNode(Transaction *tx, QString name) const
     return r.c;
 }
 
+Nodes
+PropertyObject::getPropertyNodeList(QString name) const
+{
+    QUrl property = getPropertyUri(name);
+    Triples r = m_store->match(Triple(*m_node, property, Node()));
+    Nodes n;
+    for (int i = 0; i < r.size(); ++i) n.push_back(r[i].c);
+    return n;
+}
+
+Nodes
+PropertyObject::getPropertyNodeList(Transaction *tx, QString name) const
+{
+    Store *s = getStore(tx);
+    QUrl property = getPropertyUri(name);
+    Triples r = s->match(Triple(*m_node, property, Node()));
+    Nodes n;
+    for (int i = 0; i < r.size(); ++i) n.push_back(r[i].c);
+    return n;
+}
+
 QStringList
 PropertyObject::getPropertyNames() const
 {
@@ -265,6 +286,57 @@ PropertyObject::setProperty(Transaction *tx, QString name, Node node)
     s->remove(t); // remove all matching triples
     t.c = node;
     s->add(t);
+}
+
+void
+PropertyObject::setPropertyList(QString name, QVariantList values)
+{
+    QUrl property = getPropertyUri(name);
+    Triple t(*m_node, property, Node());
+    m_store->remove(t); // remove all matching triples
+    for (int i = 0; i < values.size(); ++i) {
+        t.c = Node::fromVariant(values[i]);
+        m_store->add(t);
+    }
+}
+
+void
+PropertyObject::setPropertyList(Transaction *tx,
+                                QString name, QVariantList values)
+{
+    Store *s = getStore(tx);
+    QUrl property = getPropertyUri(name);
+    Triple t(*m_node, property, Node());
+    s->remove(t); // remove all matching triples
+    for (int i = 0; i < values.size(); ++i) {
+        t.c = Node::fromVariant(values[i]);
+        s->add(t);
+    }
+}
+  
+void
+PropertyObject::setPropertyList(QString name, Nodes nodes)
+{
+    QUrl property = getPropertyUri(name);
+    Triple t(*m_node, property, Node());
+    m_store->remove(t); // remove all matching triples
+    for (int i = 0; i < nodes.size(); ++i) {
+        t.c = nodes[i];
+        m_store->add(t);
+    }
+}
+
+void
+PropertyObject::setPropertyList(Transaction *tx, QString name, Nodes nodes)
+{
+    Store *s = getStore(tx);
+    QUrl property = getPropertyUri(name);
+    Triple t(*m_node, property, Node());
+    s->remove(t); // remove all matching triples
+    for (int i = 0; i < nodes.size(); ++i) {
+        t.c = nodes[i];
+        s->add(t);
+    }
 }
     
 void

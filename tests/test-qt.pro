@@ -13,5 +13,7 @@ LIBS += -ldataquay -lext
 SOURCES += TestQtWidgets.cpp
 
 solaris* {
+  QMAKE_CXXFLAGS_DEBUG += -xprofile=tcov
+  debug: LIBS += -xprofile=tcov
   LIBS += -lsocket -lnsl
 }
