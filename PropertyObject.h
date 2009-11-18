@@ -38,6 +38,8 @@
 #include <QStringList>
 #include <QUrl>
 #include <QHash>
+#include <QVariant>
+#include <QVariantList>
 
 namespace Dataquay
 {
@@ -182,6 +184,33 @@ public:
     QVariant getProperty(Transaction *tx, QString name) const;
 
     /**
+     * Get the value of the given property as a list.  That is, if the
+     * store contains at least one triple whose subject and predicate
+     * match those for my URI and the expansion of the given property
+     * name, convert the object parts of all such matching triples to
+     * QVariant via Node::toVariant and return a list of the resulting
+     * values.  If there is no such match, return an empty list.
+     *
+     * Note that the order of variants in the returned list is
+     * arbitrary and may change from one call to the next.
+     */
+    QVariantList getPropertyList(QString name) const;
+
+    /**
+     * Get the value of the given property as a list, querying through
+     * the given transaction.  That is, if the store contains at least
+     * one triple whose subject and predicate match those for my URI
+     * and the expansion of the given property name, convert the
+     * object parts of all such matching triples to QVariant via
+     * Node::toVariant and return a list of the resulting values.  If
+     * there is no such match, return QVariant().
+     *
+     * Note that the order of variants in the returned list is
+     * arbitrary and may change from one call to the next.
+     */
+    QVariantList getPropertyList(Transaction *tx, QString name) const;
+
+    /**
      * Get the node for the given property.  That is, if the store
      * contains at least one triple whose subject and predicate match
      * those for my URI and the expansion of the given property name,
@@ -200,7 +229,7 @@ public:
      * the remainder of their predicate URIs following the property
      * prefix.
      */
-    QStringList getProperties() const;
+    QStringList getPropertyNames() const;
 
     /**
      * Get the names of this object's properties, querying through the
@@ -209,7 +238,7 @@ public:
      * our property prefix, and return a list of the remainder of
      * their predicate URIs following the property prefix.
      */
-    QStringList getProperties(Transaction *tx) const;
+    QStringList getPropertyNames(Transaction *tx) const;
 
     /**
      * Set the given property to the given value.  That is, first
@@ -264,6 +293,27 @@ public:
      * whose object part is the node.
      */
     void setProperty(Transaction *tx, QString name, Node node);
+
+    /**
+     * Set the given property to the given values.  That is, first
+     * remove from the store any triples whose subject and predicate
+     * match those for my URI and the expansion of the given property
+     * name, then insert a new triple for each variant in the value
+     * list, whose object part is the result of converting that
+     * variant to a node via Node::fromVariant.
+     */
+    void setPropertyList(QString name, QVariantList value);
+
+    /**
+     * Set the given property to the given values through the given
+     * transaction.  That is, first remove from the store any triples
+     * whose subject and predicate match those for my URI and the
+     * expansion of the given property name, then insert a new triple
+     * for each variant in the value list, whose object part is the
+     * result of converting that variant to a node via
+     * Node::fromVariant.
+     */
+    void setPropertyList(Transaction *tx, QString name, QVariantList value);
 
     /**
      * Remove the given property.  That is, remove from the store any

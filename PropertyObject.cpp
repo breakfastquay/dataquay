@@ -131,6 +131,31 @@ PropertyObject::getProperty(Transaction *tx, QString name) const
     return r.c.toVariant();
 }
 
+QVariantList
+PropertyObject::getPropertyList(QString name) const
+{
+    QUrl property = getPropertyUri(name);
+    Triples r = m_store->match(Triple(*m_node, property, Node()));
+    QVariantList vl;
+    for (int i = 0; i < r.size(); ++i) {
+        vl.push_back(r[i].c.toVariant());
+    }
+    return vl;
+}
+
+QVariantList
+PropertyObject::getPropertyList(Transaction *tx, QString name) const
+{
+    Store *s = getStore(tx);
+    QUrl property = getPropertyUri(name);
+    Triples r = s->match(Triple(*m_node, property, Node()));
+    QVariantList vl;
+    for (int i = 0; i < r.size(); ++i) {
+        vl.push_back(r[i].c.toVariant());
+    }
+    return vl;
+}
+
 Node
 PropertyObject::getPropertyNode(QString name) const
 {
@@ -149,7 +174,7 @@ PropertyObject::getPropertyNode(Transaction *tx, QString name) const
 }
 
 QStringList
-PropertyObject::getProperties() const
+PropertyObject::getPropertyNames() const
 {
     QStringList properties;
     QString expfx = m_store->expand(m_pfx).toString();
@@ -164,7 +189,7 @@ PropertyObject::getProperties() const
 }
 
 QStringList
-PropertyObject::getProperties(Transaction *tx) const
+PropertyObject::getPropertyNames(Transaction *tx) const
 {
     Store *s = getStore(tx);
     QStringList properties;
