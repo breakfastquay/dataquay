@@ -38,13 +38,6 @@
 #include <QString>
 #include <QVariant>
 
-#ifndef _DATAQUAY_QOBJECTLIST_METATYPE_DECLARED_
-#define _DATAQUAY_QOBJECTLIST_METATYPE_DECLARED_
-
-Q_DECLARE_METATYPE(QObjectList)
-
-#endif
-
 namespace Dataquay {
 
 /**
@@ -89,10 +82,16 @@ public:
      * object).
      *!!! update the above
      */
+    /*
     template <typename T, typename Parent>
     void registerClass(QString pointerName, QString listName) {
         m_builders[T::staticMetaObject.className()] = new Builder1<T, Parent>();
         registerExtractor<T>(pointerName, listName);
+    }
+    */
+    template <typename T, typename Container>
+    void registerContainer(QString containerName) {
+        registerContainerExtractor<T, Container>(containerName);
     }
 
     /**
@@ -121,12 +120,12 @@ public:
      * constructed by calling a zero-argument constructor.
      *!!! update the above
      */
-    template <typename T>
+/*    template <typename T>
     void registerClass(QString pointerName, QString listName) {
         m_builders[T::staticMetaObject.className()] = new Builder0<T>();
         registerExtractor<T>(pointerName, listName);
     }
-
+*/
     /**
      * Register type T, a subclass of QObject, as a class that can be
      * constructed by calling a zero-argument constructor.
@@ -197,16 +196,8 @@ public:
         return m_extractors.contains(pointerName);
     }
 
-    bool canExtractList(QString listName) {
-        return m_listExtractors.contains(listName);
-    }
-
     bool canInject(QString pointerName) {
         return m_extractors.contains(pointerName);
-    }
-
-    bool canInjectList(QString listName) {
-        return m_listExtractors.contains(listName);
     }
 
     QObject *extract(QString pointerName, QVariant &v) {
@@ -214,24 +205,33 @@ public:
         return m_extractors[pointerName]->extract(v);
     }
 
-    QObjectList extractList(QString listName, QVariant &v) {
-        if (!canExtractList(listName)) return QList<QObject *>();
-        return m_listExtractors[listName]->extractList(v);
-    }
-
     QVariant inject(QString pointerName, QObject *p) {
         if (!canInject(pointerName)) return QVariant();
         return m_extractors[pointerName]->inject(p);
     }
 
-    QVariant injectList(QString listName, QObjectList &list) {
-        if (!canInjectList(listName)) return QVariant();
-        return m_listExtractors[listName]->injectList(list);
+    //!!! separate out container extractors, object extractors, & object builders into separate classes
+    bool canExtractContainer(QString containerName) {
+        return m_containerExtractors.contains(containerName);
+    }
+
+    bool canInjectContainer(QString containerName) {
+        return m_containerExtractors.contains(containerName);
+    }
+
+    QVariantList extractContainer(QString containerName, const QVariant &v) {
+        if (!canExtractContainer(containerName)) return QVariantList();
+        return m_containerExtractors[containerName]->extract(v);
+    }
+
+    QVariant injectContainer(QString containerName, const QVariantList &vl) {
+        if (!canInjectContainer(containerName)) return QVariant();
+        return m_containerExtractors[containerName]->inject(vl);
     }
 
 private:
     ObjectBuilder() {
-        registerClass<QObject, QObject>("QObject*", "QObjectList");
+        registerClass<QObject, QObject>("QObject*");
     }
     ~ObjectBuilder() {
         for (BuilderMap::iterator i = m_builders.begin();
@@ -242,8 +242,8 @@ private:
              i != m_extractors.end(); ++i) {
             delete *i;
         }
-        for (ExtractorMap::iterator i = m_listExtractors.begin();
-             i != m_listExtractors.end(); ++i) {
+        for (ContainerExtractorMap::iterator i = m_containerExtractors.begin();
+             i != m_containerExtractors.end(); ++i) {
             delete *i;
         }
     }
@@ -258,7 +258,13 @@ private:
     void
     registerExtractor(QString pointerName, QString listName) {
         m_extractors[pointerName] = new Extractor<T *>();
-        m_listExtractors[listName] = new ListExtractor<T *>();
+    }
+
+    template <typename T, typename Container>
+    void
+    registerContainerExtractor(QString containerName) {
+        m_containerExtractors[containerName] =
+            new ContainerExtractor<T, Container>();
     }
 
     struct BuilderBase {
@@ -281,14 +287,12 @@ private:
     BuilderMap m_builders;
 
     struct ExtractorBase {
-        virtual QObject *extract(QVariant &v) = 0;
+        virtual QObject *extract(const QVariant &v) = 0;
         virtual QVariant inject(QObject *) = 0;
-        virtual QObjectList extractList(QVariant &v) { return QObjectList(); }
-        virtual QVariant injectList(QObjectList &) { return QVariant(); }
     };
 
     template <typename Pointer> struct Extractor : public ExtractorBase {
-        virtual QObject *extract(QVariant &v) {
+        virtual QObject *extract(const QVariant &v) {
             return v.value<Pointer>();
         }
         virtual QVariant inject(QObject *p) {
@@ -296,24 +300,32 @@ private:
         }
     };
 
-    template <typename Pointer> struct ListExtractor : public Extractor<Pointer> {
-        virtual QObjectList extractList(QVariant &v) {
-            QList<Pointer> pl = v.value<QList<Pointer> >();
-            QObjectList ol;
-            foreach (Pointer p, pl) ol.push_back(p);
-            return ol;
+    typedef QHash<QString, ExtractorBase *> ExtractorMap;
+    ExtractorMap m_extractors;
+
+    struct ContainerExtractorBase {
+        virtual QVariantList extract(const QVariant &v) = 0;
+        virtual QVariant inject(const QVariantList &) = 0;
+    };
+
+    template <typename T, typename Container>
+    struct ContainerExtractor : public ContainerExtractorBase
+    {
+        virtual QVariantList extract(const QVariant &v) {
+            Container tl = v.value<Container>();
+            QVariantList vl;
+            foreach (const T &t, tl) vl << QVariant::fromValue<T>(t);
+            return vl;
         }
-        virtual QVariant injectList(QObjectList &ol) {
-            QList<Pointer> pl;
-            foreach (QObject *o, ol) pl.push_back(qobject_cast<Pointer>(o));
-            return QVariant::fromValue<QList<Pointer> >(pl);
+        virtual QVariant inject(const QVariantList &vl) {
+            Container tl;
+            foreach (const QVariant &v, vl) tl << v.value<T>();
+            return QVariant::fromValue<Container>(tl);
         }
     };
 
-    typedef QHash<QString, ExtractorBase *> ExtractorMap;
-    ExtractorMap m_extractors;
-    ExtractorMap m_listExtractors;
-    ExtractorMap m_mapExtractors;
+    typedef QHash<QString, ContainerExtractorBase *> ContainerExtractorMap;
+    ContainerExtractorMap m_containerExtractors;
 };
 
 }

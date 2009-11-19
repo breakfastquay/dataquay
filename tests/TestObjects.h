@@ -110,5 +110,6 @@ Q_DECLARE_METATYPE(QList<float>)
 Q_DECLARE_METATYPE(QList<A*>)
 Q_DECLARE_METATYPE(QList<B*>)
 Q_DECLARE_METATYPE(QList<C*>)
+Q_DECLARE_METATYPE(QSet<C*>) //!!! not currently used
 
 #endif

@@ -321,9 +321,9 @@ private:
 
             typeName = QMetaType::typeName(userType);
 
-            if (m_b->canInjectList(typeName)) {
-                QObjectList list = propertyNodeToObjectList(pnode, map, follow);
-                value = m_b->injectList(typeName, list);
+            if (m_b->canInjectContainer(typeName)) {
+                QVariantList list = propertyNodeToList(pnode, map, follow);
+                value = m_b->injectContainer(typeName, list);
 
             } else if (m_b->canInject(typeName)) {
                 QObject *pobj = propertyNodeToObject(pnode, map, follow);
@@ -360,23 +360,22 @@ private:
         return 0;
     }
 
-    QObjectList propertyNodeToObjectList(Node pnode, NodeObjectMap &map, bool follow) {
+    QVariantList propertyNodeToList(Node pnode, NodeObjectMap &map, bool follow) {
         
-        QObjectList list;
+        QVariantList list;
         Triple t;
 
         while ((t = m_s->matchFirst(Triple(pnode, "rdf:first", Node())))
                != Triple()) {
 
             Node fnode = t.c;
+
+            //!!! might not be of object type!
+
             QVariant value = QVariant::fromValue<QObject *>
                 (propertyNodeToObject(fnode, map, follow));
 
-            //!!! ugly:
-            if (value.isValid()) {
-                QObject *o = value.value<QObject *>();
-                if (o) list.push_back(o); //!!! or else what?
-            }
+            if (value.isValid()) list.push_back(value);
         
             t = m_s->matchFirst(Triple(pnode, "rdf:rest", Node()));
             if (t == Triple()) break;
@@ -385,7 +384,7 @@ private:
             if (pnode == m_s->expand("rdf:nil")) break;
         }
 
-        DEBUG << "nodeToPropertyList: list has " << list.size() << " items" << endl;
+        DEBUG << "propertyNodeToList: list has " << list.size() << " items" << endl;
         return list;
     }
 
@@ -456,9 +455,9 @@ private:
             typeName = QMetaType::typeName(userType);
             if (!typeName) break;
 
-            if (m_b->canExtractList(typeName)) {
-                QObjectList list = m_b->extractList(typeName, value);
-                pnode = objectListToPropertyNode(list, map, follow);
+            if (m_b->canExtractContainer(typeName)) {
+                QVariantList list = m_b->extractContainer(typeName, value);
+                pnode = listToPropertyNode(list, map, follow);
 
             } else if (m_b->canExtract(typeName)) {
                 pobj = m_b->extract(typeName, value);
@@ -516,13 +515,15 @@ private:
         return pnode;
     }
 
-    Node objectListToPropertyNode(QObjectList list, ObjectNodeMap &map, bool follow) {
+    Node listToPropertyNode(QVariantList list, ObjectNodeMap &map, bool follow) {
 
-        DEBUG << "propertyListToNode: have " << list.size() << " items" << endl;
+        DEBUG << "listToPropertyNode: have " << list.size() << " items" << endl;
 
         Node node, first, previous;
 
-        foreach (QObject *o, list) {
+        foreach (QVariant v, list) {
+
+            QObject *o = v.value<QObject *>();//!!! might not be object type!
 
             node = m_s->addBlankNode();
             if (first == Node()) first = node;

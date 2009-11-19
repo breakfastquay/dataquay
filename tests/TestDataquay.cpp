@@ -1050,10 +1050,18 @@ testObjectMapper()
     qRegisterMetaType<C*>("C*");
     qRegisterMetaType<QList<float> >("QList<float>");
     qRegisterMetaType<QList<B*> >("QList<B*>");
+    qRegisterMetaType<QSet<C*> >("QSet<C*>"); //!!! not currently used
     qRegisterMetaType<QObjectList>("QObjectList");
-    ObjectBuilder::getInstance()->registerClass<A, QObject>("A*", "QList<A*>");
-    ObjectBuilder::getInstance()->registerClass<B, QObject>("B*", "QList<B*>");
-    ObjectBuilder::getInstance()->registerClass<C, QObject>("C*", "QList<C*>");
+    ObjectBuilder::getInstance()->registerClass<A, QObject>("A*");
+    ObjectBuilder::getInstance()->registerClass<B, QObject>("B*");
+    ObjectBuilder::getInstance()->registerClass<C, QObject>("C*");
+
+    ObjectBuilder::getInstance()->registerContainer<A*, QList<A*> >("QList<A*>");
+    ObjectBuilder::getInstance()->registerContainer<B*, QList<B*> >("QList<B*>");
+    ObjectBuilder::getInstance()->registerContainer<C*, QList<C*> >("QList<C*>");
+
+    ObjectBuilder::getInstance()->registerContainer<float, QList<float> >("QList<float>");
+    ObjectBuilder::getInstance()->registerContainer<C *, QSet<C *> >("QSet<C*>");
 
     A *a = new A(o);
     a->setRef(t);
