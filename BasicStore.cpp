@@ -114,6 +114,7 @@ public:
             if (tt.empty()) return false;
             for (int i = 0; i < tt.size(); ++i) {
                 if (!doRemove(tt[i])) {
+                    DEBUG << "Failed to remove matched triple in remove() with wildcards; triple was: " << tt[i] << endl;
                     throw RDFException("Failed to remove matched statement in remove() with wildcards");
                 }
             }
@@ -490,7 +491,7 @@ private:
         if (!librdf_model_contains_statement(m_model, statement)) {
             librdf_free_statement(statement);
             return false;
-        }            
+        }
         librdf_model_remove_statement(m_model, statement);
         librdf_free_statement(statement);
         return true;
@@ -590,7 +591,7 @@ private:
 
             v.type = Node::Literal;
             const char *s = (const char *)librdf_node_get_literal_value(node);
-            if (s) v.value = s;
+            if (s) v.value = QString::fromUtf8(s);
             librdf_uri *type_uri = librdf_node_get_literal_value_datatype_uri(node);
             if (type_uri) v.datatype = uriToString(type_uri);
             
