@@ -68,6 +68,13 @@ public:
      */
     static ObjectBuilder *getInstance();
 
+    enum ContainerKind {
+        UnknownKind = 0,
+        SequenceKind,   // e.g. list
+        SetKind         // e.g. set
+        // perhaps also something for maps
+    };
+
     /**
      * Register type T, a subclass of QObject, as a class that can be
      * constructed by calling a single-argument constructor whose
@@ -91,8 +98,10 @@ public:
     }
     */
     template <typename T, typename Container>
-    void registerContainer(QString typeName, QString containerName) {
-        registerContainerExtractor<T, Container>(typeName, containerName);
+    void registerContainer(QString typeName, QString containerName,
+                           ContainerKind kind) {
+        registerContainerExtractor<T, Container>
+            (typeName, containerName, kind);
     }
 
     /**
@@ -225,6 +234,11 @@ public:
         return m_containerExtractors[containerName]->getTypeName();
     }
 
+    ContainerKind getContainerKind(QString containerName) {
+        if (!canExtractContainer(containerName)) return UnknownKind;
+        return m_containerExtractors[containerName]->getKind();
+    }
+
     QVariantList extractContainer(QString containerName, const QVariant &v) {
         if (!canExtractContainer(containerName)) return QVariantList();
         return m_containerExtractors[containerName]->extract(v);
@@ -238,7 +252,8 @@ public:
 private:
     ObjectBuilder() {
         registerClass<QObject, QObject>("QObject*");
-        registerContainer<QString, QStringList>("QString", "QStringList");
+        registerContainer<QString, QStringList>
+            ("QString", "QStringList", SequenceKind);
     }
     ~ObjectBuilder() {
         for (BuilderMap::iterator i = m_builders.begin();
@@ -269,9 +284,10 @@ private:
 
     template <typename T, typename Container>
     void
-    registerContainerExtractor(QString typeName, QString containerName) {
+    registerContainerExtractor(QString typeName, QString containerName,
+                               ContainerKind kind) {
         m_containerExtractors[containerName] =
-            new ContainerExtractor<T, Container>(typeName);
+            new ContainerExtractor<T, Container>(typeName, kind);
     }
 
     struct BuilderBase {
@@ -314,12 +330,14 @@ private:
         virtual QVariantList extract(const QVariant &v) = 0;
         virtual QVariant inject(const QVariantList &) = 0;
         virtual QString getTypeName() const = 0;
+        virtual ContainerKind getKind() const = 0;
     };
 
     template <typename T, typename Container>
     struct ContainerExtractor : public ContainerExtractorBase
     {
-        ContainerExtractor(QString typeName) : m_typeName(typeName) { }
+        ContainerExtractor(QString typeName, ContainerKind kind) :
+            m_typeName(typeName), m_kind(kind) { }
 
         virtual QVariantList extract(const QVariant &v) {
             Container tl = v.value<Container>();
@@ -335,8 +353,12 @@ private:
         virtual QString getTypeName() const {
             return m_typeName;
         }
+        virtual ContainerKind getKind() const {
+            return m_kind;
+        }
 
         QString m_typeName;
+        ContainerKind m_kind;
     };
 
     typedef QHash<QString, ContainerExtractorBase *> ContainerExtractorMap;

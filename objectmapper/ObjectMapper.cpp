@@ -278,16 +278,20 @@ private:
             }
 
             QString pname = property.name();
-            Node pnode;
+            Nodes pnodes;
 
             if (m_propertyRMap[cname].contains(pname)) {
                 QUrl purl = m_propertyRMap[cname][pname];
-                Triple t = m_s->matchFirst(Triple(node, purl, Node()));
-                pnode = t.c;
+                Triples t = m_s->match(Triple(node, purl, Node()));
+                for (int i = 0; i < t.size(); ++i) {
+                    pnodes << t[i].c;
+                }
             } else {
                 if (!po.hasProperty(pname)) continue;
-                pnode = po.getPropertyNode(pname);
+                pnodes = po.getPropertyNodeList(pname);
             }
+
+            if (pnodes.empty()) continue;
         
             int type = property.type();
             int userType = property.userType();
@@ -299,49 +303,70 @@ private:
                 typeName = QMetaType::typeName(type);
             }
 
-            QVariant value = propertyNodeToVariant
-                (typeName, pnode, map, follow);
+            QVariant value = propertyNodeListToVariant
+                (typeName, pnodes, map, follow);
 
             if (value.isValid()) {
                 QByteArray pnba = pname.toLocal8Bit();
                 if (!o->setProperty(pnba.data(), value)) {
-                    // Not an error; could be a dynamic property
-                    //!!! actually we aren't reviewing dynamic properties here are we? not since we switched to enumerating the meta object's properties rather than the things-like-properties found in the store
                     DEBUG << "ObjectMapper::loadProperties: Property set failed "
                           << "for property " << pname << " to value of type "
                           << value.type() << " and value " << value
-                          << " from node " << pnode.value << endl;
+                          << " from (first) node " << pnodes[0].value << endl;
                 }
             }
         }
     }
 
-    QVariant propertyNodeToVariant(QString typeName, Node pnode,
-                                   NodeObjectMap &map, bool follow) {
+    QVariant propertyNodeListToVariant(QString typeName, Nodes pnodes,
+                                       NodeObjectMap &map, bool follow) {
 
-        if (typeName != "") {
+        if (pnodes.empty()) return QVariant();
 
-            DEBUG << "propertyNodeToVariant: typeName = " << typeName << endl;
+        Node firstNode = pnodes[0];
 
-            if (m_b->canInjectContainer(typeName)) {
-                QString inContainerType =
-                    m_b->getTypeNameForContainer(typeName);
-                QVariantList list =
-                    propertyNodeToList(inContainerType, pnode, map, follow);
-                return m_b->injectContainer(typeName, list);
+        DEBUG << "propertyNodeToVariant: typeName = " << typeName << endl;
 
-            } else if (m_b->canInject(typeName)) {
-                QObject *obj = propertyNodeToObject(pnode, map, follow);
-                return m_b->inject(typeName, obj);
-
-            } else if (QString(typeName).contains("*") ||
-                       QString(typeName).endsWith("Star")) {
-                // do not attempt to read binary pointers!
-                return QVariant();
-            }
+        if (typeName == "") {
+            return firstNode.toVariant();
         }
 
-        return pnode.toVariant();
+        if (m_b->canInjectContainer(typeName)) {
+
+            QString inContainerType = m_b->getTypeNameForContainer(typeName);
+            ObjectBuilder::ContainerKind k = m_b->getContainerKind(typeName);
+
+            if (k == ObjectBuilder::SequenceKind) {
+                QVariantList list =
+                    propertyNodeToList(inContainerType, firstNode, map, follow);
+                return m_b->injectContainer(typeName, list);
+
+            } else if (k == ObjectBuilder::SetKind) {
+                QVariantList list;
+                foreach (Node pnode, pnodes) {
+                    Nodes sublist;
+                    sublist << pnode;
+                    list << propertyNodeListToVariant(inContainerType, sublist,
+                                                      map,  follow);
+                }
+                return m_b->injectContainer(typeName, list);
+
+            } else {
+                return QVariant();
+            }
+
+        } else if (m_b->canInject(typeName)) {
+            QObject *obj = propertyNodeToObject(firstNode, map, follow);
+            return m_b->inject(typeName, obj);
+
+        } else if (QString(typeName).contains("*") ||
+                   QString(typeName).endsWith("Star")) {
+            // do not attempt to read binary pointers!
+            return QVariant();
+
+        } else {
+            return firstNode.toVariant();
+        }
     }
 
     QObject *propertyNodeToObject(Node pnode, NodeObjectMap &map, bool follow) {
@@ -370,8 +395,10 @@ private:
             DEBUG << "propertyNodeToList: pnode " << pnode << ", fnode "
                   << fnode << ", follow " << follow <<  endl;
 
-            QVariant value = propertyNodeToVariant
-                (typeName, fnode, map, follow);
+            Nodes fnodes;
+            fnodes << fnode;
+            QVariant value = propertyNodeListToVariant
+                (typeName, fnodes, map, follow);
 
             if (value.isValid()) {
                 DEBUG << "Found value: " << value << endl;
@@ -424,24 +451,26 @@ private:
 
             DEBUG << "For object " << node.value << " writing property " << pname << " of type " << property.type() << endl;
 
-            Node pnode = variantToPropertyNode(value, map, follow);
+            
 
-            if (pnode != Node()) {
+            Nodes pnodes = variantToPropertyNodeList(value, map, follow);
+
+            if (m_propertyRMap[cname].contains(pname)) {
                 //!!! could this mapping be done by PropertyObject?
-                if (m_propertyRMap[cname].contains(pname)) {
-                    QUrl purl = m_propertyRMap[cname][pname];
-                    Triple t(node, purl, Node());
-                    m_s->remove(t);
-                    t.c = pnode;
+                QUrl purl = m_propertyRMap[cname][pname];
+                Triple t(node, purl, Node());
+                m_s->remove(t);
+                for (int i = 0; i < pnodes.size(); ++i) {
+                    t.c = pnodes[i];
                     m_s->add(t);
-                } else {
-                    po.setProperty(0, pname, pnode);
                 }
+            } else {
+                po.setPropertyList(0, pname, pnodes);
             }
 	}
     }
         
-    Node variantToPropertyNode(QVariant v, ObjectNodeMap &map, bool follow) {
+    Nodes variantToPropertyNodeList(QVariant v, ObjectNodeMap &map, bool follow) {
 
         const char *typeName = 0;
 
@@ -451,31 +480,51 @@ private:
             typeName = v.typeName();
         }
 
-        if (typeName) {
+        Nodes nodes;
 
-            DEBUG << "variantToPropertyNode: typeName = " << typeName << endl;
-
-            if (m_b->canExtractContainer(typeName)) {
-                QVariantList list = m_b->extractContainer(typeName, v);
-                return listToPropertyNode(list, map, follow);
-
-            } else if (m_b->canExtract(typeName)) {
-                QObject *obj = m_b->extract(typeName, v);
-                if (obj) {
-                    return objectToPropertyNode(obj, map, follow);
-                } else {
-                    DEBUG << "variantToPropertyNode: Note obtained NULL object" << endl;
-                    return Node();
-                }
-
-            } else if (QString(typeName).contains("*") ||
-                       QString(typeName).endsWith("Star")) {
-                // do not attempt to write binary pointers!
-                return Node();
-            }
+        if (!typeName) {
+            DEBUG << "variantToPropertyNode: No type name?! Going ahead anyway" << endl;
+            nodes << Node::fromVariant(v);
+            return nodes;
         }
 
-        return Node::fromVariant(v);
+        DEBUG << "variantToPropertyNode: typeName = " << typeName << endl;
+        
+        if (m_b->canExtractContainer(typeName)) {
+
+            QVariantList list = m_b->extractContainer(typeName, v);
+            ObjectBuilder::ContainerKind k = m_b->getContainerKind(typeName);
+
+            if (k == ObjectBuilder::SequenceKind) {
+                Node node = listToPropertyNode(list, map, follow);
+                if (node != Node()) nodes << node;
+                
+            } else if (k == ObjectBuilder::SetKind) {
+                foreach (QVariant member, list) {
+                    //!!! this doesn't "feel" right -- what about sets of sets, etc? I suppose sets of sequences might work?
+                    nodes += variantToPropertyNodeList(member, map, follow);
+                }
+            }
+            
+        } else if (m_b->canExtract(typeName)) {
+            QObject *obj = m_b->extract(typeName, v);
+            if (obj) {
+                nodes << objectToPropertyNode(obj, map, follow);
+            } else {
+                DEBUG << "variantToPropertyNode: Note obtained NULL object" << endl;
+            }
+            
+        } else if (QString(typeName).contains("*") ||
+                   QString(typeName).endsWith("Star")) {
+            // do not attempt to write binary pointers!
+            return Nodes();
+
+        } else {
+            Node node = Node::fromVariant(v);
+            if (node != Node()) nodes << node;
+        }
+
+        return nodes;
     }
 
     Node objectToPropertyNode(QObject *o, ObjectNodeMap &map, bool follow) {
@@ -509,11 +558,15 @@ private:
 
         foreach (QVariant v, list) {
 
-            Node pnode = variantToPropertyNode(v, map, follow);
-            if (pnode == Node()) {
+            Nodes pnodes = variantToPropertyNodeList(v, map, follow);
+            if (pnodes.empty()) {
                 DEBUG << "listToPropertyNode: Obtained nil Node in list, skipping!" << endl;
                 continue;
+            } else if (pnodes.size() > 1) {
+                DEBUG << "listToPropertyNode: Found set within sequence, can't handle this, using first element only" << endl; //!!!???
             }
+
+            Node pnode = pnodes[0];
 
             node = m_s->addBlankNode();
             if (first == Node()) first = node;

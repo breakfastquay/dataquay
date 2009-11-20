@@ -1056,13 +1056,12 @@ testObjectMapper()
     ObjectBuilder::getInstance()->registerClass<B, QObject>("B*");
     ObjectBuilder::getInstance()->registerClass<C, QObject>("C*");
 
-    ObjectBuilder::getInstance()->registerContainer<A*, QList<A*> >("A*", "QList<A*>");
-    ObjectBuilder::getInstance()->registerContainer<B*, QList<B*> >("B*", "QList<B*>");
-    ObjectBuilder::getInstance()->registerContainer<C*, QList<C*> >("C*", "QList<C*>");
-    ObjectBuilder::getInstance()->registerContainer<QObject*, QObjectList>("QObject*", "QObjectList");
-
-    ObjectBuilder::getInstance()->registerContainer<float, QList<float> >("float", "QList<float>");
-    ObjectBuilder::getInstance()->registerContainer<C *, QSet<C *> >("C*", "QSet<C*>");
+    ObjectBuilder::getInstance()->registerContainer<A*, QList<A*> >("A*", "QList<A*>", ObjectBuilder::SequenceKind);
+    ObjectBuilder::getInstance()->registerContainer<B*, QList<B*> >("B*", "QList<B*>", ObjectBuilder::SequenceKind);
+    ObjectBuilder::getInstance()->registerContainer<C*, QList<C*> >("C*", "QList<C*>", ObjectBuilder::SequenceKind);
+    ObjectBuilder::getInstance()->registerContainer<QObject*, QObjectList>("QObject*", "QObjectList", ObjectBuilder::SequenceKind);
+    ObjectBuilder::getInstance()->registerContainer<float, QList<float> >("float", "QList<float>", ObjectBuilder::SequenceKind);
+    ObjectBuilder::getInstance()->registerContainer<C *, QSet<C *> >("C*", "QSet<C*>", ObjectBuilder::SetKind);
 
     A *a = new A(o);
     a->setRef(t);
