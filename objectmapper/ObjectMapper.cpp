@@ -48,6 +48,8 @@
 
 #include <iostream>
 
+#include <cassert>
+
 
 namespace Dataquay {
 
@@ -286,8 +288,19 @@ private:
                 if (!po.hasProperty(pname)) continue;
                 pnode = po.getPropertyNode(pname);
             }
+        
+            int type = property.type();
+            int userType = property.userType();
+            QString typeName;
 
-            QVariant value = nodeToProperty(property, pnode, map, follow);
+            if (type == QVariant::UserType) {
+                typeName = QMetaType::typeName(userType);
+            } else {
+                typeName = QMetaType::typeName(type);
+            }
+
+            QVariant value = propertyNodeToVariant
+                (typeName, pnode, map, follow);
 
             if (value.isValid()) {
                 QByteArray pnba = pname.toLocal8Bit();
@@ -303,49 +316,32 @@ private:
         }
     }
 
-    QVariant nodeToProperty(QMetaProperty property, Node pnode,
-                            NodeObjectMap &map, bool follow) {
-        
-        QString pname = property.name();
-        QByteArray pnba = pname.toLocal8Bit();
-        
-        int type = property.type();
-        int userType = property.userType();
-        const char *typeName = 0;
+    QVariant propertyNodeToVariant(QString typeName, Node pnode,
+                                   NodeObjectMap &map, bool follow) {
 
-        QVariant value;
+        if (typeName != "") {
 
-        switch (type) {
-
-        case QVariant::UserType:
-
-            typeName = QMetaType::typeName(userType);
+            DEBUG << "propertyNodeToVariant: typeName = " << typeName << endl;
 
             if (m_b->canInjectContainer(typeName)) {
-                QVariantList list = propertyNodeToList(pnode, map, follow);
-                value = m_b->injectContainer(typeName, list);
+                QString inContainerType =
+                    m_b->getTypeNameForContainer(typeName);
+                QVariantList list =
+                    propertyNodeToList(inContainerType, pnode, map, follow);
+                return m_b->injectContainer(typeName, list);
 
             } else if (m_b->canInject(typeName)) {
-                QObject *pobj = propertyNodeToObject(pnode, map, follow);
-                value = m_b->inject(typeName, pobj);
+                QObject *obj = propertyNodeToObject(pnode, map, follow);
+                return m_b->inject(typeName, obj);
+
+            } else if (QString(typeName).contains("*") ||
+                       QString(typeName).endsWith("Star")) {
+                // do not attempt to read binary pointers!
+                return QVariant();
             }
-
-            break;
-
-        case QMetaType::QObjectStar:
-        case QMetaType::QWidgetStar:
-        {
-            QObject *pobj = propertyNodeToObject(pnode, map, follow);
-            value = QVariant::fromValue<QObject *>(pobj);
-            break;
         }
 
-        default:
-            value = pnode.toVariant();
-            break;
-        }
-
-        return value;
+        return pnode.toVariant();
     }
 
     QObject *propertyNodeToObject(Node pnode, NodeObjectMap &map, bool follow) {
@@ -360,7 +356,8 @@ private:
         return 0;
     }
 
-    QVariantList propertyNodeToList(Node pnode, NodeObjectMap &map, bool follow) {
+    QVariantList propertyNodeToList(QString typeName, Node pnode,
+                                    NodeObjectMap &map, bool follow) {
         
         QVariantList list;
         Triple t;
@@ -370,12 +367,18 @@ private:
 
             Node fnode = t.c;
 
-            //!!! might not be of object type!
+            DEBUG << "propertyNodeToList: pnode " << pnode << ", fnode "
+                  << fnode << ", follow " << follow <<  endl;
 
-            QVariant value = QVariant::fromValue<QObject *>
-                (propertyNodeToObject(fnode, map, follow));
+            QVariant value = propertyNodeToVariant
+                (typeName, fnode, map, follow);
 
-            if (value.isValid()) list.push_back(value);
+            if (value.isValid()) {
+                DEBUG << "Found value: " << value << endl;
+                list.push_back(value);
+            } else {
+                DEBUG << "propertyNodeToList: Invalid value in list, skipping" << endl;
+            }
         
             t = m_s->matchFirst(Triple(pnode, "rdf:rest", Node()));
             if (t == Triple()) break;
@@ -406,6 +409,8 @@ private:
             QString pname = property.name();
             QByteArray pnba = pname.toLocal8Bit();
 
+            if (pname == "uri") continue;
+
             QVariant value = o->property(pnba.data());
 
             if (m_psp == StoreIfChanged) {
@@ -419,9 +424,10 @@ private:
 
             DEBUG << "For object " << node.value << " writing property " << pname << " of type " << property.type() << endl;
 
-            Node pnode = propertyToNode(property, value, map, follow);
+            Node pnode = variantToPropertyNode(value, map, follow);
 
             if (pnode != Node()) {
+                //!!! could this mapping be done by PropertyObject?
                 if (m_propertyRMap[cname].contains(pname)) {
                     QUrl purl = m_propertyRMap[cname][pname];
                     Triple t(node, purl, Node());
@@ -434,64 +440,44 @@ private:
             }
 	}
     }
-
-    Node propertyToNode(QMetaProperty property, QVariant value,
-                        ObjectNodeMap &map, bool follow) {
         
-        int type = property.type();
-        int userType = property.userType();
+    Node variantToPropertyNode(QVariant v, ObjectNodeMap &map, bool follow) {
 
-        Node pnode;
-        QObject *pobj = 0;
         const char *typeName = 0;
 
-        DEBUG << "propertyToNode: property " << property.name() << ", type "
-              << property.type() << ", userType " << property.userType() << endl;
+        if (v.type() == QVariant::UserType) {
+            typeName = QMetaType::typeName(v.userType());
+        } else {
+            typeName = v.typeName();
+        }
 
-        switch (type) {
+        if (typeName) {
 
-        case QVariant::UserType:
-
-            typeName = QMetaType::typeName(userType);
-            if (!typeName) break;
+            DEBUG << "variantToPropertyNode: typeName = " << typeName << endl;
 
             if (m_b->canExtractContainer(typeName)) {
-                QVariantList list = m_b->extractContainer(typeName, value);
-                pnode = listToPropertyNode(list, map, follow);
+                QVariantList list = m_b->extractContainer(typeName, v);
+                return listToPropertyNode(list, map, follow);
 
             } else if (m_b->canExtract(typeName)) {
-                pobj = m_b->extract(typeName, value);
-                if (!pobj) {
-                    //!!! now hang on a minute, maybe the pointer was null in the first place
-                    std::cerr << "ObjectMapper::propertyToNode: WARNING: "
-                              << "Failed to convert type \"" << typeName
-                              << "\" to node" << std::endl;
+                QObject *obj = m_b->extract(typeName, v);
+                if (obj) {
+                    return objectToPropertyNode(obj, map, follow);
+                } else {
+                    DEBUG << "variantToPropertyNode: Note obtained NULL object" << endl;
+                    return Node();
                 }
 
-            } else if (!QString(typeName).contains('*')) {
-                pnode = Node::fromVariant(value);
+            } else if (QString(typeName).contains("*") ||
+                       QString(typeName).endsWith("Star")) {
+                // do not attempt to write binary pointers!
+                return Node();
             }
-            break;
-            
-        case QMetaType::QObjectStar:
-        case QMetaType::QWidgetStar:
-            pobj = value.value<QObject *>();
-            break;
+        }
 
-        case QVariant::StringList:
-            pnode = stringListToPropertyNode(value.toStringList());
-            break;
-
-        default:
-            pnode = Node::fromVariant(value);
-            break;
-        };
-
-        if (pobj) pnode = objectToPropertyNode(pobj, map, follow);
-        
-        return pnode;
+        return Node::fromVariant(v);
     }
-        
+
     Node objectToPropertyNode(QObject *o, ObjectNodeMap &map, bool follow) {
 
         Node pnode;
@@ -523,7 +509,11 @@ private:
 
         foreach (QVariant v, list) {
 
-            QObject *o = v.value<QObject *>();//!!! might not be object type!
+            Node pnode = variantToPropertyNode(v, map, follow);
+            if (pnode == Node()) {
+                DEBUG << "listToPropertyNode: Obtained nil Node in list, skipping!" << endl;
+                continue;
+            }
 
             node = m_s->addBlankNode();
             if (first == Node()) first = node;
@@ -532,7 +522,6 @@ private:
                 m_s->add(Triple(previous, "rdf:rest", node));
             }
 
-            Node pnode = objectToPropertyNode(o, map, follow);
             m_s->add(Triple(node, "rdf:first", pnode));
             previous = node;
         }
@@ -584,13 +573,17 @@ private:
             className = m_typeMap[typeUri];
         } else {
             if (!typeUri.startsWith(m_typePrefix)) {
+                DEBUG << "loadSingle: Unknown object type URI " << typeUri << endl;
                 throw UnknownTypeException(typeUri);
             }
             className = typeUri.right(typeUri.length() - m_typePrefix.length());
             className = className.replace("/", "::");
         }
 
-	if (!m_b->knows(className)) throw UnknownTypeException(className);
+	if (!m_b->knows(className)) {
+            DEBUG << "loadSingle: Unknown object type " << className << endl;
+            throw UnknownTypeException(className);
+        }
     
         DEBUG << "Making object " << node.value << " of type " << typeUri << " with parent " << parent << endl;
 

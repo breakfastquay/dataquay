@@ -40,6 +40,7 @@
 #include <QUrl>
 #include <QTime>
 #include <QByteArray>
+#include <QMetaType>
 
 namespace Dataquay
 {
@@ -94,6 +95,11 @@ Node::fromVariant(QVariant v)
         n.value = v.toString();
         break;
 
+    case QMetaType::UInt:
+        n.datatype = pfx + "unsignedInt";
+        n.value = v.toString();
+        break;
+
     case QVariant::String:
         n.datatype = pfx + "string";
         n.value = v.toString();
@@ -101,6 +107,11 @@ Node::fromVariant(QVariant v)
 
     case QVariant::Double:
         n.datatype = pfx + "double";
+        n.value = v.toString();
+        break;
+
+    case QMetaType::Float:
+        n.datatype = pfx + "float";
         n.value = v.toString();
         break;
 
@@ -134,15 +145,21 @@ Node::toVariant() const
     static const QString pfx = "http://www.w3.org/2001/XMLSchema#";
     DEBUG << "Node::toVariant: datatype = " << datatype << endl;
     if (datatype.startsWith(pfx)) {
-        if (datatype == pfx + "boolean") {
+        if (datatype == pfx + "string") {
+            return QVariant::fromValue<QString>(value);
+        } else if (datatype == pfx + "boolean") {
             return QVariant::fromValue<bool>((value == "true") ||
                                              (value == "1"));
-        } else if (datatype == pfx + "int") {
+        } else if (datatype == pfx + "int" ||
+                   datatype == pfx + "integer") {
             return QVariant::fromValue<int>(value.toInt());
-        } else if (datatype == pfx + "string") {
-            return QVariant::fromValue<QString>(value);
         } else if (datatype == pfx + "double") {
             return QVariant::fromValue<double>(value.toDouble());
+        } else if (datatype == pfx + "float") {
+            return QVariant::fromValue<float>(value.toFloat());
+        } else if (datatype == pfx + "unsignedInt" ||
+                   datatype == pfx + "nonNegativeInteger") {
+            return QVariant::fromValue<unsigned>(value.toUInt());
         }
     }
     if (datatype == encodedVariantTypeURI) {

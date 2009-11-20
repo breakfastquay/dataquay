@@ -36,6 +36,7 @@
 
 #include <QHash>
 #include <QString>
+#include <QStringList>
 #include <QVariant>
 
 namespace Dataquay {
@@ -90,8 +91,8 @@ public:
     }
     */
     template <typename T, typename Container>
-    void registerContainer(QString containerName) {
-        registerContainerExtractor<T, Container>(containerName);
+    void registerContainer(QString typeName, QString containerName) {
+        registerContainerExtractor<T, Container>(typeName, containerName);
     }
 
     /**
@@ -219,6 +220,11 @@ public:
         return m_containerExtractors.contains(containerName);
     }
 
+    QString getTypeNameForContainer(QString containerName) {
+        if (!canExtractContainer(containerName)) return QString();
+        return m_containerExtractors[containerName]->getTypeName();
+    }
+
     QVariantList extractContainer(QString containerName, const QVariant &v) {
         if (!canExtractContainer(containerName)) return QVariantList();
         return m_containerExtractors[containerName]->extract(v);
@@ -232,6 +238,7 @@ public:
 private:
     ObjectBuilder() {
         registerClass<QObject, QObject>("QObject*");
+        registerContainer<QString, QStringList>("QString", "QStringList");
     }
     ~ObjectBuilder() {
         for (BuilderMap::iterator i = m_builders.begin();
@@ -262,9 +269,9 @@ private:
 
     template <typename T, typename Container>
     void
-    registerContainerExtractor(QString containerName) {
+    registerContainerExtractor(QString typeName, QString containerName) {
         m_containerExtractors[containerName] =
-            new ContainerExtractor<T, Container>();
+            new ContainerExtractor<T, Container>(typeName);
     }
 
     struct BuilderBase {
@@ -306,11 +313,14 @@ private:
     struct ContainerExtractorBase {
         virtual QVariantList extract(const QVariant &v) = 0;
         virtual QVariant inject(const QVariantList &) = 0;
+        virtual QString getTypeName() const = 0;
     };
 
     template <typename T, typename Container>
     struct ContainerExtractor : public ContainerExtractorBase
     {
+        ContainerExtractor(QString typeName) : m_typeName(typeName) { }
+
         virtual QVariantList extract(const QVariant &v) {
             Container tl = v.value<Container>();
             QVariantList vl;
@@ -322,6 +332,11 @@ private:
             foreach (const QVariant &v, vl) tl << v.value<T>();
             return QVariant::fromValue<Container>(tl);
         }
+        virtual QString getTypeName() const {
+            return m_typeName;
+        }
+
+        QString m_typeName;
     };
 
     typedef QHash<QString, ContainerExtractorBase *> ContainerExtractorMap;

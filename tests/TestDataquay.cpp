@@ -1050,18 +1050,19 @@ testObjectMapper()
     qRegisterMetaType<C*>("C*");
     qRegisterMetaType<QList<float> >("QList<float>");
     qRegisterMetaType<QList<B*> >("QList<B*>");
-    qRegisterMetaType<QSet<C*> >("QSet<C*>"); //!!! not currently used
+    qRegisterMetaType<QSet<C*> >("QSet<C*>");
     qRegisterMetaType<QObjectList>("QObjectList");
     ObjectBuilder::getInstance()->registerClass<A, QObject>("A*");
     ObjectBuilder::getInstance()->registerClass<B, QObject>("B*");
     ObjectBuilder::getInstance()->registerClass<C, QObject>("C*");
 
-    ObjectBuilder::getInstance()->registerContainer<A*, QList<A*> >("QList<A*>");
-    ObjectBuilder::getInstance()->registerContainer<B*, QList<B*> >("QList<B*>");
-    ObjectBuilder::getInstance()->registerContainer<C*, QList<C*> >("QList<C*>");
+    ObjectBuilder::getInstance()->registerContainer<A*, QList<A*> >("A*", "QList<A*>");
+    ObjectBuilder::getInstance()->registerContainer<B*, QList<B*> >("B*", "QList<B*>");
+    ObjectBuilder::getInstance()->registerContainer<C*, QList<C*> >("C*", "QList<C*>");
+    ObjectBuilder::getInstance()->registerContainer<QObject*, QObjectList>("QObject*", "QObjectList");
 
-    ObjectBuilder::getInstance()->registerContainer<float, QList<float> >("QList<float>");
-    ObjectBuilder::getInstance()->registerContainer<C *, QSet<C *> >("QSet<C*>");
+    ObjectBuilder::getInstance()->registerContainer<float, QList<float> >("float", "QList<float>");
+    ObjectBuilder::getInstance()->registerContainer<C *, QSet<C *> >("C*", "QSet<C*>");
 
     A *a = new A(o);
     a->setRef(t);
@@ -1139,6 +1140,15 @@ testObjectMapper()
     b2->setObjectName("b2");
     blist << b0 << b1;
     c->setBees(blist);
+    QSet<C *> cset;
+    C *c1 = new C;
+    c1->setObjectName("c1");
+    C *c2 = new C;
+    c2->setObjectName("c2");
+    cset.insert(c1);
+    cset.insert(c2);
+//    cset.insert(c);
+    c->setCees(cset);
     QObjectList ol;
     ol << b2;
     c->setObjects(ol);
