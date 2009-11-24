@@ -112,6 +112,7 @@ public:
             t.c.type == Node::Nothing) {
             Triples tt = doMatch(t);
             if (tt.empty()) return false;
+            DEBUG << "BasicStore::remove: Removing " << tt.size() << " triple(s)" << endl;
             for (int i = 0; i < tt.size(); ++i) {
                 if (!doRemove(tt[i])) {
                     DEBUG << "Failed to remove matched triple in remove() with wildcards; triple was: " << tt[i] << endl;

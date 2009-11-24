@@ -211,6 +211,19 @@ public:
         return storeTree(root, map);
     }
 
+    void storeAllObjects(QObjectList list) {
+        ObjectNodeMap map;
+        foreach (QObject *o, list) {
+            map[o] = Node();
+            foreach (QObject *oo, o->findChildren<QObject *>()) {
+                map[oo] = Node();
+            }
+        }
+        foreach (QObject *o, list) {
+            storeTree(o, map);
+        }
+    }
+
     QObject *loadFrom(Node node, NodeObjectMap &map) {
 
 	PropertyObject po(m_s, m_relationshipPrefix, node);
@@ -530,23 +543,38 @@ private:
     Node objectToPropertyNode(QObject *o, ObjectNodeMap &map, bool follow) {
 
         Node pnode;
+
         if (o->property("uri") != QVariant()) {
+            // If our object has a URI already, then we should use
+            // that and not attempt to store the object again.  If the
+            // user wanted the object to be stored in spite of its
+            // having a URI already assigned, they needed to have
+            // included it in a storeObjects tree or storeAllObjects
+            // list.  If it was in such a list, then it will be (or
+            // have been) stored anyway.
             pnode = o->property("uri").toUrl();
         } else {
-            bool knownObject = map.contains(o);
-            if (!knownObject || map[o] == Node()) {
+            if (!map.contains(o)) {
+                // If the object is not in the map, then it was not
+                // among the objects passed to the store method.
+                // That means it should (if follow is true) be stored
+                // as a blank node.
                 if (follow) {
-                    map[o] = storeSingle(o, map, true,
-                                         //!!! crap api
-                                         !knownObject);
+                    map[o] = storeSingle(o, map, true, true); //!!! crap api
+                }
+            } else if (map[o] == Node()) {
+                // If it's in the map but with no node assigned, then
+                // we haven't stored it yet.  If follow is true, we
+                // can store it to obtain its URI or node ID.
+                if (follow) {
+                    map[o] = storeSingle(o, map, true, false); //!!! crap api
                 }
             }
-            if (map[o].type == Node::URI) {
-                pnode = QUrl(map[o].value);
-            } else if (map[o].type == Node::Blank) {
+            if (map.contains(o) && map[o] != Node()) {
                 pnode = map[o];
             }
         }
+
         return pnode;
     }
 
@@ -911,6 +939,12 @@ QUrl
 ObjectMapper::storeObjects(QObject *root)
 {
     return m_d->storeObjects(root);
+}
+
+void
+ObjectMapper::storeAllObjects(QObjectList list)
+{
+    m_d->storeAllObjects(list);
 }
 
 QObject *

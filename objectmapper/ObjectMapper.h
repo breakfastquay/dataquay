@@ -153,7 +153,8 @@ public:
 
     QUrl storeObject(QObject *o);
     QUrl storeObjects(QObject *root);
-    //!!! want a method to store all objects
+    void storeAllObjects(QObjectList);
+    //!!! want a method to store all objects (and pass back and forth object map?)
 
     QObject *loadFrom(Node sourceNode, NodeObjectMap &map);
     Node store(QObject *o, ObjectNodeMap &map);
