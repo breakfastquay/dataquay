@@ -22,6 +22,7 @@ HEADERS += BasicStore.h \
            Transaction.h \
            TransactionalStore.h \
            Triple.h \
+           objectmapper/ContainerBuilder.h \
            objectmapper/ObjectBuilder.h \
            objectmapper/ObjectMapper.h
            
@@ -32,5 +33,6 @@ SOURCES += BasicStore.cpp \
            Transaction.cpp \
            TransactionalStore.cpp \
            Triple.cpp \
+           objectmapper/ContainerBuilder.cpp \
            objectmapper/ObjectBuilder.cpp \
            objectmapper/ObjectMapper.cpp

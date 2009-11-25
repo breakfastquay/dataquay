@@ -33,6 +33,7 @@
 
 #include "ObjectMapper.h"
 #include "ObjectBuilder.h"
+#include "ContainerBuilder.h"
 #include "PropertyObject.h"
 #include "Store.h"
 
@@ -62,7 +63,8 @@ class ObjectMapper::D
 public:
     D(ObjectMapper *m, Store *s) :
         m_m(m),
-        m_b(ObjectBuilder::getInstance()),
+        m_ob(ObjectBuilder::getInstance()),
+        m_cb(ContainerBuilder::getInstance()),
         m_s(s),
         m_psp(StoreAlways),
         m_osp(StoreAllObjects),
@@ -169,7 +171,7 @@ public:
                 className = className.replace("/", "::");
             }
 
-            if (!m_b->knows(className)) {
+            if (!m_ob->knows(className)) {
                 DEBUG << "Can't construct type " << typeUri << endl;
                 continue;
             }
@@ -261,7 +263,8 @@ public:
 
 private:
     ObjectMapper *m_m;
-    ObjectBuilder *m_b;
+    ObjectBuilder *m_ob;
+    ContainerBuilder *m_cb;
     Store *m_s;
     PropertyStorePolicy m_psp;
     ObjectStorePolicy m_osp;
@@ -344,17 +347,17 @@ private:
             return firstNode.toVariant();
         }
 
-        if (m_b->canInjectContainer(typeName)) {
+        if (m_cb->canInjectContainer(typeName)) {
 
-            QString inContainerType = m_b->getTypeNameForContainer(typeName);
-            ObjectBuilder::ContainerKind k = m_b->getContainerKind(typeName);
+            QString inContainerType = m_cb->getTypeNameForContainer(typeName);
+            ContainerBuilder::ContainerKind k = m_cb->getContainerKind(typeName);
 
-            if (k == ObjectBuilder::SequenceKind) {
+            if (k == ContainerBuilder::SequenceKind) {
                 QVariantList list =
                     propertyNodeToList(inContainerType, firstNode, map, follow);
-                return m_b->injectContainer(typeName, list);
+                return m_cb->injectContainer(typeName, list);
 
-            } else if (k == ObjectBuilder::SetKind) {
+            } else if (k == ContainerBuilder::SetKind) {
                 QVariantList list;
                 foreach (Node pnode, pnodes) {
                     Nodes sublist;
@@ -362,15 +365,15 @@ private:
                     list << propertyNodeListToVariant(inContainerType, sublist,
                                                       map,  follow);
                 }
-                return m_b->injectContainer(typeName, list);
+                return m_cb->injectContainer(typeName, list);
 
             } else {
                 return QVariant();
             }
 
-        } else if (m_b->canInject(typeName)) {
+        } else if (m_ob->canInject(typeName)) {
             QObject *obj = propertyNodeToObject(firstNode, map, follow);
-            return m_b->inject(typeName, obj);
+            return m_ob->inject(typeName, obj);
 
         } else if (QString(typeName).contains("*") ||
                    QString(typeName).endsWith("Star")) {
@@ -454,8 +457,8 @@ private:
             QVariant value = o->property(pnba.data());
 
             if (m_psp == StoreIfChanged) {
-                if (m_b->knows(cname)) {
-                    std::auto_ptr<QObject> c(m_b->build(cname, 0));
+                if (m_ob->knows(cname)) {
+                    std::auto_ptr<QObject> c(m_ob->build(cname, 0));
                     if (value == c->property(pnba.data())) {
                         continue;
                     }
@@ -503,24 +506,24 @@ private:
 
         DEBUG << "variantToPropertyNode: typeName = " << typeName << endl;
         
-        if (m_b->canExtractContainer(typeName)) {
+        if (m_cb->canExtractContainer(typeName)) {
 
-            QVariantList list = m_b->extractContainer(typeName, v);
-            ObjectBuilder::ContainerKind k = m_b->getContainerKind(typeName);
+            QVariantList list = m_cb->extractContainer(typeName, v);
+            ContainerBuilder::ContainerKind k = m_cb->getContainerKind(typeName);
 
-            if (k == ObjectBuilder::SequenceKind) {
+            if (k == ContainerBuilder::SequenceKind) {
                 Node node = listToPropertyNode(list, map, follow);
                 if (node != Node()) nodes << node;
                 
-            } else if (k == ObjectBuilder::SetKind) {
+            } else if (k == ContainerBuilder::SetKind) {
                 foreach (QVariant member, list) {
                     //!!! this doesn't "feel" right -- what about sets of sets, etc? I suppose sets of sequences might work?
                     nodes += variantToPropertyNodeList(member, map, follow);
                 }
             }
             
-        } else if (m_b->canExtract(typeName)) {
-            QObject *obj = m_b->extract(typeName, v);
+        } else if (m_ob->canExtract(typeName)) {
+            QObject *obj = m_ob->extract(typeName, v);
             if (obj) {
                 nodes << objectToPropertyNode(obj, map, follow);
             } else {
@@ -661,14 +664,14 @@ private:
             className = className.replace("/", "::");
         }
 
-	if (!m_b->knows(className)) {
+	if (!m_ob->knows(className)) {
             DEBUG << "loadSingle: Unknown object type " << className << endl;
             throw UnknownTypeException(className);
         }
     
         DEBUG << "Making object " << node.value << " of type " << typeUri << " with parent " << parent << endl;
 
-	QObject *o = m_b->build(className, parent);
+	QObject *o = m_ob->build(className, parent);
 	if (!o) throw ConstructionFailedException(typeUri);
 	
 	loadProperties(o, node, map, follow);

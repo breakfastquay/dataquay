@@ -39,6 +39,7 @@
 #include "../Connection.h"
 #include "../objectmapper/ObjectMapper.h"
 #include "../objectmapper/ObjectBuilder.h"
+#include "../objectmapper/ContainerBuilder.h"
 #include "../RDFException.h"
 #include "../Debug.h"
 
@@ -1056,12 +1057,12 @@ testObjectMapper()
     ObjectBuilder::getInstance()->registerClass<B, QObject>("B*");
     ObjectBuilder::getInstance()->registerClass<C, QObject>("C*");
 
-    ObjectBuilder::getInstance()->registerContainer<A*, QList<A*> >("A*", "QList<A*>", ObjectBuilder::SequenceKind);
-    ObjectBuilder::getInstance()->registerContainer<B*, QList<B*> >("B*", "QList<B*>", ObjectBuilder::SequenceKind);
-    ObjectBuilder::getInstance()->registerContainer<C*, QList<C*> >("C*", "QList<C*>", ObjectBuilder::SequenceKind);
-    ObjectBuilder::getInstance()->registerContainer<QObject*, QObjectList>("QObject*", "QObjectList", ObjectBuilder::SequenceKind);
-    ObjectBuilder::getInstance()->registerContainer<float, QList<float> >("float", "QList<float>", ObjectBuilder::SequenceKind);
-    ObjectBuilder::getInstance()->registerContainer<C *, QSet<C *> >("C*", "QSet<C*>", ObjectBuilder::SetKind);
+    ContainerBuilder::getInstance()->registerContainer<A*, QList<A*> >("A*", "QList<A*>", ContainerBuilder::SequenceKind);
+    ContainerBuilder::getInstance()->registerContainer<B*, QList<B*> >("B*", "QList<B*>", ContainerBuilder::SequenceKind);
+    ContainerBuilder::getInstance()->registerContainer<C*, QList<C*> >("C*", "QList<C*>", ContainerBuilder::SequenceKind);
+    ContainerBuilder::getInstance()->registerContainer<QObject*, QObjectList>("QObject*", "QObjectList", ContainerBuilder::SequenceKind);
+    ContainerBuilder::getInstance()->registerContainer<float, QList<float> >("float", "QList<float>", ContainerBuilder::SequenceKind);
+    ContainerBuilder::getInstance()->registerContainer<C *, QSet<C *> >("C*", "QSet<C*>", ContainerBuilder::SetKind);
 
     A *a = new A(o);
     a->setRef(t);
