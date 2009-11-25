@@ -210,7 +210,7 @@ public:
         foreach (QObject *o, root->findChildren<QObject *>()) {
             map[o] = Node();
         }
-        return storeTree(root, map);
+        return storeTree(root, map).value;
     }
 
     void storeAllObjects(QObjectList list) {
@@ -787,24 +787,24 @@ private:
 
         storeProperties(o, node, map, follow);
 
-        callStoreCallbacks(map, o, node.value);//!!! wrongo, should pass node
+        callStoreCallbacks(map, o, node);
 
         return node;
     }
 
-    void callStoreCallbacks(ObjectNodeMap &map, QObject *o, QUrl uri) {
+    void callStoreCallbacks(ObjectNodeMap &map, QObject *o, Node node) {
         foreach (StoreCallback *cb, m_storeCallbacks) {
-            cb->stored(m_m, map, o, uri);
+            cb->stored(m_m, map, o, node);
         }
     }
 
-    QUrl storeTree(QObject *o, ObjectNodeMap &map) {
+    Node storeTree(QObject *o, ObjectNodeMap &map) {
 
         if (m_osp == StoreObjectsWithURIs) {
             if (o->property("uri") == QVariant()) return QUrl();
         }
 
-        QUrl me = storeSingle(o, map, true).value; //!!! no, rv was Node
+        Node me = storeSingle(o, map, true);
 
         foreach (QObject *c, o->children()) {
             storeTree(c, map);
