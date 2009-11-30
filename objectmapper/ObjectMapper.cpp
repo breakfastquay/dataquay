@@ -546,8 +546,9 @@ private:
     Node objectToPropertyNode(QObject *o, ObjectNodeMap &map, bool follow) {
 
         Node pnode;
-
-        if (o->property("uri") != QVariant()) {
+        QVariant uriv = o->property("uri");
+            
+        if (uriv != QVariant()) {
             // If our object has a URI already, then we should use
             // that and not attempt to store the object again.  If the
             // user wanted the object to be stored in spite of its
@@ -555,7 +556,11 @@ private:
             // included it in a storeObjects tree or storeAllObjects
             // list.  If it was in such a list, then it will be (or
             // have been) stored anyway.
-            pnode = o->property("uri").toUrl();
+            if (uriv.type() == QVariant::Url) {
+                pnode = uriv.toUrl();
+            } else {
+                pnode = m_s->expand(uriv.toString());
+            }
         } else {
             if (!map.contains(o)) {
                 // If the object is not in the map, then it was not
@@ -759,7 +764,11 @@ private:
         QVariant uriVar = o->property("uri");
 
         if (uriVar != QVariant()) {
-            node = uriVar.toUrl();
+            if (uriVar.type() == QVariant::Url) {
+                node = uriVar.toUrl();
+            } else {
+                node = m_s->expand(uriVar.toString());
+            }
         } else if (blank) {
             node = m_s->addBlankNode();
         } else {
