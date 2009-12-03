@@ -101,9 +101,17 @@ public:
         m_relationshipPrefix = prefix;
     }
 
+    void addTypeMapping(QString className, QString uri) {
+        addTypeMapping(className, m_s->expand(uri));
+    }
+
     void addTypeMapping(QString className, QUrl uri) {
         m_typeMap[uri] = className;
         m_typeRMap[className] = uri;
+    }
+
+    void addPropertyMapping(QString className, QString propertyName, QString uri) {
+        addPropertyMapping(className, propertyName, m_s->expand(uri));
     }
 
     void addPropertyMapping(QString className, QString propertyName, QUrl uri) {
@@ -467,13 +475,17 @@ private:
 
             DEBUG << "For object " << node.value << " writing property " << pname << " of type " << property.type() << endl;
 
-            
+            // 
+
+            //!!! n.b. removing the old property value is problematic if it was a blank node which is now no longer referred to by anything else -- we can end up with all sorts of "spare" blank nodes -- should we check for this and remove other triples with it as subject?
 
             Nodes pnodes = variantToPropertyNodeList(value, map, follow);
 
             if (m_propertyRMap[cname].contains(pname)) {
                 //!!! could this mapping be done by PropertyObject?
                 QUrl purl = m_propertyRMap[cname][pname];
+                //!!! we could roll up the following remove() into the loop in removeDeadBlankNodes -- quicker that way
+                removeDeadBlankNodes(node, purl);
                 Triple t(node, purl, Node());
                 m_s->remove(t);
                 for (int i = 0; i < pnodes.size(); ++i) {
@@ -481,9 +493,31 @@ private:
                     m_s->add(t);
                 }
             } else {
+                removeDeadBlankNodes(node, po.getPropertyUri(pname));
                 po.setPropertyList(0, pname, pnodes);
             }
 	}
+    }
+
+    void removeDeadBlankNodes(Node node, QUrl propertyUri) {
+        Triple t(node, propertyUri, Node());
+        Triples m(m_s->match(t));
+        foreach (t, m) {
+            if (t.c.type != Node::Blank) continue;
+            Triple t1(Node(), Node(), t.c);
+            Triples m1(m_s->match(t1));
+            bool stillUsed = false;
+            foreach (t1, m1) {
+                if (t1.a != t.a) {
+                    stillUsed = true;
+                    break;
+                }
+            }
+            if (!stillUsed) {
+                DEBUG << "removeDeadBlankNodes: Former target node " << t.c << " is not target for any other predicate, removing everything with it as subject" << endl;
+                m_s->remove(Triple(t.c, Node(), Node()));
+            }
+        }
     }
         
     Nodes variantToPropertyNodeList(QVariant v, ObjectNodeMap &map, bool follow) {
@@ -876,9 +910,21 @@ ObjectMapper::setRelationshipPrefix(QString prefix)
 }
 
 void
+ObjectMapper::addTypeMapping(QString className, QString uri)
+{
+    m_d->addTypeMapping(className, uri);
+}
+
+void
 ObjectMapper::addTypeMapping(QString className, QUrl uri)
 {
     m_d->addTypeMapping(className, uri);
+}
+
+void
+ObjectMapper::addPropertyMapping(QString className, QString propertyName, QString uri)
+{
+    m_d->addPropertyMapping(className, propertyName, uri);
 }
 
 void

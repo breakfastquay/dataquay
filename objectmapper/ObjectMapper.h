@@ -103,7 +103,10 @@ public:
     QString getRelationshipPrefix() const;
     void setRelationshipPrefix(QString prefix);
 
+    void addTypeMapping(QString className, QString uri);
     void addTypeMapping(QString className, QUrl uri);
+    //!!! n.b. document that uris must be distinct (can't map to properties to same RDF predicate as we'd be unable to distinguish between them on reload -- we don't use the object type to distinguish which predicate is which)
+    void addPropertyMapping(QString className, QString propertyName, QString uri);
     void addPropertyMapping(QString className, QString propertyName, QUrl uri);
     
     enum PropertyStorePolicy {
