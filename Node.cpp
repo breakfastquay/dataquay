@@ -91,26 +91,33 @@ Node::fromVariant(QVariant v)
         break;
 
     case QVariant::Int:
+        //!!! should be integer?
         n.datatype = pfx + "int";
         n.value = v.toString();
         break;
 
     case QMetaType::UInt:
+        //!!! should be integer?
         n.datatype = pfx + "unsignedInt";
         n.value = v.toString();
         break;
 
     case QVariant::String:
-        n.datatype = pfx + "string";
+        // It seems to be inadvisable to encode strings as ^^xsd:string,
+        // because "literal" and "literal"^^xsd:string compare differently
+        // and most people just use "literal"
+        n.datatype = "";
         n.value = v.toString();
         break;
 
     case QVariant::Double:
+        //!!! should be decimal?
         n.datatype = pfx + "double";
         n.value = v.toString();
         break;
 
     case QMetaType::Float:
+        //!!! should be decimal?
         n.datatype = pfx + "float";
         n.value = v.toString();
         break;
