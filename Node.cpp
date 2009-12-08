@@ -91,34 +91,35 @@ Node::fromVariant(QVariant v)
         break;
 
     case QVariant::Int:
-        //!!! should be integer?
-        n.datatype = pfx + "int";
+        n.datatype = pfx + "integer";
         n.value = v.toString();
         break;
 
     case QMetaType::UInt:
-        //!!! should be integer?
-        n.datatype = pfx + "unsignedInt";
+        n.datatype = pfx + "integer";
         n.value = v.toString();
         break;
 
     case QVariant::String:
-        // It seems to be inadvisable to encode strings as ^^xsd:string,
-        // because "literal" and "literal"^^xsd:string compare differently
-        // and most people just use "literal"
+        // It seems to be inadvisable to encode strings as
+        // ^^xsd:string, because "literal" and "literal"^^xsd:string
+        // compare differently and most people just use "literal".
+        // (Similarly we write integer and decimal instead of the
+        // "machine" types int, double etc, because they seem more
+        // useful from a practical interoperability perspective -- the
+        // fact that we can't actually handle arbitrary numerical
+        // lengths we'll have to treat as an "implementation issue")
         n.datatype = "";
         n.value = v.toString();
         break;
 
     case QVariant::Double:
-        //!!! should be decimal?
-        n.datatype = pfx + "double";
+        n.datatype = pfx + "decimal";
         n.value = v.toString();
         break;
 
     case QMetaType::Float:
-        //!!! should be decimal?
-        n.datatype = pfx + "float";
+        n.datatype = pfx + "decimal";
         n.value = v.toString();
         break;
 
@@ -157,10 +158,13 @@ Node::toVariant() const
         } else if (datatype == pfx + "boolean") {
             return QVariant::fromValue<bool>((value == "true") ||
                                              (value == "1"));
-        } else if (datatype == pfx + "int" ||
-                   datatype == pfx + "integer") {
+        } else if (datatype == pfx + "int") {
             return QVariant::fromValue<int>(value.toInt());
-        } else if (datatype == pfx + "double") {
+        } else if (datatype == pfx + "long" ||
+                   datatype == pfx + "integer") {
+            return QVariant::fromValue<long>(value.toLong());
+        } else if (datatype == pfx + "double" ||
+                   datatype == pfx + "decimal") {
             return QVariant::fromValue<double>(value.toDouble());
         } else if (datatype == pfx + "float") {
             return QVariant::fromValue<float>(value.toFloat());

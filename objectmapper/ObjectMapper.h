@@ -111,7 +111,7 @@ public:
     
     enum PropertyStorePolicy {
         StoreIfChanged, /// Store only properties that differ from default object
-        StoreAlways     /// Store all properties (if storable, readable & writable)
+        StoreAlways     /// Store all properties (if storable, readable & writable) (default)
     };
 
     void setPropertyStorePolicy(PropertyStorePolicy policy);
@@ -119,11 +119,19 @@ public:
 
     enum ObjectStorePolicy {
         StoreObjectsWithURIs, /// Store only objects with non-empty "uri" properties
-        StoreAllObjects       /// Store all objects, giving them URIs as needed
+        StoreAllObjects       /// Store all objects, giving them URIs as needed (default)
     };
 
     void setObjectStorePolicy(ObjectStorePolicy policy);
     ObjectStorePolicy getObjectStorePolicy() const;
+
+    enum BlankNodePolicy {
+        NoBlankNodes,         /// Ensure every stored object has a URI
+        BlankNodesAsNeeded    /// Use blank nodes for objects with no existing URIs and not known to be referred to elsewhere (default)
+    };
+
+    void setBlankNodePolicy(BlankNodePolicy policy);
+    BlankNodePolicy getBlankNodePolicy() const;
 
     /**
      * Load to the given object all QObject properties defined in this

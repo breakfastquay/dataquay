@@ -68,6 +68,7 @@ public:
         m_s(s),
         m_psp(StoreAlways),
         m_osp(StoreAllObjects),
+        m_bp(BlankNodesAsNeeded),
         m_typePrefix(defaultTypePrefix),
         m_propertyPrefix(defaultPropertyPrefix),
         m_relationshipPrefix(defaultRelationshipPrefix) {
@@ -133,6 +134,14 @@ public:
 
     ObjectStorePolicy getObjectStorePolicy() const {
         return m_osp;
+    }
+
+    void setBlankNodePolicy(BlankNodePolicy bp) {
+        m_bp = bp; 
+    }
+
+    BlankNodePolicy getBlankNodePolicy() const {
+        return m_bp;
     }
 
     void loadProperties(QObject *o, QUrl uri) {
@@ -276,6 +285,7 @@ private:
     Store *m_s;
     PropertyStorePolicy m_psp;
     ObjectStorePolicy m_osp;
+    BlankNodePolicy m_bp;
     QString m_typePrefix;
     QString m_propertyPrefix;
     QString m_relationshipPrefix;
@@ -598,11 +608,13 @@ private:
         } else {
             if (!map.contains(o)) {
                 // If the object is not in the map, then it was not
-                // among the objects passed to the store method.
-                // That means it should (if follow is true) be stored
-                // as a blank node.
+                // among the objects passed to the store method.  That
+                // means it should (if follow is true) be stored, and
+                // as a blank node unless the blank node policy says
+                // otherwise.
                 if (follow) {
-                    map[o] = storeSingle(o, map, true, true); //!!! crap api
+                    map[o] = storeSingle(o, map, true,
+                                         (m_bp == BlankNodesAsNeeded)); //!!! crap api
                 }
             } else if (map[o] == Node()) {
                 // If it's in the map but with no node assigned, then
@@ -955,6 +967,18 @@ ObjectMapper::ObjectStorePolicy
 ObjectMapper::getObjectStorePolicy() const
 {
     return m_d->getObjectStorePolicy();
+}
+
+void
+ObjectMapper::setBlankNodePolicy(BlankNodePolicy policy)
+{
+    m_d->setBlankNodePolicy(policy);
+}
+
+ObjectMapper::BlankNodePolicy
+ObjectMapper::getBlankNodePolicy() const
+{
+    return m_d->getBlankNodePolicy();
 }
 
 void
