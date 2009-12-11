@@ -105,6 +105,33 @@ public:
 
     void addTypeMapping(QString className, QString uri);
     void addTypeMapping(QString className, QUrl uri);
+
+    /**
+     * Add a mapping between class name and the common parts of any
+     * URIs that are automatically generated when storing instances of
+     * that class that have no URI property defined.
+     * 
+     * For example, a mapping from "MyNamespace::MyClass" to
+     * "http://mydomain.com/resource/" would ensure that automatically
+     * generated "unique" URIs for instances that class all started
+     * with that URI prefix.  Note that the prefix itself is also
+     * subject to namespace prefix expansion when stored.
+     *
+     * (If no prefix mapping was given for this example, its generated
+     * URIs would start with ":mynamespace_myclass_".)
+     *
+     * Generated URIs are only checked for uniqueness within the store
+     * being exported to and cannot be guaranteed to be globally
+     * unique.  For this reason, caution should be exercised in the
+     * use of this function.
+     *
+     * Note that in principle the object mapper could use this when
+     * loading, to infer class types for URIs in the store that have
+     * no rdf:type.  In practice that does not happen -- the object
+     * mapper will not generate a class for URIs without rdf:type.
+     */
+    void addTypeUriPrefixMapping(QString className, QString prefix);
+
     //!!! n.b. document that uris must be distinct (can't map to properties to same RDF predicate as we'd be unable to distinguish between them on reload -- we don't use the object type to distinguish which predicate is which)
     void addPropertyMapping(QString className, QString propertyName, QString uri);
     void addPropertyMapping(QString className, QString propertyName, QUrl uri);

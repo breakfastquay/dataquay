@@ -111,6 +111,10 @@ public:
         m_typeRMap[className] = uri;
     }
 
+    void addTypeUriPrefixMapping(QString className, QString prefix) {
+        m_typeUriPrefixMap[className] = prefix;
+    }
+
     void addPropertyMapping(QString className, QString propertyName, QString uri) {
         addPropertyMapping(className, propertyName, m_s->expand(uri));
     }
@@ -293,6 +297,7 @@ private:
     QList<StoreCallback *> m_storeCallbacks;
     QMap<QUrl, QString> m_typeMap;
     QHash<QString, QUrl> m_typeRMap;
+    QHash<QString, QString> m_typeUriPrefixMap;
     QHash<QString, QMap<QUrl, QString> > m_propertyMap;
     QHash<QString, QHash<QString, QUrl> > m_propertyRMap;
 
@@ -491,45 +496,54 @@ private:
 
             Nodes pnodes = variantToPropertyNodeList(value, map, follow);
 
+            QUrl puri;
             if (m_propertyRMap[cname].contains(pname)) {
                 //!!! could this mapping be done by PropertyObject?
-                QUrl purl = m_propertyRMap[cname][pname];
-                //!!! we could roll up the following remove() into the loop in removeDeadBlankNodes -- quicker that way
-                removeDeadBlankNodes(node, purl);
-                Triple t(node, purl, Node());
-                m_s->remove(t);
-                for (int i = 0; i < pnodes.size(); ++i) {
-                    t.c = pnodes[i];
-                    m_s->add(t);
-                }
+                puri = m_propertyRMap[cname][pname];
             } else {
-                removeDeadBlankNodes(node, po.getPropertyUri(pname));
-                po.setPropertyList(0, pname, pnodes);
+                puri = po.getPropertyUri(pname);
             }
-	}
-    }
 
-    void removeDeadBlankNodes(Node node, QUrl propertyUri) {
+            //!!! not sure we need a PropertyObject here any more, we
+            //!!! aren't really using it (because it's quicker, when
+            //!!! pruning blank nodes, to do it all ourselves) --
+            //!!! though should we make PropertyObject capable of
+            //!!! doing that too?
+
+            removeOldPropertyNodes(node, puri);
+
+            Triple t(node, puri, Node());
+            for (int i = 0; i < pnodes.size(); ++i) {
+                t.c = pnodes[i];
+                m_s->add(t);
+            }
+        }
+    }            
+            
+    void removeOldPropertyNodes(Node node, QUrl propertyUri) {
+        //!!! make PropertyObject do this?
         Triple t(node, propertyUri, Node());
         Triples m(m_s->match(t));
         foreach (t, m) {
-            if (t.c.type != Node::Blank) continue;
-            Triple t1(Node(), Node(), t.c);
-            Triples m1(m_s->match(t1));
-            bool stillUsed = false;
-            foreach (t1, m1) {
-                if (t1.a != t.a) {
-                    stillUsed = true;
-                    break;
+            if (t.c.type == Node::Blank) {
+                Triple t1(Node(), Node(), t.c);
+                Triples m1(m_s->match(t1));
+                bool stillUsed = false;
+                foreach (t1, m1) {
+                    if (t1.a != t.a) {
+                        stillUsed = true;
+                        break;
+                    }
+                }
+                if (!stillUsed) {
+                    DEBUG << "removeOldPropertyNodes: Former target node " << t.c << " is not target for any other predicate, removing everything with it as subject" << endl;
+                    m_s->remove(Triple(t.c, Node(), Node()));
                 }
             }
-            if (!stillUsed) {
-                DEBUG << "removeDeadBlankNodes: Former target node " << t.c << " is not target for any other predicate, removing everything with it as subject" << endl;
-                m_s->remove(Triple(t.c, Node(), Node()));
-            }
+            m_s->remove(t);
         }
     }
-        
+
     Nodes variantToPropertyNodeList(QVariant v, ObjectNodeMap &map, bool follow) {
 
         const char *typeName = 0;
@@ -818,9 +832,15 @@ private:
         } else if (blank) {
             node = m_s->addBlankNode();
         } else {
-            QString tag = className.toLower() + "_";
-            tag.replace("::", "_");
-            QUrl uri = m_s->getUniqueUri(":" + tag);
+            QString prefix;
+            if (m_typeUriPrefixMap.contains(className)) {
+                prefix = m_typeUriPrefixMap[className];
+            } else {
+                QString tag = className.toLower() + "_";
+                tag.replace("::", "_");
+                prefix = ":" + tag;
+            }
+            QUrl uri = m_s->getUniqueUri(prefix);
             o->setProperty("uri", uri); //!!! document this
             node = uri;
         }
@@ -931,6 +951,12 @@ void
 ObjectMapper::addTypeMapping(QString className, QUrl uri)
 {
     m_d->addTypeMapping(className, uri);
+}
+
+void
+ObjectMapper::addTypeUriPrefixMapping(QString className, QString prefix)
+{
+    m_d->addTypeUriPrefixMapping(className, prefix);
 }
 
 void
