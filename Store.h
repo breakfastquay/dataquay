@@ -71,9 +71,9 @@ public:
     /**
      * Add a triple to the store.  Prefix expansion is performed on
      * URI nodes in the triple.  Return false if the triple was
-     * already in the store.  (Although Redland permits duplicate
-     * triples in a store, Dataquay doesn't.)  Throw RDFException if
-     * the triple can not be added for some other reason.
+     * already in the store.  (Dataquay does not permit duplicate
+     * triples in a store.)  Throw RDFException if the triple can not
+     * be added for some other reason.
      */
     virtual bool add(Triple t) = 0;
     

@@ -44,21 +44,13 @@ namespace Dataquay {
 /**
  * \class ContainerBuilder ContainerBuilder.h <dataquay/ContainerBuilder.h>
  *
- * Singleton object factory capable of constructing new objects of
- * classes that are subclassed from QObject, given the class name as a
- * string, and optionally a parent object.  To be capable of
- * construction using ContainerBuilder, a class must be declared using
- * Q_OBJECT as well as subclassed from QObject.
+ * ContainerBuilder is a utility class which assists with storage of
+ * arbitrary container objects into variant objects and subsequently
+ * retrieving them into lists.
  *
- * All object classes need to be registered with the builder before
- * they can be constructed; the only class that ContainerBuilder is able
- * to construct without registration is QObject itself.
- *
- * This class permits code to construct new objects dynamically,
- * without needing to know anything about them except for their class
- * names, and without needing their definitions to be visible.  (The
- * definitions must be visible when the object classes are registered,
- * but not when the objects are constructed.)
+ * Given types T and Container (where Container is typically something
+ * like QList<T>), ContainerBuilder can convert a QVariantList holding
+ * type T into a QVariant holding Container, and back again.
  */
 class ContainerBuilder
 {
@@ -68,6 +60,14 @@ public:
      */
     static ContainerBuilder *getInstance();
 
+    /**
+     * ContainerKind describes the sort of behaviour a container
+     * displays with regard to ordering and structure.  A container of
+     * kind SequenceKind is externally ordered (order must be
+     * preserved when serialising, for example); kind SetKind is
+     * unordered or internally ordered (its ordering does not need to
+     * be described).
+     */
     enum ContainerKind {
         UnknownKind = 0,
         SequenceKind,   // e.g. list
@@ -76,27 +76,21 @@ public:
     };
 
     /**
-     * Register type T, a subclass of QObject, as a class that can be
-     * constructed by calling a single-argument constructor whose
-     * argument is of pointer-to-Parent type, where Parent is also a
-     * subclass of QObject.
+     * Register Container as a container of kind ContainerKind holding
+     * type T.  T must be something capable of being stored in a
+     * QVariant -- so typically a primitive type, a Qt utility type
+     * such as QString, or a pointer type.  Both T and Container must
+     * be registered as Qt metatypes using qRegisterMetaType.
+     * 
+     * The arguments typeName and containerName give the textual names
+     * for the types T and Container; these must be the same as were
+     * used when calling qRegisterMetaType.
      *
-     * For example, calling registerWithParentConstructor<QWidget,
-     * QWidget>() declares that QWidget is a subclass of QObject that
-     * may be built using QWidget::QWidget(QWidget *parent).  A
-     * subsequent call to ContainerBuilder::build("QWidget", parent)
-     * would return a new QWidget built with that constructor (since
-     * "QWidget" is the class name of QWidget returned by its meta
-     * object).
-     *!!! update the above
+     * For example, to register QStringList:
+     *
+     * registerContainer<QString, QStringList>
+     *     ("QString", "QStringList", SequenceKind);
      */
-    /*
-    template <typename T, typename Parent>
-    void registerClass(QString pointerName, QString listName) {
-        m_builders[T::staticMetaObject.className()] = new Builder1<T, Parent>();
-        registerExtractor<T>(pointerName, listName);
-    }
-    */
     template <typename T, typename Container>
     void registerContainer(QString typeName, QString containerName,
                            ContainerKind kind) {
@@ -104,29 +98,64 @@ public:
             (typeName, containerName, kind);
     }
 
+    /**
+     * Return true if the container named containerName can be
+     * extracted from a variant.  This is the case if containerName
+     * was the name of a container provided to an earlier call to
+     * registerContainer.
+     */
     bool canExtractContainer(QString containerName) {
         return m_containerExtractors.contains(containerName);
     }
 
+    /**
+     * Return true if the container named containerName can be
+     * injected into a variant.  This is the case if containerName was
+     * the name of a container provided to an earlier call to
+     * registerContainer.
+     */
     bool canInjectContainer(QString containerName) {
         return m_containerExtractors.contains(containerName);
     }
 
+    /**
+     * Return the typeName that is associated with the given
+     * containerName.  That is, when registerContainer was called for
+     * a container with name containerName, typeName is the name that
+     * was given as the first argument of that call.
+     */
     QString getTypeNameForContainer(QString containerName) {
         if (!canExtractContainer(containerName)) return QString();
         return m_containerExtractors[containerName]->getTypeName();
     }
 
+    /**
+     * Return the kind of the container with the given containerName.
+     * That is, when registerContainer was called for a container with
+     * name containerName, return the kind that was given as the final
+     * argument of that call.
+     */
     ContainerKind getContainerKind(QString containerName) {
         if (!canExtractContainer(containerName)) return UnknownKind;
         return m_containerExtractors[containerName]->getKind();
     }
 
+    /**
+     * Extract the named container type from the given variant object
+     * (which must hold that container type) and return a list of
+     * variants containing the individual elements in the container.
+     */
     QVariantList extractContainer(QString containerName, const QVariant &v) {
         if (!canExtractContainer(containerName)) return QVariantList();
         return m_containerExtractors[containerName]->extract(v);
     }
 
+    /**
+     * Inject the named container type into a new variant object.
+     * Taking a list of variants holding the individual elements in
+     * the container, return a single variant holding the container
+     * itself.
+     */
     QVariant injectContainer(QString containerName, const QVariantList &vl) {
         if (!canInjectContainer(containerName)) return QVariant();
         return m_containerExtractors[containerName]->inject(vl);

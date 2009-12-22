@@ -71,16 +71,20 @@ public:
      * Register type T, a subclass of QObject, as a class that can be
      * constructed by calling a single-argument constructor whose
      * argument is of pointer-to-Parent type, where Parent is also a
-     * subclass of QObject.
+     * subclass of QObject.  Also declare pointerName to be the meta
+     * type name for pointers to type T, such that QVariant can be
+     * used to store such pointers.
      *
-     * For example, calling registerWithParentConstructor<QWidget,
-     * QWidget>() declares that QWidget is a subclass of QObject that
-     * may be built using QWidget::QWidget(QWidget *parent).  A
-     * subsequent call to ObjectBuilder::build("QWidget", parent)
+     * For example, registerClass<QWidget, QWidget>("QWidget*")
+     * declares that QWidget is a subclass of QObject that may be
+     * built by calling QWidget::QWidget(QWidget *parent), and that
+     * "QWidget*" has been registered (using qRegisterMetaType) as the
+     * meta type name for pointer-to-QWidget.
+     * 
+     * A subsequent call to ObjectBuilder::build("QWidget", parent)
      * would return a new QWidget built with that constructor (since
      * "QWidget" is the class name of QWidget returned by its meta
      * object).
-     *!!! update the above
      */
     template <typename T, typename Parent>
     void registerClass(QString pointerName) {
@@ -90,19 +94,20 @@ public:
 
     /**
      * Register type T, a subclass of QObject, as a class that can be
-     * constructed by calling a zero-argument constructor.
-     *!!! update the above
-     */
-/*    template <typename T>
-    void registerClass(QString pointerName, QString listName) {
-        m_builders[T::staticMetaObject.className()] = new Builder0<T>();
-        registerExtractor<T>(pointerName, listName);
-    }
-*/
-    /**
-     * Register type T, a subclass of QObject, as a class that can be
-     * constructed by calling a zero-argument constructor.
-     *!!! update the above
+     * constructed by calling a zero-argument constructor.  Also
+     * declare pointerName to be the meta type name for pointers to
+     * type T, such that QVariant can be used to store such pointers.
+     *
+     * For example, registerClass<QAction>("QAction*") declares that
+     * QAction is a subclass of QObject that may be built by calling
+     * QAction::QAction(), and that "QAction*" has been registered
+     * (using qRegisterMetaType) as the meta type name for
+     * pointer-to-QAction.
+     * 
+     * A subsequent call to ObjectBuilder::build("QAction") would
+     * return a new QAction built with that constructor (since
+     * "QAction" is the class name of QAction returned by its meta
+     * object).
      */
     template <typename T>
     void registerClass(QString pointerName) {
@@ -116,10 +121,11 @@ public:
      * argument is of pointer-to-Parent type, where Parent is also a
      * subclass of QObject.
      *
-     * For example, calling registerWithParentConstructor<QWidget,
-     * QWidget>() declares that QWidget is a subclass of QObject that
-     * may be built using QWidget::QWidget(QWidget *parent).  A
-     * subsequent call to ObjectBuilder::build("QWidget", parent)
+     * For example, registerClass<QWidget, QWidget>() declares that
+     * QWidget is a subclass of QObject that may be built by calling
+     * QWidget::QWidget(QWidget *parent).
+     * 
+     * A subsequent call to ObjectBuilder::build("QWidget", parent)
      * would return a new QWidget built with that constructor (since
      * "QWidget" is the class name of QWidget returned by its meta
      * object).
@@ -132,6 +138,15 @@ public:
     /**
      * Register type T, a subclass of QObject, as a class that can be
      * constructed by calling a zero-argument constructor.
+     *
+     * For example, registerClass<QAction>() declares that QAction is
+     * a subclass of QObject that may be built by calling
+     * QAction::QAction().
+     * 
+     * A subsequent call to ObjectBuilder::build("QAction") would
+     * return a new QAction built with that constructor (since
+     * "QAction" is the class name of QAction returned by its meta
+     * object).
      */
     template <typename T>
     void registerClass() {
@@ -165,19 +180,40 @@ public:
         return m_builders[className]->build(0);
     }
 
+    /**
+     * Return true if the class whose pointer has meta-type name
+     * pointerName has been registered with that pointer name
+     * (i.e. using one of the registerClass(pointerName) methods).
+     */
     bool canExtract(QString pointerName) {
         return m_extractors.contains(pointerName);
     }
 
+    /**
+     * Return true if the class whose pointer has meta-type name
+     * pointerName has been registered with that pointer name
+     * (i.e. using one of the registerClass(pointerName) methods).
+     */
     bool canInject(QString pointerName) {
         return m_extractors.contains(pointerName);
     }
 
+    /**
+     * Provided the given pointerName has been registered using one of
+     * the registerClass(pointerName) methods, take the given variant
+     * containing that pointer type and extract and return the
+     * pointer.
+     */
     QObject *extract(QString pointerName, QVariant &v) {
         if (!canExtract(pointerName)) return 0;
         return m_extractors[pointerName]->extract(v);
     }
 
+    /**
+     * Provided the given pointerName has been registered using one of
+     * the registerClass(pointerName) methods, take the given pointer
+     * and stuff it into a variant, returning the result.
+     */
     QVariant inject(QString pointerName, QObject *p) {
         if (!canInject(pointerName)) return QVariant();
         return m_extractors[pointerName]->inject(p);
