@@ -76,16 +76,18 @@ class Store;
  * trees to a datastore, or to construct QObjects to represent
  * arbitrary RDF data using appropriate object-type and property-type
  * mappings.
- *!!! NOTE: dedicated property type mappings not implemented yet!
  */
 class ObjectMapper
 {
 public:
+    /// Map from RDF node to object
     typedef QMap<Node, QObject *> NodeObjectMap;
+
+    /// Map from object to RDF node
     typedef QMap<QObject *, Node> ObjectNodeMap;
 
     /**
-     * Create a ObjectMapper ready to load and store objects from and
+     * Create an ObjectMapper ready to load and store objects from and
      * to the given RDF store.
      */
     ObjectMapper(Store *s);
@@ -137,24 +139,31 @@ public:
     void addPropertyMapping(QString className, QString propertyName, QUrl uri);
     
     enum PropertyStorePolicy {
-        StoreIfChanged, /// Store only properties that differ from default object
-        StoreAlways     /// Store all properties (if storable, readable & writable) (default)
+        /** Store only properties that differ from default object */
+        StoreIfChanged,
+        /** Store all properties (if storable, readable & writable) (default) */
+        StoreAlways
     };
 
     void setPropertyStorePolicy(PropertyStorePolicy policy);
     PropertyStorePolicy getPropertyStorePolicy() const;
 
     enum ObjectStorePolicy {
-        StoreObjectsWithURIs, /// Store only objects with non-empty "uri" properties
-        StoreAllObjects       /// Store all objects, giving them URIs as needed (default)
+        /** Store only objects with non-empty "uri" properties */
+        StoreObjectsWithURIs,
+        /** Store all objects, giving them URIs as needed (default) */
+        StoreAllObjects
     };
 
     void setObjectStorePolicy(ObjectStorePolicy policy);
     ObjectStorePolicy getObjectStorePolicy() const;
 
     enum BlankNodePolicy {
-        NoBlankNodes,         /// Ensure every stored object has a URI
-        BlankNodesAsNeeded    /// Use blank nodes for objects with no existing URIs and not known to be referred to elsewhere (default)
+        /** Ensure every stored object has a URI */
+        NoBlankNodes,
+        /** Use blank nodes for objects with no existing URIs that are
+            not known to be referred to elsewhere (default) */
+        BlankNodesAsNeeded
     };
 
     void setBlankNodePolicy(BlankNodePolicy policy);
