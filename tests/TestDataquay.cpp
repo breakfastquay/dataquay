@@ -1129,7 +1129,7 @@ testObjectMapper()
     c->setFloats(floats);
     QList<B *> blist;
     B *b0 = new B;
-//    b0->setA(a); //!!! restore this to test circular graphs
+    b0->setA(a); //!!! restore this to test circular graphs
     b0->setObjectName("b0");
     B *b1 = new B;
     A *a1 = new A;

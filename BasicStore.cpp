@@ -293,15 +293,17 @@ public:
         }
     }
 
-    void import(QString url, ImportDuplicatesMode idm) {
+    void import(QString url, ImportDuplicatesMode idm, QString format) {
 
         QMutexLocker locker(&m_mutex);
 
         librdf_uri *luri = stringToUri(url);
         librdf_uri *base_uri = stringToUri(m_baseUri);
 
+        if (format == "") format = "guess";
+
         librdf_parser *parser = librdf_new_parser
-            (m_w.getWorld(), "guess", NULL, NULL);
+            (m_w.getWorld(), format.toLocal8Bit().data(), NULL, NULL);
         if (!parser) {
             throw RDFException("Failed to construct RDF parser");
         }
@@ -363,7 +365,7 @@ public:
                 }
 
                 // Now import.  Have to do this "manually" because librdf
-                // allows duplicates and we want to avoid them
+                // may allow duplicates and we want to avoid them
                 stream = librdf_model_find_statements(im, all);
                 if (!stream) {
                     throw RDFException("Failed to list imported RDF model");
@@ -839,17 +841,17 @@ BasicStore::save(QString filename) const
 }
 
 void
-BasicStore::import(QString url, ImportDuplicatesMode idm)
+BasicStore::import(QString url, ImportDuplicatesMode idm, QString format)
 {
-    m_d->import(url, idm);
+    m_d->import(url, idm, format);
 }
 
 BasicStore *
-BasicStore::load(QString url)
+BasicStore::load(QString url, QString format)
 {
     BasicStore *s = new BasicStore();
     // store is empty, ImportIgnoreDuplicates is faster
-    s->import(url, ImportIgnoreDuplicates);
+    s->import(url, ImportIgnoreDuplicates, format);
     return s;
 }
 

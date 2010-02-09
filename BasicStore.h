@@ -158,8 +158,13 @@ public:
      *
      * Note that the URL must be a URL, not just a filename
      * (i.e. local files need the file: prefix).
+     *
+     * If format is specified, it will be taken as the RDF parse
+     * format (e.g. ntriples).  The set of supported format strings
+     * depends on the underlying RDF library configuration.  The
+     * default is to guess the format if possible.
      */
-    void import(QString url, ImportDuplicatesMode idm);
+    void import(QString url, ImportDuplicatesMode idm, QString format = "");
 
     /**
      * Construct a new BasicStore from the RDF document at the given
@@ -169,8 +174,13 @@ public:
      *
      * Note that the URL must be a URL, not just a filename
      * (i.e. local files need the file: prefix).
+     *
+     * If format is specified, it will be taken as the RDF parse
+     * format (e.g. ntriples).  The set of supported format strings
+     * depends on the underlying RDF library configuration.  The
+     * default is to guess the format if possible.
      */
-    static BasicStore *load(QString url);
+    static BasicStore *load(QString url, QString format = "");
 
 private:
     class D;

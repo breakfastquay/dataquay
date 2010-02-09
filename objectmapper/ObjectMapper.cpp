@@ -364,7 +364,7 @@ private:
 
         Node firstNode = pnodes[0];
 
-        DEBUG << "propertyNodeToVariant: typeName = " << typeName << endl;
+        DEBUG << "propertyNodeListToVariant: typeName = " << typeName << endl;
 
         if (typeName == "") {
             return firstNode.toVariant();
@@ -396,6 +396,23 @@ private:
 
         } else if (m_ob->canInject(typeName)) {
             QObject *obj = propertyNodeToObject(firstNode, map, follow);
+
+            //!!! NB if the returned object from propertyNodeToObject
+            // has the wrong type, inject will fail (producing a
+            // null variant) and the object will be leaked.  Need
+            // to fix this.  This is a peculiar situation anyway,
+            // because we already know the object's intended type;
+            // we arguably don't really need loadSingle to re-read
+            // the type from the RDF.  Mostly at least that provides
+            // a consistency check, but the situation is troublesome
+            // where the object has no type at all in the RDF or a
+            // type that cannot be loaded -- in both cases we will
+            // fail with an UnknownTypeException, whereas in the
+            // former case we should be loading anyway (using the
+            // object type that we already know) and in the latter
+            // we should at least recover and ignore the property.
+            // Need to fix these
+
             return m_ob->inject(typeName, obj);
 
         } else if (QString(typeName).contains("*") ||
@@ -722,7 +739,8 @@ private:
             className = m_typeMap[typeUri];
         } else {
             if (!typeUri.startsWith(m_typePrefix)) {
-                DEBUG << "loadSingle: Unknown object type URI " << typeUri << endl;
+                DEBUG << "loadSingle: Unknown object type URI " << typeUri
+                      << " for node " << node << endl;
                 throw UnknownTypeException(typeUri);
             }
             className = typeUri.right(typeUri.length() - m_typePrefix.length());
@@ -739,12 +757,12 @@ private:
 	QObject *o = m_ob->build(className, parent);
 	if (!o) throw ConstructionFailedException(typeUri);
 	
-	loadProperties(o, node, map, follow);
-
         if (node.type == Node::URI) {
             o->setProperty("uri", m_s->expand(node.value));
         }
         map[node] = o;
+
+	loadProperties(o, node, map, follow);
 
         callLoadCallbacks(map, node, o);
 
