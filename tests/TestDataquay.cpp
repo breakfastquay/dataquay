@@ -1147,7 +1147,7 @@ testObjectMapper()
     c2->setObjectName("c2");
     cset.insert(c1);
     cset.insert(c2);
-//    cset.insert(c);
+    cset.insert(c);
     c->setCees(cset);
     QObjectList ol;
     ol << b2;

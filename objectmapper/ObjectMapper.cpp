@@ -160,7 +160,7 @@ public:
 
     QObject *loadObject(QUrl uri, QObject *parent) {
         NodeObjectMap map;
-	return loadSingle(uri, parent, map, false);
+	return loadSingle(uri, parent, map, "", false);
     }
 
     QObject *loadObjects(QUrl root, QObject *parent) {
@@ -184,12 +184,11 @@ public:
             QString typeUri = t.c.value;
 
             QString className;
-            if (m_typeMap.contains(typeUri)) {
-                className = m_typeMap[typeUri];
-            } else {
-                if (!typeUri.startsWith(m_typePrefix)) continue;
-                className = typeUri.right(typeUri.length() - m_typePrefix.length());
-                className = className.replace("/", "::");
+
+            try {
+                className = typeUriToClassName(typeUri);
+            } catch (UnknownTypeException) {
+                continue;
             }
 
             if (!m_ob->knows(className)) {
@@ -197,7 +196,7 @@ public:
                 continue;
             }
             
-            loadFrom(objectUri, map);
+            loadFrom(objectUri, map, className);
         }
 
         loadConnections(map);
@@ -247,7 +246,7 @@ public:
         }
     }
 
-    QObject *loadFrom(Node node, NodeObjectMap &map) {
+    QObject *loadFrom(Node node, NodeObjectMap &map, QString classHint = "") {
 
 	PropertyObject po(m_s, m_relationshipPrefix, node);
 
@@ -266,7 +265,12 @@ public:
             }
 	}
 
-        QObject *o = loadSingle(node, parent, map, true);
+        //!!! NB. as this stands, if the RDF is "wrong" containing the
+        //!!! wrong type for a property of this, we will fail the
+        //!!! whole thing with an UnknownTypeException -- is that the
+        //!!! right thing to do? consider
+
+        QObject *o = loadSingle(node, parent, map, classHint, true);
         return o;
     }
 
@@ -300,6 +304,29 @@ private:
     QHash<QString, QString> m_typeUriPrefixMap;
     QHash<QString, QMap<QUrl, QString> > m_propertyMap;
     QHash<QString, QHash<QString, QUrl> > m_propertyRMap;
+
+    QString typeUriToClassName(QUrl typeUri) {
+        if (m_typeMap.contains(typeUri)) {
+            return m_typeMap[typeUri];
+        }
+        QString s = typeUri.toString();
+        if (!s.startsWith(m_typePrefix)) {
+            throw UnknownTypeException(s);
+        }
+        s = s.right(s.length() - m_typePrefix.length());
+        s = s.replace("/", "::");
+        return s;
+    }
+
+    QUrl classNameToTypeUri(QString className) {
+        QUrl typeUri;
+        if (m_typeRMap.contains(className)) {
+            typeUri = m_typeRMap[className];
+        } else {
+            typeUri = QString(m_typePrefix + className).replace("::", "/");
+        }
+        return typeUri;
+    }
 
     void loadProperties(QObject *o, Node node, NodeObjectMap &map, bool follow) {
 
@@ -395,7 +422,9 @@ private:
             }
 
         } else if (m_ob->canInject(typeName)) {
-            QObject *obj = propertyNodeToObject(firstNode, map, follow);
+
+            if (follow) {
+                QObject *obj = propertyNodeToObject(typeName, firstNode, map);
 
             //!!! NB if the returned object from propertyNodeToObject
             // has the wrong type, inject will fail (producing a
@@ -413,7 +442,11 @@ private:
             // we should at least recover and ignore the property.
             // Need to fix these
 
-            return m_ob->inject(typeName, obj);
+                return m_ob->inject(typeName, obj);
+
+            } else {
+                return QVariant();
+            }
 
         } else if (QString(typeName).contains("*") ||
                    QString(typeName).endsWith("Star")) {
@@ -425,13 +458,17 @@ private:
         }
     }
 
-    QObject *propertyNodeToObject(Node pnode, NodeObjectMap &map, bool follow) {
+    QObject *propertyNodeToObject(QString typeName, Node pnode,
+                                  NodeObjectMap &map) {
+
+        QString classHint;
+        if (typeName != "") {
+            classHint = m_ob->getClassNameForPointerName(typeName);
+            DEBUG << "typeName " << typeName << " -> classHint " << classHint << endl;
+        }
 
         if (pnode.type == Node::URI || pnode.type == Node::Blank) {
-
-            if (follow) {
-                return loadFrom(pnode, map);
-            }
+            return loadFrom(pnode, map, classHint);
         }
 
         return 0;
@@ -509,7 +546,7 @@ private:
 
             // 
 
-            //!!! n.b. removing the old property value is problematic if it was a blank node which is now no longer referred to by anything else -- we can end up with all sorts of "spare" blank nodes -- should we check for this and remove other triples with it as subject?
+            //!!! n.b. removing the old property value is problematic if it was a blank node which is now no longer referred to by anything else -- we can end up with all sorts of "spare" blank nodes -- should we check for this and remove other triples with it as subject? <-- removeOldPropertyNodes does this now
 
             Nodes pnodes = variantToPropertyNodeList(value, map, follow);
 
@@ -631,6 +668,17 @@ private:
             // included it in a storeObjects tree or storeAllObjects
             // list.  If it was in such a list, then it will be (or
             // have been) stored anyway.
+
+            //!!! No -- the above is not right.  We should store it if
+            //!!! it is not in the map, even if it has a URI already.
+            //!!! Otherwise we incorrectly store objects that are
+            //!!! found as properties of other objects, that have not
+            //!!! been stored, and that have an explicit URI -- the
+            //!!! "document" object in our classical data test set is
+            //!!! an example, since the uri is intrinsic there but we
+            //!!! also want to store other stuff about it (e.g. its
+            //!!! type)
+
             if (uriv.type() == QVariant::Url) {
                 pnode = uriv.toUrl();
             } else {
@@ -724,38 +772,50 @@ private:
     }
 
     QObject *loadSingle(Node node, QObject *parent, NodeObjectMap &map,
-                        bool follow) {
+                        QString classHint, bool follow) {
 
 	if (map.contains(node)) {
 	    return map[node];
 	}
 
-	PropertyObject pod(m_s, m_relationshipPrefix, node);
+        // The RDF may contain a more precise type specification than
+        // we have here.  For example, if we have been called as part
+        // of a process of loading something declared as container of
+        // base-class pointers, but each individual object is actually
+        // of a derived class, then the RDF should specify the derived
+        // class but we will only have been passed the base class.  So
+        // we always use the RDF type if available, and refer to the
+        // passed-in type only if that fails.
 
-	QString typeUri = pod.getObjectType().toString();
         QString className;
 
-        if (m_typeMap.contains(typeUri)) {
-            className = m_typeMap[typeUri];
-        } else {
-            if (!typeUri.startsWith(m_typePrefix)) {
-                DEBUG << "loadSingle: Unknown object type URI " << typeUri
-                      << " for node " << node << endl;
-                throw UnknownTypeException(typeUri);
+        Triple t = m_s->matchFirst(Triple(node, "a", Node()));
+        if (t.c.type == Node::URI) {
+            try {
+                className = typeUriToClassName(t.c.value);
+            } catch (UnknownTypeException) {
+                DEBUG << "loadSingle: Unknown type URI " << t.c.value << endl;
+                if (classHint == "") throw;
+                DEBUG << "(falling back to object class hint " << classHint << ")" << endl;
+                className = classHint;
             }
-            className = typeUri.right(typeUri.length() - m_typePrefix.length());
-            className = className.replace("/", "::");
+        } else {
+            DEBUG << "loadSingle: No type URI for " << node << endl;
+            if (classHint == "") throw UnknownTypeException("");
+            DEBUG << "(falling back to object class hint " << classHint << ")" << endl;
+            className = classHint;
         }
-
-	if (!m_ob->knows(className)) {
-            DEBUG << "loadSingle: Unknown object type " << className << endl;
+        
+        if (!m_ob->knows(className)) {
+            DEBUG << "loadSingle: Unknown object class " << className << endl;
             throw UnknownTypeException(className);
         }
     
-        DEBUG << "Making object " << node.value << " of type " << typeUri << " with parent " << parent << endl;
+        DEBUG << "Making object " << node.value << " of type "
+              << className << " with parent " << parent << endl;
 
 	QObject *o = m_ob->build(className, parent);
-	if (!o) throw ConstructionFailedException(typeUri);
+	if (!o) throw ConstructionFailedException(className);
 	
         if (node.type == Node::URI) {
             o->setProperty("uri", m_s->expand(node.value));
@@ -814,7 +874,7 @@ private:
 
         QObject *o;
         try {
-            o = loadSingle(node, parent, map, true); //!!!??? or false?
+            o = loadSingle(node, parent, map, "", true); //!!!??? or false?
         } catch (UnknownTypeException e) {
             o = 0;
         }
@@ -865,15 +925,12 @@ private:
 
         map[o] = node;
 
-        QUrl typeUri;
-        if (m_typeRMap.contains(className)) {
-            typeUri = m_typeRMap[className];
-        } else {
-            typeUri = QString(m_typePrefix + className).replace("::", "/");
-        }
-        m_s->add(Triple(node, "a", typeUri));
+        m_s->add(Triple(node, "a", classNameToTypeUri(className)));
 
-        if (o->parent() && map.contains(o->parent()) && map[o->parent()] != Node()) {
+        if (o->parent() &&
+            map.contains(o->parent()) &&
+            map[o->parent()] != Node()) {
+
             m_s->add(Triple(node, m_relationshipPrefix + "parent",
                             map[o->parent()]));
         }

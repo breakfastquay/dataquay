@@ -38,6 +38,8 @@
 #include <QString>
 #include <QVariant>
 
+#include <iostream>
+
 namespace Dataquay {
 
 /**
@@ -88,7 +90,10 @@ public:
      */
     template <typename T, typename Parent>
     void registerClass(QString pointerName) {
-        m_builders[T::staticMetaObject.className()] = new Builder1<T, Parent>();
+        QString className = T::staticMetaObject.className();
+        m_cpmap[className] = pointerName;
+        m_pcmap[pointerName] = className;
+        m_builders[className] = new Builder1<T, Parent>();
         registerExtractor<T>(pointerName);
     }
 
@@ -111,7 +116,10 @@ public:
      */
     template <typename T>
     void registerClass(QString pointerName) {
-        m_builders[T::staticMetaObject.className()] = new Builder0<T>();
+        QString className = T::staticMetaObject.className();
+        m_cpmap[className] = pointerName;
+        m_pcmap[pointerName] = className;
+        m_builders[className] = new Builder0<T>();
         registerExtractor<T>(pointerName);
     }
 
@@ -219,6 +227,31 @@ public:
         return m_extractors[pointerName]->inject(p);
     }
 
+    /**
+     * Provided the given pointerName has been registered using one of
+     * the registerClass(pointerName) methods, return the name of the
+     * class that was used as the template argument for that method.
+     */
+    QString getClassNameForPointerName(QString pointerName) const {
+        if (m_pcmap.contains(pointerName)) return m_pcmap[pointerName];
+        std::cerr << "getClassNameForPointerName: unknown pointerName " << pointerName.toStdString() << std::endl;
+        foreach (QString p, m_pcmap.keys()) {
+            std::cerr << " -> " << p.toStdString() << std::endl;
+        }
+        return "";
+    }
+
+    /**
+     * If the class whose class name (according to its meta object) is
+     * className has been registered using one of the
+     * registerClass(pointerName) methods, return the pointerName that
+     * was passed to that method.
+     */
+    QString getPointerNameForClassName(QString className) const {
+        if (m_cpmap.contains(className)) return m_cpmap[className];
+        return "";
+    }
+
 private:
     ObjectBuilder() {
         registerClass<QObject, QObject>("QObject*");
@@ -281,6 +314,9 @@ private:
 
     typedef QHash<QString, ExtractorBase *> ExtractorMap;
     ExtractorMap m_extractors;
+
+    QMap<QString, QString> m_cpmap;
+    QMap<QString, QString> m_pcmap;
 };
 
 }
