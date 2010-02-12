@@ -68,13 +68,13 @@ struct LayoutLoader : public ObjectMapper::LoadCallback {
 	QObject *centralOf = 0;
 
 	if (pod.hasProperty("layout")) {
-	    layout = m->loadFrom(pod.getProperty("layout").toUrl(), map);
+	    layout = m->loadFrom(map, pod.getProperty("layout").toUrl());
 	}
 	if (pod.hasProperty("layout_of")) {
-	    layoutOf = m->loadFrom(pod.getProperty("layout_of").toUrl(), map);
+	    layoutOf = m->loadFrom(map, pod.getProperty("layout_of").toUrl());
 	}
 	if (pod.hasProperty("central_widget_of")) {
-	    centralOf = m->loadFrom(pod.getProperty("central_widget_of").toUrl(), map);
+	    centralOf = m->loadFrom(map, pod.getProperty("central_widget_of").toUrl());
 	}
 
 	if (centralOf) {
@@ -114,12 +114,12 @@ struct LayoutStorer : public ObjectMapper::StoreCallback {
 
 	QLayout *layout = dynamic_cast<QLayout *>(o);
 	if (layout) {
-	    pod.setProperty(0, "layout_of", m->store(o->parent(), map));
+	    pod.setProperty(0, "layout_of", m->store(map, o->parent()));
 	}
 	QWidget *widget = dynamic_cast<QWidget *>(o);
 	if (widget) {
 	    if (widget->layout()) {
-		pod.setProperty(0, "layout", m->store(widget->layout(), map));
+		pod.setProperty(0, "layout", m->store(map, widget->layout()));
 	    }
 	}
     }
@@ -180,7 +180,7 @@ testQtWidgets(int argc, char **argv)
     mapper2.setObjectStorePolicy(ObjectMapper::StoreObjectsWithURIs);
     LayoutStorer storer;
     mapper2.addStoreCallback(&storer);
-    mapper2.storeObjects(parent);
+    mapper2.storeObjectTree(parent);
     store2.save("test-qt-widgets-out.ttl");
 
     return app.exec();

@@ -195,16 +195,16 @@ public:
      *!!!??? type prefix? how these map to class names?
      */
     QObject *loadObject(QUrl uri, QObject *parent); // may throw ConstructionFailedException, UnknownTypeException
-    QObject *loadObjects(QUrl rootUri, QObject *parent); // may throw ConstructionFailedException
+    QObject *loadObjectTree(QUrl rootUri, QObject *parent); // may throw ConstructionFailedException
     QObject *loadAllObjects(QObject *parent); // may throw ConstructionFailedException
 
     QUrl storeObject(QObject *o);
-    QUrl storeObjects(QObject *root);
+    QUrl storeObjectTree(QObject *root);
     void storeAllObjects(QObjectList);
     //!!! want a method to store all objects (and pass back and forth object map?)
 
-    QObject *loadFrom(Node sourceNode, NodeObjectMap &map);
-    Node store(QObject *o, ObjectNodeMap &map);
+    QObject *loadFrom(NodeObjectMap &map, Node sourceNode);
+    Node store(ObjectNodeMap &map, QObject *o);
     
     struct LoadCallback {
         virtual void loaded(ObjectMapper *, NodeObjectMap &, Node, QObject *) = 0;

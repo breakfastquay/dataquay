@@ -987,11 +987,11 @@ testReloadability(Store &s0)
     QObject *parent = m0.loadAllObjects(0);
     BasicStore s1;
     ObjectMapper m1(&s1);
-    m1.storeObjects(parent);
+    m1.storeObjectTree(parent);
     QObject *newParent = m1.loadAllObjects(0);
     BasicStore s2;
     ObjectMapper m2(&s2);
-    m2.storeObjects(newParent);
+    m2.storeObjectTree(newParent);
     s2.addPrefix("type", m2.getObjectTypePrefix());
     s2.addPrefix("property", m2.getPropertyPrefix());
     s2.addPrefix("rel", m2.getRelationshipPrefix());
@@ -1154,7 +1154,7 @@ testObjectMapper()
     c->setObjects(ol);
     a->setRef(c);
 
-    mapper.storeObjects(o);
+    mapper.storeObjectTree(o);
 
     store.save("test-object-mapper-2.ttl");
 
