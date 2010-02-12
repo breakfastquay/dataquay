@@ -375,10 +375,12 @@ private:
             if (value.isValid()) {
                 QByteArray pnba = pname.toLocal8Bit();
                 if (!o->setProperty(pnba.data(), value)) {
-                    DEBUG << "ObjectMapper::loadProperties: Property set failed "
-                          << "for property " << pname << " to value of type "
-                          << value.type() << " and value " << value
-                          << " from (first) node " << pnodes[0].value << endl;
+                    DEBUG << "loadProperties: Property set failed "
+                              << "for property " << pname << " to value of type "
+                              << value.type() << " and value " << value
+                              << " from (first) node " << pnodes[0].value
+                              << endl;
+                    std::cerr << "ObjectMapper::loadProperties: Failed to set property on object, ignoring" << std::endl;
                 }
             }
         }
@@ -425,25 +427,20 @@ private:
 
             if (follow) {
                 QObject *obj = propertyNodeToObject(typeName, firstNode, map);
-
-            //!!! NB if the returned object from propertyNodeToObject
-            // has the wrong type, inject will fail (producing a
-            // null variant) and the object will be leaked.  Need
-            // to fix this.  This is a peculiar situation anyway,
-            // because we already know the object's intended type;
-            // we arguably don't really need loadSingle to re-read
-            // the type from the RDF.  Mostly at least that provides
-            // a consistency check, but the situation is troublesome
-            // where the object has no type at all in the RDF or a
-            // type that cannot be loaded -- in both cases we will
-            // fail with an UnknownTypeException, whereas in the
-            // former case we should be loading anyway (using the
-            // object type that we already know) and in the latter
-            // we should at least recover and ignore the property.
-            // Need to fix these
-
-                return m_ob->inject(typeName, obj);
-
+                QVariant v;
+                if (obj) {
+                    v = m_ob->inject(typeName, obj);
+                    if (v == QVariant()) {
+                        DEBUG << "propertyNodeListToVariant: "
+                              << "Type of node " << firstNode
+                              << " is incompatible with expected "
+                              << typeName << endl;
+                        std::cerr << "ObjectMapper::propertyNodeListToVariant: "
+                                  << "Incompatible node type, ignoring" << std::endl;
+                        delete obj;
+                    }
+                }
+                return v;
             } else {
                 return QVariant();
             }
@@ -611,12 +608,12 @@ private:
         Nodes nodes;
 
         if (!typeName) {
-            DEBUG << "variantToPropertyNode: No type name?! Going ahead anyway" << endl;
+            std::cerr << "ObjectMapper::variantToPropertyNodeList: No type name?! Going ahead anyway" << std::endl;
             nodes << Node::fromVariant(v);
             return nodes;
         }
 
-        DEBUG << "variantToPropertyNode: typeName = " << typeName << endl;
+        DEBUG << "variantToPropertyNodeList: typeName = " << typeName << endl;
         
         if (m_cb->canExtractContainer(typeName)) {
 
@@ -637,9 +634,10 @@ private:
         } else if (m_ob->canExtract(typeName)) {
             QObject *obj = m_ob->extract(typeName, v);
             if (obj) {
-                nodes << objectToPropertyNode(obj, map, follow);
+                Node n = objectToPropertyNode(obj, map, follow);
+                if (n != Node()) nodes << n;
             } else {
-                DEBUG << "variantToPropertyNode: Note obtained NULL object" << endl;
+                DEBUG << "variantToPropertyNodeList: Note: obtained NULL object from variant" << endl;
             }
             
         } else if (QString(typeName).contains("*") ||
@@ -658,54 +656,41 @@ private:
     Node objectToPropertyNode(QObject *o, ObjectNodeMap &map, bool follow) {
 
         Node pnode;
-        QVariant uriv = o->property("uri");
-            
-        if (uriv != QVariant()) {
-            // If our object has a URI already, then we should use
-            // that and not attempt to store the object again.  If the
-            // user wanted the object to be stored in spite of its
-            // having a URI already assigned, they needed to have
-            // included it in a storeObjects tree or storeAllObjects
-            // list.  If it was in such a list, then it will be (or
-            // have been) stored anyway.
 
-            //!!! No -- the above is not right.  We should store it if
-            //!!! it is not in the map, even if it has a URI already.
-            //!!! Otherwise we incorrectly store objects that are
-            //!!! found as properties of other objects, that have not
-            //!!! been stored, and that have an explicit URI -- the
-            //!!! "document" object in our classical data test set is
-            //!!! an example, since the uri is intrinsic there but we
-            //!!! also want to store other stuff about it (e.g. its
-            //!!! type)
+        DEBUG << "objectToPropertyNode: " << o << ", follow = " << follow << endl;
 
-            if (uriv.type() == QVariant::Url) {
-                pnode = uriv.toUrl();
-            } else {
-                pnode = m_s->expand(uriv.toString());
-            }
-        } else {
+        //!!! "follow" argument is not very helpful, better to have a
+        //!!! separate function for storing object-as-property vs
+        //!!! object-as-object?
+
+        if (follow) {
+            // Always (at least try to) store the object if it is not
+            // in our map already, or if it is in the map but with no
+            // assigned node -- i.e. if it has not already been
+            // stored.  Even if it already has a URI, we should store
+            // it if it has not already been stored because it may be
+            // an object for which the URI is an intrinsic property.
+
             if (!map.contains(o)) {
+                DEBUG << "objectToPropertyNode: Object is not in map" << endl;
                 // If the object is not in the map, then it was not
                 // among the objects passed to the store method.  That
                 // means it should (if follow is true) be stored, and
                 // as a blank node unless the blank node policy says
                 // otherwise.
-                if (follow) {
-                    map[o] = storeSingle(o, map, true,
-                                         (m_bp == BlankNodesAsNeeded)); //!!! crap api
-                }
+                map[o] = storeSingle(o, map, true,
+                                     (m_bp == BlankNodesAsNeeded)); //!!! crap api
             } else if (map[o] == Node()) {
+                DEBUG << "objectToPropertyNode: Object has no node in map" << endl;
                 // If it's in the map but with no node assigned, then
                 // we haven't stored it yet.  If follow is true, we
                 // can store it to obtain its URI or node ID.
-                if (follow) {
-                    map[o] = storeSingle(o, map, true, false); //!!! crap api
-                }
+                map[o] = storeSingle(o, map, true, false); //!!! crap api
             }
-            if (map.contains(o) && map[o] != Node()) {
-                pnode = map[o];
-            }
+        }
+
+        if (map.contains(o) && map[o] != Node()) {
+            pnode = map[o];
         }
 
         return pnode;
@@ -724,7 +709,7 @@ private:
                 DEBUG << "listToPropertyNode: Obtained nil Node in list, skipping!" << endl;
                 continue;
             } else if (pnodes.size() > 1) {
-                DEBUG << "listToPropertyNode: Found set within sequence, can't handle this, using first element only" << endl; //!!!???
+                std::cerr << "ObjectMapper::listToPropertyNode: Found set within sequence, can't handle this, using first element only" << std::endl; //!!!???
             }
 
             Node pnode = pnodes[0];
@@ -807,7 +792,8 @@ private:
         }
         
         if (!m_ob->knows(className)) {
-            DEBUG << "loadSingle: Unknown object class " << className << endl;
+            std::cerr << "ObjectMapper::loadSingle: Unknown object class "
+                      << className.toStdString() << std::endl;
             throw UnknownTypeException(className);
         }
     
