@@ -42,6 +42,7 @@
 #include <QMap>
 #include <QUrl>
 #include <QCryptographicHash>
+#include <QReadWriteLock>
 
 #include "Debug.h"
 
@@ -63,15 +64,17 @@ public:
     }
 
     ~D() {
-        QMutexLocker locker(&m_mutex);
+        QMutexLocker locker(&m_librdfLock);
         if (m_model) librdf_free_model(m_model);
         if (m_storage) librdf_free_storage(m_storage);
     }
     
     void setBaseUri(QString baseUri) {
-        QMutexLocker locker(&m_mutex);
+        QWriteLocker elocker(&m_expansionLock);
+        QMutexLocker plocker(&m_prefixLock);
         m_baseUri = baseUri;
         m_prefixes[""] = m_baseUri;
+        m_expansions.clear();
     }
     
     QString getBaseUri() const {
@@ -79,7 +82,7 @@ public:
     }
 
     void clear() {
-        QMutexLocker locker(&m_mutex);
+        QMutexLocker locker(&m_librdfLock);
         DEBUG << "BasicStore::clear" << endl;
         if (m_model) librdf_free_model(m_model);
         if (m_storage) librdf_free_storage(m_storage);
@@ -94,18 +97,20 @@ public:
     }
 
     void addPrefix(QString prefix, QString uri) {
-        QMutexLocker locker(&m_mutex);
+        QWriteLocker elocker(&m_expansionLock);
+        QMutexLocker plocker(&m_prefixLock);
         m_prefixes[prefix] = uri;
+        m_expansions.clear();
     }
 
     bool add(Triple t) {
-        QMutexLocker locker(&m_mutex);
+        QMutexLocker locker(&m_librdfLock);
         DEBUG << "BasicStore::add: " << t << endl;
         return doAdd(t);
     }
 
     bool remove(Triple t) {
-        QMutexLocker locker(&m_mutex);
+        QMutexLocker locker(&m_librdfLock);
         DEBUG << "BasicStore::remove: " << t << endl;
         if (t.a.type == Node::Nothing || 
             t.b.type == Node::Nothing ||
@@ -126,7 +131,7 @@ public:
     }
 
     void change(ChangeSet cs) {
-        QMutexLocker locker(&m_mutex);
+        QMutexLocker locker(&m_librdfLock);
         DEBUG << "BasicStore::change: " << cs.size() << " changes" << endl;
         for (int i = 0; i < cs.size(); ++i) {
             ChangeType type = cs[i].first;
@@ -146,7 +151,7 @@ public:
     }
 
     void revert(ChangeSet cs) {
-        QMutexLocker locker(&m_mutex);
+        QMutexLocker locker(&m_librdfLock);
         DEBUG << "BasicStore::revert: " << cs.size() << " changes" << endl;
         for (int i = cs.size()-1; i >= 0; --i) {
             ChangeType type = cs[i].first;
@@ -166,7 +171,7 @@ public:
     }
 
     bool contains(Triple t) const {
-        QMutexLocker locker(&m_mutex);
+        QMutexLocker locker(&m_librdfLock);
         DEBUG << "BasicStore::contains: " << t << endl;
         librdf_statement *statement = tripleToStatement(t);
         if (!checkComplete(statement)) {
@@ -183,7 +188,7 @@ public:
     }
     
     Triples match(Triple t) const {
-        QMutexLocker locker(&m_mutex);
+        QMutexLocker locker(&m_librdfLock);
         DEBUG << "BasicStore::match: " << t << endl;
         Triples result = doMatch(t);
 #ifndef NDEBUG
@@ -201,7 +206,7 @@ public:
             if (contains(t)) return t;
             else return Triple();
         }
-        QMutexLocker locker(&m_mutex);
+        QMutexLocker locker(&m_librdfLock);
         DEBUG << "BasicStore::matchFirst: " << t << endl;
         Triples result = doMatch(t, true);
 #ifndef NDEBUG
@@ -215,14 +220,14 @@ public:
     }
 
     ResultSet query(QString sparql) const {
-        QMutexLocker locker(&m_mutex);
+        QMutexLocker locker(&m_librdfLock);
         DEBUG << "BasicStore::query: " << sparql << endl;
         ResultSet rs = runQuery(sparql);
         return rs;
     }
 
     Node queryFirst(QString sparql, QString bindingName) const {
-        QMutexLocker locker(&m_mutex);
+        QMutexLocker locker(&m_librdfLock);
         DEBUG << "BasicStore::queryFirst: " << bindingName << " from " << sparql << endl;
         ResultSet rs = runQuery(sparql);
         if (rs.empty()) return Node();
@@ -236,7 +241,7 @@ public:
     }
 
     QUrl getUniqueUri(QString prefix) const {
-        QMutexLocker locker(&m_mutex);
+        QMutexLocker locker(&m_librdfLock);
         DEBUG << "BasicStore::getUniqueUri: prefix " << prefix << endl;
         int base = (int)(long)this; // we don't care at all about overflow
         bool good = false;
@@ -258,11 +263,52 @@ public:
     }
 
     QUrl expand(QString uri) const {
-        return QUrl(prefixExpand(uri));
+
+        // We cache even URIs that are already expanded or cannot be
+        // expanded, since QString to QUrl conversion is slow
+
+        if (uri == "a") uri = "rdf:type";
+
+        m_expansionLock.lockForRead();
+        if (m_expansions.contains(uri)) {
+            QUrl expandedUri = m_expansions[uri];
+            m_expansionLock.unlock();
+            return expandedUri;
+        }
+        m_expansionLock.unlock();
+
+        QUrl qu(uri);
+        QString expanded(uri);
+        QString maybePrefix = qu.scheme();
+        m_prefixLock.lock();
+        if (maybePrefix != "") {
+            if (m_prefixes.find(maybePrefix) != m_prefixes.end()) {
+                expanded = m_prefixes[maybePrefix] +
+                    uri.right(uri.length() - (maybePrefix.length() + 1));
+            }
+        } else {
+            if (uri.startsWith(':')) {
+                expanded = m_baseUri + uri.right(uri.length() - 1);
+            }
+        }
+        m_prefixLock.unlock();
+
+        QUrl expandedUri(expanded);
+        m_expansionLock.lockForWrite();
+        if (m_expansions.contains(uri)) {
+            expandedUri = m_expansions[uri];
+        } else {
+            m_expansions[uri] = QUrl(expanded);
+            DEBUG << "new expansion: " << uri << " to "
+                  << expanded << " (now have "
+                  << m_expansions.size() << ")" << endl;
+        }
+        m_expansionLock.unlock();
+        return expandedUri;
     }
 
     Node addBlankNode() {
-        QMutexLocker locker(&m_mutex);
+        QMutexLocker locker(&m_librdfLock);
         librdf_node *node = librdf_new_node_from_blank_identifier(m_w.getWorld(), 0);
         if (!node) throw RDFException("Failed to create new blank node");
         return lrdfNodeToNode(node);
@@ -270,7 +316,8 @@ public:
 
     void save(QString filename) const {
 
-        QMutexLocker locker(&m_mutex);
+        QMutexLocker wlocker(&m_librdfLock);
+        QMutexLocker plocker(&m_prefixLock);
 
         librdf_uri *base_uri = stringToUri(m_baseUri);
         QByteArray b = filename.toLocal8Bit();
@@ -278,6 +325,7 @@ public:
 
         librdf_serializer *s = librdf_new_serializer(m_w.getWorld(), "turtle", 0, 0);
         if (!s) throw RDFException("Failed to construct RDF serializer");
+
         for (PrefixMap::const_iterator i = m_prefixes.begin();
              i != m_prefixes.end(); ++i) {
             QByteArray b = i.key().toUtf8();
@@ -295,7 +343,11 @@ public:
 
     void import(QString url, ImportDuplicatesMode idm, QString format) {
 
-        QMutexLocker locker(&m_mutex);
+        QMutexLocker wlocker(&m_librdfLock);
+        QWriteLocker elocker(&m_expansionLock);
+        QMutexLocker plocker(&m_prefixLock);
+
+        m_expansions.clear();
 
         librdf_uri *luri = stringToUri(url);
         librdf_uri *base_uri = stringToUri(m_baseUri);
@@ -458,10 +510,17 @@ private:
     World m_w;
     librdf_storage *m_storage;
     librdf_model *m_model;
-    QString m_baseUri;
+    static QMutex m_librdfLock; // assume the worst
+
     typedef QMap<QString, QString> PrefixMap;
+    QString m_baseUri;
     PrefixMap m_prefixes;
-    static QMutex m_mutex;
+    mutable QMutex m_prefixLock; // also protects m_baseUri
+
+    typedef QHash<QString, QUrl> ExpansionMap;
+    mutable ExpansionMap m_expansions;
+    mutable QReadWriteLock m_expansionLock;
+
     mutable int m_counter;
 
     bool doAdd(Triple t) {
@@ -514,25 +573,10 @@ private:
     }
 
     QString prefixExpand(const QString uri) const {
-        if (uri == "a") return prefixExpand("rdf:type");
-        QUrl qu(uri);
-        QString expanded(uri);
-        QString maybePrefix = qu.scheme();
-        if (maybePrefix != "") {
-            if (m_prefixes.find(maybePrefix) != m_prefixes.end()) {
-                expanded = m_prefixes[maybePrefix] +
-                    uri.right(uri.length() - (maybePrefix.length() + 1));
-            }
-        } else {
-            if (uri.startsWith(':')) {
-                expanded = m_baseUri + uri.right(uri.length() - 1);
-            }
-        }
-//            DEBUG << "prefix expansion: \"" << uri << "\" -> \"" << expanded << "\"" << endl;
-        return expanded;
+        return expand(uri).toString();
     }
 
-    librdf_node *nodeToLrdfNode(Node v) const {
+    librdf_node *nodeToLrdfNode(Node v) const { // called with m_librdfLock held
         librdf_node *node = 0;
         switch (v.type) {
         case Node::Nothing:
@@ -664,10 +708,12 @@ private:
         }
 
         QString sparql;
+        m_prefixLock.lock();
         for (PrefixMap::const_iterator i = m_prefixes.begin();
              i != m_prefixes.end(); ++i) {
             sparql += QString(" PREFIX %1: <%2> ").arg(i.key()).arg(i.value());
         }
+        m_prefixLock.unlock();
         sparql += rawQuery;
 
         ResultSet returned;
@@ -717,7 +763,7 @@ private:
 };
 
 QMutex
-BasicStore::D::m_mutex;
+BasicStore::D::m_librdfLock;
 
 QMutex
 BasicStore::D::World::m_mutex;
