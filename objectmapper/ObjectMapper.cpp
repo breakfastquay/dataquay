@@ -248,7 +248,7 @@ public:
 
     QObject *loadFrom(NodeObjectMap &map, Node node, QString classHint = "") {
 
-	PropertyObject po(m_s, m_relationshipPrefix, node);
+	CacheingPropertyObject po(m_s, m_relationshipPrefix, node);
 
 	if (po.hasProperty("follows")) {
             try {
@@ -367,7 +367,7 @@ void
 ObjectMapper::D::loadProperties(NodeObjectMap &map, QObject *o, Node node, bool follow)
 {
     QString cname = o->metaObject()->className();
-    PropertyObject po(m_s, m_propertyPrefix, node);
+    CacheingPropertyObject po(m_s, m_propertyPrefix, node);
 
     for (int i = 0; i < o->metaObject()->propertyCount(); ++i) {
 

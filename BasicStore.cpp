@@ -58,6 +58,7 @@ public:
     D() : m_storage(0), m_model(0), m_counter(0) {
         m_baseUri = "#";
         m_prefixes[""] = m_baseUri;
+        // note this is also hardcoded in expand():
         m_prefixes["rdf"] = "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
         m_prefixes["xsd"] = "http://www.w3.org/2001/XMLSchema#";
         clear();
@@ -267,7 +268,11 @@ public:
         // We cache even URIs that are already expanded or cannot be
         // expanded, since QString to QUrl conversion is slow
 
-        if (uri == "a") uri = "rdf:type";
+        if (uri == "a") {
+            static QUrl rdfTypeUri
+                ("http://www.w3.org/1999/02/22-rdf-syntax-ns#type");
+            return rdfTypeUri;
+        }
 
         m_expansionLock.lockForRead();
         if (m_expansions.contains(uri)) {
@@ -624,9 +629,6 @@ private:
         
         Node v;
         if (!node) return v;
-
-        v.type = Node::Literal;
-        QString text;
 
         if (librdf_node_is_resource(node)) {
 

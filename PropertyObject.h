@@ -95,6 +95,8 @@ class Store;
 class PropertyObject
 {
 public:
+    typedef QHash<QString, Nodes> Properties;
+
     /**
      * Construct a PropertyObject acting on the given Store, with the
      * default prefix for properties taken from the global default
@@ -257,6 +259,16 @@ public:
     QStringList getPropertyNames(Transaction *tx) const;
 
     /**
+     * Get all property names and nodes.
+     */
+    Properties getAllProperties() const;
+
+    /**
+     * Get all property names and nodes.
+     */
+    Properties getAllProperties(Transaction *tx) const;
+
+    /**
      * Set the given property to the given value.  That is, first
      * remove from the store any triples whose subject and predicate
      * match those for my URI and the expansion of the given property
@@ -354,6 +366,13 @@ public:
      * triples whose subject and predicate match those for my URI and
      * the expansion of the given property name.
      */
+    void removeProperty(QString name);
+
+    /**
+     * Remove the given property.  That is, remove from the store any
+     * triples whose subject and predicate match those for my URI and
+     * the expansion of the given property name.
+     */
     void removeProperty(Transaction *tx, QString name);
 
     /**
@@ -383,7 +402,8 @@ public:
 private:
     Store *m_store;
     QString m_pfx;
-    Node *m_node;
+    QUrl m_upfx;
+    Node m_node;
     static QString m_defaultPrefix;
 };
 
@@ -409,24 +429,40 @@ public:
     CacheingPropertyObject(Store *s, QString myUri);
     CacheingPropertyObject(Store *s, QString propertyPrefix, QUrl myUri);
     CacheingPropertyObject(Store *s, QString propertyPrefix, QString myUri);
+    CacheingPropertyObject(Store *s, QString propertyPrefix, Node myUri);
 
     QUrl getObjectType() const;
-    QUrl getObjectType(Transaction *tx) const;
+
     bool hasProperty(QString name) const;
-    bool hasProperty(Transaction *tx, QString name) const;
+
     QVariant getProperty(QString name) const;
-    QVariant getProperty(Transaction *tx, QString name) const;
+    QVariantList getPropertyList(QString name) const;
+    Node getPropertyNode(QString name) const;
+    Nodes getPropertyNodeList(QString name) const;
+    QStringList getPropertyNames() const;
+    PropertyObject::Properties getAllProperties() const;
+
     void setProperty(QString name, QVariant value);
+    void setProperty(QString name, QUrl value);
+    void setProperty(QString name, Node node);
+    void setPropertyList(QString name, QVariantList values);
+    void setPropertyList(QString name, Nodes nodes);
+
+    //!!!???
     void setProperty(Transaction *tx, QString name, QVariant value);
-    void removeProperty(Transaction *tx, QString name);
+
+    void removeProperty(QString name);
 
     Store *getStore(Transaction *tx) const;
     QUrl getPropertyUri(QString name) const;
 
 private:
     PropertyObject m_po;
-    typedef QHash<QString, QVariant> StringVariantMap;
-    mutable StringVariantMap m_cache;
+    mutable QUrl m_type;
+    mutable PropertyObject::Properties m_cache; // note: value is never empty
+    mutable bool m_cached;
+    void encache() const;
+    void encacheType() const;
 };
 
 }
