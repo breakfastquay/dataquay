@@ -384,16 +384,17 @@ ObjectMapper::D::loadProperties(NodeObjectMap &map, QObject *o, Node node, bool 
             continue;
         }
 
-        QString pname = property.name();
+        QString pname = property.name(); // name to use when setting on QObject
+        QString plookup(pname);          // name or URI for PropertyObject
         Nodes pnodes;
         
         if (m_propertyRMap[cname].contains(pname)) {
             //!!! m_propertyRMap value could revert to QString?
-            pname = m_propertyRMap[cname][pname].toString();
+            plookup = m_propertyRMap[cname][pname].toString();
         }
 
-        if (!po.hasProperty(pname)) continue;
-        pnodes = po.getPropertyNodeList(pname);
+        if (!po.hasProperty(plookup)) continue;
+        pnodes = po.getPropertyNodeList(plookup);
         if (pnodes.empty()) continue;
         
         int type = property.type();

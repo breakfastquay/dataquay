@@ -430,10 +430,7 @@ CacheingPropertyObject::hasProperty(QString name) const
     encache();
     QUrl uri = m_po.getPropertyUri(name);
     QString key = uri.toString();
-    std::cerr << "hasProperty: name " << name.toStdString()
-              << " key " << key.toStdString() << std::endl;
     bool has = m_cache.contains(key);
-    std::cerr << "has = " << has << std::endl;
     return has;
 }
 
@@ -477,13 +474,9 @@ CacheingPropertyObject::getPropertyNodeList(QString name) const
     encache();
     QUrl uri = m_po.getPropertyUri(name);
     QString key = uri.toString();
-    std::cerr << "getPropertyNodeList: name " << name.toStdString()
-              << " key " << key.toStdString() << std::endl;
     Nodes result;
     if (!m_cache.contains(key)) return result;
     result = m_cache[key];
-    std::cerr << result.size() << " node(s)" << std::endl;
-    std::cerr << "first: " << result[0].value.toStdString() << std::endl;
     return result;
 }
 
@@ -566,7 +559,6 @@ CacheingPropertyObject::encache() const
         ->match(Triple(m_po.getNode(), Node(), Node()));
 
     for (int i = 0; i < ts.size(); ++i) {
-        std::cerr << "key " << ts[i].b.value.toStdString() << std::endl;
         m_cache[ts[i].b.value].push_back(ts[i].c);
     }
 

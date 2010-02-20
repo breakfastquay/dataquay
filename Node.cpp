@@ -150,6 +150,8 @@ Node::toVariant() const
         return QVariant();
     }
 
+    //!!! could be faster
+
     static const QString pfx = "http://www.w3.org/2001/XMLSchema#";
     DEBUG << "Node::toVariant: datatype = " << datatype << endl;
     if (datatype.startsWith(pfx)) {
