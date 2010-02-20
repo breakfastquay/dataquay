@@ -19,4 +19,9 @@ solaris* {
   QMAKE_CXXFLAGS_DEBUG += -xprofile=tcov
   debug: LIBS += -xprofile=tcov
   LIBS += -lsocket -lnsl
+
+        release {
+        QMAKE_CXXFLAGS_RELEASE += -xpg -g
+	LIBS += -xpg
+        }
 }

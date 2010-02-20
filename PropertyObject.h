@@ -95,8 +95,6 @@ class Store;
 class PropertyObject
 {
 public:
-    typedef QHash<QString, Nodes> Properties;
-
     /**
      * Construct a PropertyObject acting on the given Store, with the
      * default prefix for properties taken from the global default
@@ -135,6 +133,12 @@ public:
     PropertyObject(Store *s, QString propertyPrefix, Node myUri);
 
     ~PropertyObject();
+
+    /**
+     * Return the node passed to the constructor (or derived from the
+     * URI passed to the constructor).
+     */
+    Node getNode() const;
 
     /**
      * Return the rdf:type of my URI, if any.  If more than one is
@@ -241,32 +245,23 @@ public:
     Nodes getPropertyNodeList(Transaction *tx, QString name) const;
 
     /**
-     * Get the names of this object's properties.  That is, find all
-     * triples in the store whose subject matches my URI and whose
-     * predicate begins with our property prefix, and return a list of
-     * the remainder of their predicate URIs following the property
-     * prefix.
+     * Get the names of this object's properties beginning with our
+     * property prefix.  That is, find all triples in the store whose
+     * subject matches my URI and whose predicate begins with our
+     * property prefix, and return a list of the remainder of their
+     * predicate URIs following the property prefix.
      */
     QStringList getPropertyNames() const;
 
     /**
-     * Get the names of this object's properties, querying through the
-     * given transaction.  That is, find all triples in the store
-     * whose subject matches my URI and whose predicate begins with
-     * our property prefix, and return a list of the remainder of
-     * their predicate URIs following the property prefix.
+     * Get the names of this object's properties beginning with our
+     * property prefix, querying through the given transaction.  That
+     * is, find all triples in the store whose subject matches my URI
+     * and whose predicate begins with our property prefix, and return
+     * a list of the remainder of their predicate URIs following the
+     * property prefix.
      */
     QStringList getPropertyNames(Transaction *tx) const;
-
-    /**
-     * Get all property names and nodes.
-     */
-    Properties getAllProperties() const;
-
-    /**
-     * Get all property names and nodes.
-     */
-    Properties getAllProperties(Transaction *tx) const;
 
     /**
      * Set the given property to the given value.  That is, first
@@ -440,7 +435,6 @@ public:
     Node getPropertyNode(QString name) const;
     Nodes getPropertyNodeList(QString name) const;
     QStringList getPropertyNames() const;
-    PropertyObject::Properties getAllProperties() const;
 
     void setProperty(QString name, QVariant value);
     void setProperty(QString name, QUrl value);
@@ -458,8 +452,9 @@ public:
 
 private:
     PropertyObject m_po;
+    typedef QHash<QString, Nodes> Properties;
     mutable QUrl m_type;
-    mutable PropertyObject::Properties m_cache; // note: value is never empty
+    mutable Properties m_cache; // note: value is never empty
     mutable bool m_cached;
     void encache() const;
     void encacheType() const;

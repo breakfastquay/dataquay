@@ -76,6 +76,12 @@ PropertyObject::~PropertyObject()
 {
 }
 
+Node
+PropertyObject::getNode() const
+{
+    return m_node;
+}
+
 QUrl
 PropertyObject::getObjectType() const
 {
@@ -226,20 +232,6 @@ PropertyObject::getPropertyNames(Transaction *tx) const
     }
     return properties;
 }
-
-PropertyObject::Properties
-PropertyObject::getAllProperties() const
-{
-    Properties properties;
-    Triples ts = m_store->match(Triple(m_node, Node(), Node()));
-    for (int i = 0; i < ts.size(); ++i) {
-        QString propertyUri = ts[i].b.value;
-        if (propertyUri.startsWith(m_pfx)) {
-            properties[propertyUri.remove(0, m_pfx.length())].push_back(ts[i].c);
-        }
-    }
-    return properties;
-}    
 
 void
 PropertyObject::setProperty(QString name, QVariant value)
@@ -436,22 +428,34 @@ bool
 CacheingPropertyObject::hasProperty(QString name) const
 {
     encache();
-    return m_cache.contains(name);
+    QUrl uri = m_po.getPropertyUri(name);
+    QString key = uri.toString();
+    std::cerr << "hasProperty: name " << name.toStdString()
+              << " key " << key.toStdString() << std::endl;
+    bool has = m_cache.contains(key);
+    std::cerr << "has = " << has << std::endl;
+    return has;
 }
 
 QVariant
 CacheingPropertyObject::getProperty(QString name) const
 {
     encache();
-    return m_cache[name][0].toVariant();
+    QUrl uri = m_po.getPropertyUri(name);
+    QString key = uri.toString();
+    if (!m_cache.contains(key)) return QVariant();
+    return m_cache[key][0].toVariant();
 }
 
 QVariantList
 CacheingPropertyObject::getPropertyList(QString name) const
 {
     encache();
+    QUrl uri = m_po.getPropertyUri(name);
+    QString key = uri.toString();
+    if (!m_cache.contains(key)) return QVariantList();
     QVariantList vl;
-    foreach (const Node &n, m_cache[name]) {
+    foreach (const Node &n, m_cache[key]) {
         vl.push_back(n.toVariant());
     }
     return vl;
@@ -461,28 +465,33 @@ Node
 CacheingPropertyObject::getPropertyNode(QString name) const
 {
     encache();
-    return m_cache[name][0];
+    QUrl uri = m_po.getPropertyUri(name);
+    QString key = uri.toString();
+    if (!m_cache.contains(key)) return Node();
+    return m_cache[key][0];
 }
 
 Nodes
 CacheingPropertyObject::getPropertyNodeList(QString name) const
 {
     encache();
-    return m_cache[name];
+    QUrl uri = m_po.getPropertyUri(name);
+    QString key = uri.toString();
+    std::cerr << "getPropertyNodeList: name " << name.toStdString()
+              << " key " << key.toStdString() << std::endl;
+    Nodes result;
+    if (!m_cache.contains(key)) return result;
+    result = m_cache[key];
+    std::cerr << result.size() << " node(s)" << std::endl;
+    std::cerr << "first: " << result[0].value.toStdString() << std::endl;
+    return result;
 }
 
 QStringList
 CacheingPropertyObject::getPropertyNames() const
 {
-    encache();
-    return m_cache.keys();
-}
-
-PropertyObject::Properties
-CacheingPropertyObject::getAllProperties() const
-{
-    encache();
-    return m_cache;
+    //!!!
+    return m_po.getPropertyNames();
 }
 
 void
@@ -550,7 +559,17 @@ void
 CacheingPropertyObject::encache() const
 {
     if (m_cached) return;
-    m_cache = m_po.getAllProperties();
+
+    m_cache.clear();
+
+    Triples ts = m_po.getStore(NoTransaction)
+        ->match(Triple(m_po.getNode(), Node(), Node()));
+
+    for (int i = 0; i < ts.size(); ++i) {
+        std::cerr << "key " << ts[i].b.value.toStdString() << std::endl;
+        m_cache[ts[i].b.value].push_back(ts[i].c);
+    }
+
     m_cached = true;
 }
 

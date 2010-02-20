@@ -248,7 +248,12 @@ public:
 
     QObject *loadFrom(NodeObjectMap &map, Node node, QString classHint = "") {
 
-	CacheingPropertyObject po(m_s, m_relationshipPrefix, node);
+        //!!! do this only if asked to load follows/parent
+        //!!! relationships? or at least pass through po to loadSingle
+        //!!! and thus to loadProperties? [oh no, po uses a different
+        //!!! property prefix]
+
+	PropertyObject po(m_s, m_relationshipPrefix, node);
 
 	if (po.hasProperty("follows")) {
             try {
@@ -381,18 +386,14 @@ ObjectMapper::D::loadProperties(NodeObjectMap &map, QObject *o, Node node, bool 
 
         QString pname = property.name();
         Nodes pnodes;
-
+        
         if (m_propertyRMap[cname].contains(pname)) {
-            QUrl purl = m_propertyRMap[cname][pname];
-            Triples t = m_s->match(Triple(node, purl, Node()));
-            for (int i = 0; i < t.size(); ++i) {
-                pnodes << t[i].c;
-            }
-        } else {
-            if (!po.hasProperty(pname)) continue;
-            pnodes = po.getPropertyNodeList(pname);
+            //!!! m_propertyRMap value could revert to QString?
+            pname = m_propertyRMap[cname][pname].toString();
         }
 
+        if (!po.hasProperty(pname)) continue;
+        pnodes = po.getPropertyNodeList(pname);
         if (pnodes.empty()) continue;
         
         int type = property.type();
