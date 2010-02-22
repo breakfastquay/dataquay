@@ -44,7 +44,7 @@
 namespace Dataquay
 {
 
-static const QString encodedVariantTypeURI = "http://breakfastquay.com/dataquay/datatype/encodedvariant";
+static const Uri encodedVariantTypeURI("http://breakfastquay.com/dataquay/datatype/encodedvariant");
 
 static
 QString
@@ -136,7 +136,7 @@ Node::fromVariant(QVariant v)
             QByteArray b;
             QDataStream ds(&b, QIODevice::WriteOnly);
             ds << v;
-            n.datatype = encodedVariantTypeURI;
+            n.datatype = encodedVariantTypeURI.toString();
             n.value = QString::fromAscii(b.toPercentEncoding());
         }
     }
@@ -153,32 +153,51 @@ Node::toVariant() const
         return QVariant();
     }
 
-    //!!! could be faster
+    Uri dtUri(datatype);
 
     static const QString pfx = "http://www.w3.org/2001/XMLSchema#";
+
+#define DATATYPE(x) \
+    static const Uri x ## Uri(pfx + #x)
+
+    DATATYPE(string);
+    DATATYPE(boolean);
+    DATATYPE(int);
+    DATATYPE(long);
+    DATATYPE(integer);
+    DATATYPE(double);
+    DATATYPE(decimal);
+    DATATYPE(float);
+    DATATYPE(unsignedInt);
+    DATATYPE(nonNegativeInteger);
+
+#undef DATATYPE
+
     DEBUG << "Node::toVariant: datatype = " << datatype << endl;
-    if (datatype.startsWith(pfx)) {
-        if (datatype == pfx + "string") {
-            return QVariant::fromValue<QString>(value);
-        } else if (datatype == pfx + "boolean") {
-            return QVariant::fromValue<bool>((value == "true") ||
-                                             (value == "1"));
-        } else if (datatype == pfx + "int") {
-            return QVariant::fromValue<int>(value.toInt());
-        } else if (datatype == pfx + "long" ||
-                   datatype == pfx + "integer") {
-            return QVariant::fromValue<long>(value.toLong());
-        } else if (datatype == pfx + "double" ||
-                   datatype == pfx + "decimal") {
-            return QVariant::fromValue<double>(value.toDouble());
-        } else if (datatype == pfx + "float") {
-            return QVariant::fromValue<float>(value.toFloat());
-        } else if (datatype == pfx + "unsignedInt" ||
-                   datatype == pfx + "nonNegativeInteger") {
-            return QVariant::fromValue<unsigned>(value.toUInt());
-        }
+
+    if (dtUri == stringUri) {
+        return QVariant::fromValue<QString>(value);
     }
-    if (datatype == encodedVariantTypeURI) {
+    if (dtUri == booleanUri) {
+        return QVariant::fromValue<bool>((value == "true") ||
+                                         (value == "1"));
+    }
+    if (dtUri == intUri) {
+        return QVariant::fromValue<int>(value.toInt());
+    }
+    if (dtUri == longUri || dtUri == integerUri) {
+        return QVariant::fromValue<long>(value.toLong());
+    }
+    if (dtUri == doubleUri || dtUri == decimalUri) {
+        return QVariant::fromValue<double>(value.toDouble());
+    }
+    if (dtUri == floatUri) {
+        return QVariant::fromValue<float>(value.toFloat());
+    }
+    if (dtUri == unsignedIntUri || dtUri == nonNegativeIntegerUri) {
+        return QVariant::fromValue<unsigned>(value.toUInt());
+    }
+    if (dtUri == encodedVariantTypeURI) {
         QByteArray benc = value.toAscii();
         QByteArray b = QByteArray::fromPercentEncoding(benc);
         QDataStream ds(&b, QIODevice::ReadOnly);

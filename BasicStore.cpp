@@ -70,11 +70,9 @@ public:
     }
     
     void setBaseUri(QString baseUri) {
-        QWriteLocker elocker(&m_expansionLock);
         QMutexLocker plocker(&m_prefixLock);
         m_baseUri = baseUri;
         m_prefixes[""] = m_baseUri;
-        m_expansions.clear();
     }
     
     QString getBaseUri() const {
@@ -97,10 +95,8 @@ public:
     }
 
     void addPrefix(QString prefix, QString uri) {
-        QWriteLocker elocker(&m_expansionLock);
         QMutexLocker plocker(&m_prefixLock);
         m_prefixes[prefix] = uri;
-        m_expansions.clear();
     }
 
     bool add(Triple t) {
@@ -263,55 +259,7 @@ public:
     }
 
     Uri expand(QString uri) const {
-
-        // We cache even URIs that are already expanded or cannot be
-        // expanded, since QString to Uri conversion is slow
-
-        if (uri == "a") {
-            static Uri rdfTypeUri
-                ("http://www.w3.org/1999/02/22-rdf-syntax-ns#type");
-            return rdfTypeUri;
-        }
-
-        m_expansionLock.lockForRead();
-        if (m_expansions.contains(uri)) {
-            Uri expandedUri = m_expansions[uri];
-            m_expansionLock.unlock();
-            return expandedUri;
-        }
-        m_expansionLock.unlock();
-
-        QString expanded(uri);
-
-        QString maybePrefix;
-        int index = uri.indexOf(':');
-        if (index > 0) maybePrefix = uri.left(index);
-
-        m_prefixLock.lock();
-        if (maybePrefix != "") {
-            if (m_prefixes.find(maybePrefix) != m_prefixes.end()) {
-                expanded = m_prefixes[maybePrefix] +
-                    uri.right(uri.length() - (maybePrefix.length() + 1));
-            }
-        } else {
-            if (uri.startsWith(':')) {
-                expanded = m_baseUri + uri.right(uri.length() - 1);
-            }
-        }
-        m_prefixLock.unlock();
-
-        Uri expandedUri(expanded);
-        m_expansionLock.lockForWrite();
-        if (m_expansions.contains(uri)) {
-            expandedUri = m_expansions[uri];
-        } else {
-            m_expansions[uri] = Uri(expanded);
-            DEBUG << "new expansion: " << uri << " to "
-                  << expanded << " (now have "
-                  << m_expansions.size() << ")" << endl;
-        }
-        m_expansionLock.unlock();
-        return expandedUri;
+        return Uri(prefixExpand(uri));
     }
 
     Node addBlankNode() {
@@ -351,10 +299,7 @@ public:
     void import(QString url, ImportDuplicatesMode idm, QString format) {
 
         QMutexLocker wlocker(&m_librdfLock);
-        QWriteLocker elocker(&m_expansionLock);
         QMutexLocker plocker(&m_prefixLock);
-
-        m_expansions.clear();
 
         librdf_uri *luri = stringToUri(url);
         librdf_uri *base_uri = stringToUri(m_baseUri);
@@ -524,10 +469,6 @@ private:
     PrefixMap m_prefixes;
     mutable QMutex m_prefixLock; // also protects m_baseUri
 
-    typedef QHash<QString, Uri> ExpansionMap;
-    mutable ExpansionMap m_expansions;
-    mutable QReadWriteLock m_expansionLock;
-
     mutable int m_counter;
 
     bool doAdd(Triple t) {
@@ -580,7 +521,47 @@ private:
     }
 
     QString prefixExpand(const QString uri) const {
-        return expand(uri).toString();
+
+        if (uri == "a") {
+            static QString rdfTypeUri
+                ("http://www.w3.org/1999/02/22-rdf-syntax-ns#type");
+            return rdfTypeUri;
+        }
+
+        int index = uri.indexOf(':');
+        if (index == 0) {
+            // starts with colon
+            return m_baseUri + uri.right(uri.length() - 1);
+        } else if (index > 0) {
+            // colon appears in middle somewhere
+            if (index + 2 < uri.length() &&
+                uri[index+1] == '/' &&
+                uri[index+2] == '/') {
+                // we have found "://", this is a scheme, therefore
+                // the uri is already expanded
+                return uri;
+            }
+        } else {
+            // no colon present, no possibility of expansion
+            return uri;
+        }
+
+        // fall through only for colon in middle and no "://" found,
+        // i.e. a plausible prefix appears
+
+        QString prefix = uri.left(index);
+        QString expanded;
+
+        m_prefixLock.lock();
+        PrefixMap::const_iterator pi = m_prefixes.find(prefix);
+        if (pi != m_prefixes.end()) {
+            expanded = pi.value() + uri.right(uri.length() - (index + 1));
+        } else {
+            expanded = uri;
+        }
+        m_prefixLock.unlock();
+
+        return expanded;
     }
 
     librdf_node *nodeToLrdfNode(Node v) const { // called with m_librdfLock held
