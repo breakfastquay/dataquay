@@ -150,7 +150,7 @@ public:
 
     void loadProperties(QObject *o, Uri uri) {
         NodeObjectMap map;
-        loadProperties(map, o, uri, false);
+        loadProperties(map, o, uri, false, 0);
     }
 
     void storeProperties(QObject *o, Uri uri) {
@@ -160,7 +160,7 @@ public:
 
     QObject *loadObject(Uri uri, QObject *parent) {
         NodeObjectMap map;
-	return loadSingle(map, uri, parent, "", false);
+	return loadSingle(map, uri, parent, "", false, 0);
     }
 
     QObject *loadObjectTree(Uri root, QObject *parent) {
@@ -248,23 +248,27 @@ public:
 
     QObject *loadFrom(NodeObjectMap &map, Node node, QString classHint = "") {
 
-        //!!! do this only if asked to load follows/parent
-        //!!! relationships? or at least pass through po to loadSingle
-        //!!! and thus to loadProperties? [oh no, po uses a different
-        //!!! property prefix]
+        // We construct the property object with m_propertyPrefix
+        // rather than m_relationshipPrefix, so that we can reuse it
+        // in loadProperties (passed through as the final argument).
+        // PropertyObjects can look up properties with any prefix if
+        // we make them explicit (as we will do in a moment); they
+        // just default to the one in the ctor
 
-	PropertyObject po(m_s, m_relationshipPrefix, node);
+	CacheingPropertyObject po(m_s, m_propertyPrefix, node);
 
-	if (po.hasProperty("follows")) {
+        QString followsProp = m_relationshipPrefix + "follows";
+	if (po.hasProperty(followsProp)) {
             try {
-                loadFrom(map, po.getPropertyNode("follows"));
+                loadFrom(map, po.getPropertyNode(followsProp));
             } catch (UnknownTypeException) { }
 	}
 
         QObject *parent = 0;
-	if (po.hasProperty("parent")) {
+        QString parentProp = m_relationshipPrefix + "parent";
+	if (po.hasProperty(parentProp)) {
             try {
-                parent = loadFrom(map, po.getPropertyNode("parent"));
+                parent = loadFrom(map, po.getPropertyNode(parentProp));
             } catch (UnknownTypeException) {
                 parent = 0;
             }
@@ -275,7 +279,7 @@ public:
         //!!! whole thing with an UnknownTypeException -- is that the
         //!!! right thing to do? consider
 
-        QObject *o = loadSingle(map, node, parent, classHint, true);
+        QObject *o = loadSingle(map, node, parent, classHint, true, &po);
         return o;
     }
 
@@ -307,7 +311,7 @@ private:
     QMap<Uri, QString> m_typeMap;
     QHash<QString, Uri> m_typeRMap;
     QHash<QString, QString> m_typeUriPrefixMap;
-    QHash<QString, QMap<Uri, QString> > m_propertyMap;
+    QHash<QString, QHash<Uri, QString> > m_propertyMap;
     QHash<QString, QHash<QString, Uri> > m_propertyRMap;
 
     QString typeUriToClassName(Uri typeUri);
@@ -315,13 +319,15 @@ private:
 
     QObject *loadTree(NodeObjectMap &map, Node node, QObject *parent);
     QObject *loadSingle(NodeObjectMap &map, Node node, QObject *parent,
-                        QString classHint, bool follow);
+                        QString classHint, bool follow,
+                        CacheingPropertyObject *po);
 
     void callLoadCallbacks(NodeObjectMap &map, Node node, QObject *o);
 
     void loadConnections(NodeObjectMap &map);
 
-    void loadProperties(NodeObjectMap &map, QObject *o, Node node, bool follow);
+    void loadProperties(NodeObjectMap &map, QObject *o, Node node, bool follow,
+                        CacheingPropertyObject *po);
     QVariant propertyNodeListToVariant(NodeObjectMap &map, QString typeName,
                                        Nodes pnodes, bool follow);
     QObject *propertyNodeToObject(NodeObjectMap &map, QString typeName,
@@ -369,10 +375,16 @@ ObjectMapper::D::classNameToTypeUri(QString className)
 }
 
 void
-ObjectMapper::D::loadProperties(NodeObjectMap &map, QObject *o, Node node, bool follow)
+ObjectMapper::D::loadProperties(NodeObjectMap &map, QObject *o, Node node,
+                                bool follow, CacheingPropertyObject *po)
 {
     QString cname = o->metaObject()->className();
-    CacheingPropertyObject po(m_s, m_propertyPrefix, node);
+
+    bool myPo = false;
+    if (!po) {
+        po = new CacheingPropertyObject po(m_s, m_propertyPrefix, node);
+        myPo = true;
+    }
 
     for (int i = 0; i < o->metaObject()->propertyCount(); ++i) {
 
@@ -389,12 +401,11 @@ ObjectMapper::D::loadProperties(NodeObjectMap &map, QObject *o, Node node, bool 
         Nodes pnodes;
         
         if (m_propertyRMap[cname].contains(pname)) {
-            //!!! m_propertyRMap value could revert to QString?
             plookup = m_propertyRMap[cname][pname].toString();
         }
 
-        if (!po.hasProperty(plookup)) continue;
-        pnodes = po.getPropertyNodeList(plookup);
+        if (!po->hasProperty(plookup)) continue;
+        pnodes = po->getPropertyNodeList(plookup);
         if (pnodes.empty()) continue;
         
         int type = property.type();
@@ -422,6 +433,8 @@ ObjectMapper::D::loadProperties(NodeObjectMap &map, QObject *o, Node node, bool 
             }
         }
     }
+
+    if (myPo) delete po;
 }
 
 QVariant
@@ -783,7 +796,8 @@ ObjectMapper::D::listToPropertyNode(ObjectNodeMap &map, QVariantList list, bool 
 
 QObject *
 ObjectMapper::D::loadSingle(NodeObjectMap &map, Node node, QObject *parent,
-                            QString classHint, bool follow)
+                            QString classHint, bool follow,
+                            CacheingPropertyObject *po)
 {
     if (map.contains(node)) {
         return map[node];
@@ -834,7 +848,7 @@ ObjectMapper::D::loadSingle(NodeObjectMap &map, Node node, QObject *parent,
     }
     map[node] = o;
 
-    loadProperties(map, o, node, follow);
+    loadProperties(map, o, node, follow, po);
 
     callLoadCallbacks(map, node, o);
 
@@ -891,7 +905,7 @@ ObjectMapper::D::loadTree(NodeObjectMap &map, Node node, QObject *parent)
 
     QObject *o;
     try {
-        o = loadSingle(map, node, parent, "", true); //!!!??? or false?
+        o = loadSingle(map, node, parent, "", true, 0); //!!!??? or false?
     } catch (UnknownTypeException e) {
         o = 0;
     }

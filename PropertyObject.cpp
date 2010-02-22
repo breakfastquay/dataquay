@@ -376,11 +376,7 @@ PropertyObject::getPropertyUri(QString name) const
 {
     if (name == "a") return m_store->expand(name);
     if (name.contains(':')) return m_store->expand(name);
-//    Uri u(m_upfx); // m_upfx is already expanded
-//    u.setPath(u.path() + name);
-//!!!
-    return Uri(m_upfx.toString() + name);
-//    return u;
+    return Uri(m_upfx.toString() + name); // m_upfx is already expanded
 }
 
 void
