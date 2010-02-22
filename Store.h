@@ -157,7 +157,7 @@ public:
      * that does not currently exist within this store.  The URI will
      * be prefix expanded.
      */
-    virtual QUrl getUniqueUri(QString prefix) const = 0;
+    virtual Uri getUniqueUri(QString prefix) const = 0;
 
     /**
      * Create and return a new blank node.  This node can only be
@@ -168,11 +168,11 @@ public:
 
     /**
      * Expand the given URI (which may use local namespaces) and
-     * prefix-expand it, returning the result as a QUrl.  (The QUrl
+     * prefix-expand it, returning the result as a Uri.  (The Uri
      * class is not suitable for storing URIs that use namespaces,
      * particularly local ones.)
      */
-    virtual QUrl expand(QString uri) const = 0;
+    virtual Uri expand(QString uri) const = 0;
 
 protected:
     virtual ~Store() { }

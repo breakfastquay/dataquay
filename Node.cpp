@@ -37,7 +37,6 @@
 
 #include <QDataStream>
 #include <QTextStream>
-#include <QUrl>
 #include <QTime>
 #include <QByteArray>
 #include <QMetaType>
@@ -73,6 +72,7 @@ Node
 Node::fromVariant(QVariant v)
 {
     static const QString pfx = "http://www.w3.org/2001/XMLSchema#";
+
     Node n;
     n.type = Literal;
 
@@ -129,13 +129,16 @@ Node::fromVariant(QVariant v)
         break;
         
     default:
-    {
-        QByteArray b;
-        QDataStream ds(&b, QIODevice::WriteOnly);
-        ds << v;
-        n.datatype = encodedVariantTypeURI;
-        n.value = QString::fromAscii(b.toPercentEncoding());
-    }
+        if (Uri::isUri(v)) {
+            n.type = URI;
+            n.value = v.value<Uri>().toString();
+        } else {
+            QByteArray b;
+            QDataStream ds(&b, QIODevice::WriteOnly);
+            ds << v;
+            n.datatype = encodedVariantTypeURI;
+            n.value = QString::fromAscii(b.toPercentEncoding());
+        }
     }
 
     return n;
@@ -145,7 +148,7 @@ QVariant
 Node::toVariant() const
 {
     if (type == URI) {
-        return QVariant::fromValue(QUrl(value));
+        return QVariant::fromValue(Uri(value));
     } else if (type == Nothing || type == Blank) {
         return QVariant();
     }

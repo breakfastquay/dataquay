@@ -37,7 +37,6 @@
 
 #include <QMutex>
 #include <QMutexLocker>
-#include <QUrl>
 
 #include <iostream>
 #include <memory> // auto_ptr
@@ -184,7 +183,7 @@ public:
         return m_store->queryFirst(sparql, bindingName);
     }
 
-    QUrl getUniqueUri(const Transaction *tx, QString prefix) const {
+    Uri getUniqueUri(const Transaction *tx, QString prefix) const {
         Operation op(this, tx);
         return m_store->getUniqueUri(prefix);
     }
@@ -194,7 +193,7 @@ public:
         return m_store->addBlankNode();
     }
 
-    QUrl expand(QString uri) const {
+    Uri expand(QString uri) const {
         return m_store->expand(uri);
     }
 
@@ -464,7 +463,7 @@ public:
         }
     }
 
-    QUrl getUniqueUri(QString prefix) const {
+    Uri getUniqueUri(QString prefix) const {
         check();
         try {
             return m_td->getUniqueUri(m_tx, prefix);
@@ -484,7 +483,7 @@ public:
         }
     }
 
-    QUrl expand(QString uri) const {
+    Uri expand(QString uri) const {
         return m_td->expand(uri);
     }
 
@@ -602,11 +601,11 @@ TransactionalStore::queryFirst(QString s, QString b) const
     return result;
 }
 
-QUrl
+Uri
 TransactionalStore::getUniqueUri(QString prefix) const
 {
     D::NonTransactionalAccess ntxa(m_d);
-    QUrl result = m_d->getStore()->getUniqueUri(prefix);
+    Uri result = m_d->getStore()->getUniqueUri(prefix);
     return result;
 }
 
@@ -620,7 +619,7 @@ TransactionalStore::addBlankNode()
     return tx->addBlankNode();
 }
 
-QUrl
+Uri
 TransactionalStore::expand(QString uri) const
 {
     return m_d->expand(uri);
@@ -691,7 +690,7 @@ TransactionalStore::TSTransaction::queryFirst(QString sparql,
     return m_d->queryFirst(sparql, bindingName);
 }
 
-QUrl
+Uri
 TransactionalStore::TSTransaction::getUniqueUri(QString prefix) const
 {
     return m_d->getUniqueUri(prefix);
@@ -703,7 +702,7 @@ TransactionalStore::TSTransaction::addBlankNode()
     return m_d->addBlankNode();
 }
 
-QUrl
+Uri
 TransactionalStore::TSTransaction::expand(QString uri) const
 {
     return m_d->expand(uri);

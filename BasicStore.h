@@ -107,9 +107,9 @@ public:
     Triple matchFirst(Triple t) const;
     Node queryFirst(QString sparql, QString bindingName) const;
 
-    QUrl getUniqueUri(QString prefix) const;
+    Uri getUniqueUri(QString prefix) const;
     Node addBlankNode();
-    QUrl expand(QString uri) const;
+    Uri expand(QString uri) const;
 
     /**
      * Export the store to an RDF/TTL file with the given filename.

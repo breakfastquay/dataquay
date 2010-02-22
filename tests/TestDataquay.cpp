@@ -44,7 +44,6 @@
 #include "../Debug.h"
 
 #include <QStringList>
-#include <QUrl>
 #include <QTimer>
 #include <iostream>
 
@@ -65,12 +64,6 @@ std::ostream &
 operator<<(std::ostream &target, const QString &str)
 {
     return target << str.toLocal8Bit().data();
-}
-
-std::ostream &
-operator<<(std::ostream &target, const QUrl &u)
-{
-    return target << "<" << u.toString() << ">";
 }
 
 void
@@ -162,7 +155,7 @@ testBasicStore()
         // variant conversion
         if (!store.add(Triple(":fred",
                               ":has_some_uri",
-                              Node::fromVariant(QUrl("http://breakfastquay.com/rdf/person/fred"))))) {
+                              Node::fromVariant(QVariant::fromValue(Uri("http://breakfastquay.com/rdf/person/fred")))))) {
             cerr << "Failed to add variant URI to store" << endl;
             return false;
         }
@@ -173,7 +166,7 @@ testBasicStore()
         // variant conversion
         if (!store.add(Triple(":fred",
                               ":has_some_local_uri",
-                              Node::fromVariant(store.expand(":pootle"))))) {
+                              Node::fromVariant(QVariant::fromValue(store.expand(":pootle")))))) {
             cerr << "Failed to add variant local URI to store" << endl;
             return false;
         }
@@ -379,7 +372,7 @@ testBasicStore()
             cerr << "Failed to query expected number of properties about Fred's some-uri-or-other" << endl;
             return false;
         }
-        QUrl someUri = triples[0].c.toVariant().toUrl();
+        Uri someUri(triples[0].c.value);
         if (someUri.toString() != "http://breakfastquay.com/rdf/person/fred") {
             cerr << "Fred's some-uri-or-other is not what we expected (it is "
                  << someUri.toString() << ")" << endl;
@@ -393,7 +386,7 @@ testBasicStore()
             cerr << "Failed to query expected number of properties about Fred's some-local-uri-or-other" << endl;
             return false;
         }
-        someUri = triples[0].c.toVariant().toUrl();
+        someUri = Uri(triples[0].c.toVariant().value<Uri>());
         if (someUri != store.expand(":pootle")) {
             cerr << "Fred's some-local-uri-or-other is not what we expected (it is "
                  << someUri.toString() << ")" << endl;
@@ -562,14 +555,14 @@ testImportOptions()
 
     if (!store.add(Triple(":fred",
                           ":has_some_uri",
-                          Node::fromVariant(QUrl("http://breakfastquay.com/rdf/person/fred"))))) {
+                          Node::fromVariant(QVariant::fromValue(Uri("http://breakfastquay.com/rdf/person/fred")))))) {
         cerr << "Failed to add variant URI to store" << endl;
     }
     ++count;
 
     if (!store.add(Triple(":fred",
                           ":has_some_local_uri",
-                          Node::fromVariant(store.expand(":pootle"))))) {
+                          Node::fromVariant(QVariant::fromValue(store.expand(":pootle")))))) {
         cerr << "Failed to add variant local URI to store" << endl;
     }
     ++count;
@@ -1026,7 +1019,7 @@ testObjectMapper()
     QObject *o = new QObject;
     o->setObjectName("Test Object");
 
-    QUrl uri = mapper.storeObject(o);
+    Uri uri = mapper.storeObject(o);
     cerr << "Stored QObject as " << uri << endl;
 
     QObject *recalled = mapper.loadObject(uri, 0);
@@ -1043,7 +1036,7 @@ testObjectMapper()
     t->setSingleShot(true);
     t->setInterval(4);
 
-    QUrl turi = mapper.storeObject(t);
+    Uri turi = mapper.storeObject(t);
     cerr << "Stored QTimer as " << turi << endl;
 
     qRegisterMetaType<A*>("A*");
@@ -1066,7 +1059,7 @@ testObjectMapper()
 
     A *a = new A(o);
     a->setRef(t);
-    QUrl auri = mapper.storeObject(a);
+    Uri auri = mapper.storeObject(a);
     cerr << "Stored A-object as " << auri << endl;
     
     B *b = new B(o);
@@ -1174,15 +1167,23 @@ testObjectMapper()
 int
 main(int argc, char **argv)
 {
-    if (!Dataquay::Test::testBasicStore()) return false;
-    if (!Dataquay::Test::testImportOptions()) return false;
-    if (!Dataquay::Test::testTransactionalStore()) return false;
-    if (!Dataquay::Test::testConnection()) return false;
-    if (!Dataquay::Test::testObjectMapper()) return false;
+    Dataquay::Uri uri("http://blather-de-hoop/parp/");
+    QVariant v = QVariant::fromValue(uri);
+    Dataquay::Uri uri2(v.value<Dataquay::Uri>());
+    if (uri != uri2) {
+        std::cerr << "ERROR: URI " << uri << " converted to variant and back again yields different URI " << uri2 << std::endl;
+        return 1;
+    }
 
-//    if (!Dataquay::Test::testQtWidgets(argc, argv)) return false;
+    if (!Dataquay::Test::testBasicStore()) return 1;
+    if (!Dataquay::Test::testImportOptions()) return 1;
+    if (!Dataquay::Test::testTransactionalStore()) return 1;
+    if (!Dataquay::Test::testConnection()) return 1;
+    if (!Dataquay::Test::testObjectMapper()) return 1;
+
+    if (!Dataquay::Test::testQtWidgets(argc, argv)) return 1;
 
     std::cerr << "testDataquay successfully completed" << std::endl;
-    return true;
+    return 0;
 }
 

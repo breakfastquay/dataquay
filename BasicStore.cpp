@@ -40,7 +40,6 @@
 #include <QMutex>
 #include <QMutexLocker>
 #include <QMap>
-#include <QUrl>
 #include <QCryptographicHash>
 #include <QReadWriteLock>
 
@@ -241,7 +240,7 @@ public:
         return Node();
     }
 
-    QUrl getUniqueUri(QString prefix) const {
+    Uri getUniqueUri(QString prefix) const {
         QMutexLocker locker(&m_librdfLock);
         DEBUG << "BasicStore::getUniqueUri: prefix " << prefix << endl;
         int base = (int)(long)this; // we don't care at all about overflow
@@ -263,28 +262,31 @@ public:
         return expand(uri);
     }
 
-    QUrl expand(QString uri) const {
+    Uri expand(QString uri) const {
 
         // We cache even URIs that are already expanded or cannot be
-        // expanded, since QString to QUrl conversion is slow
+        // expanded, since QString to Uri conversion is slow
 
         if (uri == "a") {
-            static QUrl rdfTypeUri
+            static Uri rdfTypeUri
                 ("http://www.w3.org/1999/02/22-rdf-syntax-ns#type");
             return rdfTypeUri;
         }
 
         m_expansionLock.lockForRead();
         if (m_expansions.contains(uri)) {
-            QUrl expandedUri = m_expansions[uri];
+            Uri expandedUri = m_expansions[uri];
             m_expansionLock.unlock();
             return expandedUri;
         }
         m_expansionLock.unlock();
 
-        QUrl qu(uri);
         QString expanded(uri);
-        QString maybePrefix = qu.scheme();
+
+        QString maybePrefix;
+        int index = uri.indexOf(':');
+        if (index > 0) maybePrefix = uri.left(index);
+
         m_prefixLock.lock();
         if (maybePrefix != "") {
             if (m_prefixes.find(maybePrefix) != m_prefixes.end()) {
@@ -298,12 +300,12 @@ public:
         }
         m_prefixLock.unlock();
 
-        QUrl expandedUri(expanded);
+        Uri expandedUri(expanded);
         m_expansionLock.lockForWrite();
         if (m_expansions.contains(uri)) {
             expandedUri = m_expansions[uri];
         } else {
-            m_expansions[uri] = QUrl(expanded);
+            m_expansions[uri] = Uri(expanded);
             DEBUG << "new expansion: " << uri << " to "
                   << expanded << " (now have "
                   << m_expansions.size() << ")" << endl;
@@ -522,7 +524,7 @@ private:
     PrefixMap m_prefixes;
     mutable QMutex m_prefixLock; // also protects m_baseUri
 
-    typedef QHash<QString, QUrl> ExpansionMap;
+    typedef QHash<QString, Uri> ExpansionMap;
     mutable ExpansionMap m_expansions;
     mutable QReadWriteLock m_expansionLock;
 
@@ -864,13 +866,13 @@ BasicStore::queryFirst(QString sparql, QString bindingName) const
     return m_d->queryFirst(sparql, bindingName);
 }
 
-QUrl
+Uri
 BasicStore::getUniqueUri(QString prefix) const
 {
     return m_d->getUniqueUri(prefix);
 }
 
-QUrl
+Uri
 BasicStore::expand(QString uri) const
 {
     return m_d->expand(uri);

@@ -42,7 +42,7 @@ namespace Dataquay
 QString
 PropertyObject::m_defaultPrefix = "property:";
 
-PropertyObject::PropertyObject(Store *s, QUrl uri) :
+PropertyObject::PropertyObject(Store *s, Uri uri) :
     m_store(s), m_pfx(m_defaultPrefix), m_node(uri)
 {
     m_upfx = m_store->expand(m_pfx);
@@ -54,7 +54,7 @@ PropertyObject::PropertyObject(Store *s, QString uri) :
     m_upfx = m_store->expand(m_pfx);
 }
 
-PropertyObject::PropertyObject(Store *s, QString pfx, QUrl uri) :
+PropertyObject::PropertyObject(Store *s, QString pfx, Uri uri) :
     m_store(s), m_pfx(pfx), m_node(uri)
 {
     m_upfx = m_store->expand(m_pfx);
@@ -82,33 +82,33 @@ PropertyObject::getNode() const
     return m_node;
 }
 
-QUrl
+Uri
 PropertyObject::getObjectType() const
 {
     Triple t = m_store->matchFirst(Triple(m_node, "a", Node()));
     if (t != Triple()) {
-        return QUrl(t.c.value);
+        return Uri(t.c.value);
     } else {
-        return QUrl();
+        return Uri();
     }
 }
 
-QUrl
+Uri
 PropertyObject::getObjectType(Transaction *tx) const
 {
     Store *s = getStore(tx);
     Triple t = s->matchFirst(Triple(m_node, "a", Node()));
     if (t != Triple()) {
-        return QUrl(t.c.value);
+        return Uri(t.c.value);
     } else {
-        return QUrl();
+        return Uri();
     }
 }
 
 bool
 PropertyObject::hasProperty(QString name) const
 {
-    QUrl property = getPropertyUri(name);
+    Uri property = getPropertyUri(name);
     Triple r = m_store->matchFirst(Triple(m_node, property, Node()));
     return (r != Triple());
 }
@@ -117,7 +117,7 @@ bool
 PropertyObject::hasProperty(Transaction *tx, QString name) const
 {
     Store *s = getStore(tx);
-    QUrl property = getPropertyUri(name);
+    Uri property = getPropertyUri(name);
     Triple r = s->matchFirst(Triple(m_node, property, Node()));
     return (r != Triple());
 }
@@ -125,7 +125,7 @@ PropertyObject::hasProperty(Transaction *tx, QString name) const
 QVariant
 PropertyObject::getProperty(QString name) const
 {
-    QUrl property = getPropertyUri(name);
+    Uri property = getPropertyUri(name);
     Triple r = m_store->matchFirst(Triple(m_node, property, Node()));
     if (r == Triple()) return QVariant();
     return r.c.toVariant();
@@ -135,7 +135,7 @@ QVariant
 PropertyObject::getProperty(Transaction *tx, QString name) const
 {
     Store *s = getStore(tx);
-    QUrl property = getPropertyUri(name);
+    Uri property = getPropertyUri(name);
     Triple r = s->matchFirst(Triple(m_node, property, Node()));
     if (r == Triple()) return QVariant();
     return r.c.toVariant();
@@ -144,7 +144,7 @@ PropertyObject::getProperty(Transaction *tx, QString name) const
 QVariantList
 PropertyObject::getPropertyList(QString name) const
 {
-    QUrl property = getPropertyUri(name);
+    Uri property = getPropertyUri(name);
     Triples r = m_store->match(Triple(m_node, property, Node()));
     QVariantList vl;
     for (int i = 0; i < r.size(); ++i) {
@@ -157,7 +157,7 @@ QVariantList
 PropertyObject::getPropertyList(Transaction *tx, QString name) const
 {
     Store *s = getStore(tx);
-    QUrl property = getPropertyUri(name);
+    Uri property = getPropertyUri(name);
     Triples r = s->match(Triple(m_node, property, Node()));
     QVariantList vl;
     for (int i = 0; i < r.size(); ++i) {
@@ -169,7 +169,7 @@ PropertyObject::getPropertyList(Transaction *tx, QString name) const
 Node
 PropertyObject::getPropertyNode(QString name) const
 {
-    QUrl property = getPropertyUri(name);
+    Uri property = getPropertyUri(name);
     Triple r = m_store->matchFirst(Triple(m_node, property, Node()));
     return r.c;
 }
@@ -178,7 +178,7 @@ Node
 PropertyObject::getPropertyNode(Transaction *tx, QString name) const
 {
     Store *s = getStore(tx);
-    QUrl property = getPropertyUri(name);
+    Uri property = getPropertyUri(name);
     Triple r = s->matchFirst(Triple(m_node, property, Node()));
     return r.c;
 }
@@ -186,7 +186,7 @@ PropertyObject::getPropertyNode(Transaction *tx, QString name) const
 Nodes
 PropertyObject::getPropertyNodeList(QString name) const
 {
-    QUrl property = getPropertyUri(name);
+    Uri property = getPropertyUri(name);
     Triples r = m_store->match(Triple(m_node, property, Node()));
     Nodes n;
     for (int i = 0; i < r.size(); ++i) n.push_back(r[i].c);
@@ -197,7 +197,7 @@ Nodes
 PropertyObject::getPropertyNodeList(Transaction *tx, QString name) const
 {
     Store *s = getStore(tx);
-    QUrl property = getPropertyUri(name);
+    Uri property = getPropertyUri(name);
     Triples r = s->match(Triple(m_node, property, Node()));
     Nodes n;
     for (int i = 0; i < r.size(); ++i) n.push_back(r[i].c);
@@ -236,7 +236,7 @@ PropertyObject::getPropertyNames(Transaction *tx) const
 void
 PropertyObject::setProperty(QString name, QVariant value)
 {
-    QUrl property = getPropertyUri(name);
+    Uri property = getPropertyUri(name);
     Triple t(m_node, property, Node());
     m_store->remove(t); // remove all matching triples
     t.c = Node::fromVariant(value);
@@ -244,9 +244,9 @@ PropertyObject::setProperty(QString name, QVariant value)
 }
 
 void
-PropertyObject::setProperty(QString name, QUrl uri)
+PropertyObject::setProperty(QString name, Uri uri)
 {
-    QUrl property = getPropertyUri(name);
+    Uri property = getPropertyUri(name);
     Triple t(m_node, property, Node());
     m_store->remove(t); // remove all matching triples
     t.c = Node(uri);
@@ -256,7 +256,7 @@ PropertyObject::setProperty(QString name, QUrl uri)
 void
 PropertyObject::setProperty(QString name, Node node)
 {
-    QUrl property = getPropertyUri(name);
+    Uri property = getPropertyUri(name);
     Triple t(m_node, property, Node());
     m_store->remove(t); // remove all matching triples
     t.c = node;
@@ -267,7 +267,7 @@ void
 PropertyObject::setProperty(Transaction *tx, QString name, QVariant value)
 {
     Store *s = getStore(tx);
-    QUrl property = getPropertyUri(name);
+    Uri property = getPropertyUri(name);
     Triple t(m_node, property, Node());
     s->remove(t); // remove all matching triples
     t.c = Node::fromVariant(value);
@@ -275,10 +275,10 @@ PropertyObject::setProperty(Transaction *tx, QString name, QVariant value)
 }
 
 void
-PropertyObject::setProperty(Transaction *tx, QString name, QUrl uri)
+PropertyObject::setProperty(Transaction *tx, QString name, Uri uri)
 {
     Store *s = getStore(tx);
-    QUrl property = getPropertyUri(name);
+    Uri property = getPropertyUri(name);
     Triple t(m_node, property, Node());
     s->remove(t); // remove all matching triples
     t.c = Node(uri);
@@ -289,7 +289,7 @@ void
 PropertyObject::setProperty(Transaction *tx, QString name, Node node)
 {
     Store *s = getStore(tx);
-    QUrl property = getPropertyUri(name);
+    Uri property = getPropertyUri(name);
     Triple t(m_node, property, Node());
     s->remove(t); // remove all matching triples
     t.c = node;
@@ -299,7 +299,7 @@ PropertyObject::setProperty(Transaction *tx, QString name, Node node)
 void
 PropertyObject::setPropertyList(QString name, QVariantList values)
 {
-    QUrl property = getPropertyUri(name);
+    Uri property = getPropertyUri(name);
     Triple t(m_node, property, Node());
     m_store->remove(t); // remove all matching triples
     for (int i = 0; i < values.size(); ++i) {
@@ -313,7 +313,7 @@ PropertyObject::setPropertyList(Transaction *tx,
                                 QString name, QVariantList values)
 {
     Store *s = getStore(tx);
-    QUrl property = getPropertyUri(name);
+    Uri property = getPropertyUri(name);
     Triple t(m_node, property, Node());
     s->remove(t); // remove all matching triples
     for (int i = 0; i < values.size(); ++i) {
@@ -325,7 +325,7 @@ PropertyObject::setPropertyList(Transaction *tx,
 void
 PropertyObject::setPropertyList(QString name, Nodes nodes)
 {
-    QUrl property = getPropertyUri(name);
+    Uri property = getPropertyUri(name);
     Triple t(m_node, property, Node());
     m_store->remove(t); // remove all matching triples
     for (int i = 0; i < nodes.size(); ++i) {
@@ -338,7 +338,7 @@ void
 PropertyObject::setPropertyList(Transaction *tx, QString name, Nodes nodes)
 {
     Store *s = getStore(tx);
-    QUrl property = getPropertyUri(name);
+    Uri property = getPropertyUri(name);
     Triple t(m_node, property, Node());
     s->remove(t); // remove all matching triples
     for (int i = 0; i < nodes.size(); ++i) {
@@ -350,7 +350,7 @@ PropertyObject::setPropertyList(Transaction *tx, QString name, Nodes nodes)
 void
 PropertyObject::removeProperty(QString name)
 {
-    QUrl property = getPropertyUri(name);
+    Uri property = getPropertyUri(name);
     Triple t(m_node, property, Node());
     m_store->remove(t); // remove all matching triples
 }
@@ -359,7 +359,7 @@ void
 PropertyObject::removeProperty(Transaction *tx, QString name)
 {
     Store *s = getStore(tx);
-    QUrl property = getPropertyUri(name);
+    Uri property = getPropertyUri(name);
     Triple t(m_node, property, Node());
     s->remove(t); // remove all matching triples
 }
@@ -371,14 +371,16 @@ PropertyObject::getStore(Transaction *tx) const
     else return tx;
 }
 
-QUrl
+Uri
 PropertyObject::getPropertyUri(QString name) const
 {
     if (name == "a") return m_store->expand(name);
     if (name.contains(':')) return m_store->expand(name);
-    QUrl u(m_upfx); // m_upfx is already expanded
-    u.setPath(u.path() + name);
-    return u;
+//    Uri u(m_upfx); // m_upfx is already expanded
+//    u.setPath(u.path() + name);
+//!!!
+    return Uri(m_upfx.toString() + name);
+//    return u;
 }
 
 void
@@ -387,7 +389,7 @@ PropertyObject::setDefaultPropertyPrefix(QString prefix)
     m_defaultPrefix = prefix;
 }
 
-CacheingPropertyObject::CacheingPropertyObject(Store *s, QUrl uri) :
+CacheingPropertyObject::CacheingPropertyObject(Store *s, Uri uri) :
     m_po(s, uri),
     m_cached(false)
 {
@@ -399,7 +401,7 @@ CacheingPropertyObject::CacheingPropertyObject(Store *s, QString uri) :
 {
 }
 
-CacheingPropertyObject::CacheingPropertyObject(Store *s, QString pfx, QUrl uri) :
+CacheingPropertyObject::CacheingPropertyObject(Store *s, QString pfx, Uri uri) :
     m_po(s, pfx, uri),
     m_cached(false)
 {
@@ -417,7 +419,7 @@ CacheingPropertyObject::CacheingPropertyObject(Store *s, QString pfx, Node node)
 {
 }
 
-QUrl
+Uri
 CacheingPropertyObject::getObjectType() const
 {
     encacheType();
@@ -428,7 +430,7 @@ bool
 CacheingPropertyObject::hasProperty(QString name) const
 {
     encache();
-    QUrl uri = m_po.getPropertyUri(name);
+    Uri uri = m_po.getPropertyUri(name);
     QString key = uri.toString();
     bool has = m_cache.contains(key);
     return has;
@@ -438,7 +440,7 @@ QVariant
 CacheingPropertyObject::getProperty(QString name) const
 {
     encache();
-    QUrl uri = m_po.getPropertyUri(name);
+    Uri uri = m_po.getPropertyUri(name);
     QString key = uri.toString();
     if (!m_cache.contains(key)) return QVariant();
     return m_cache[key][0].toVariant();
@@ -448,7 +450,7 @@ QVariantList
 CacheingPropertyObject::getPropertyList(QString name) const
 {
     encache();
-    QUrl uri = m_po.getPropertyUri(name);
+    Uri uri = m_po.getPropertyUri(name);
     QString key = uri.toString();
     if (!m_cache.contains(key)) return QVariantList();
     QVariantList vl;
@@ -462,7 +464,7 @@ Node
 CacheingPropertyObject::getPropertyNode(QString name) const
 {
     encache();
-    QUrl uri = m_po.getPropertyUri(name);
+    Uri uri = m_po.getPropertyUri(name);
     QString key = uri.toString();
     if (!m_cache.contains(key)) return Node();
     return m_cache[key][0];
@@ -472,7 +474,7 @@ Nodes
 CacheingPropertyObject::getPropertyNodeList(QString name) const
 {
     encache();
-    QUrl uri = m_po.getPropertyUri(name);
+    Uri uri = m_po.getPropertyUri(name);
     QString key = uri.toString();
     Nodes result;
     if (!m_cache.contains(key)) return result;
@@ -495,7 +497,7 @@ CacheingPropertyObject::setProperty(QString name, QVariant value)
 }
 
 void
-CacheingPropertyObject::setProperty(QString name, QUrl value)
+CacheingPropertyObject::setProperty(QString name, Uri value)
 {
     m_po.setProperty(name, value);
     m_cached = false;
@@ -542,7 +544,7 @@ CacheingPropertyObject::getStore(Transaction *tx) const
     return m_po.getStore(tx);
 }
 
-QUrl
+Uri
 CacheingPropertyObject::getPropertyUri(QString name) const
 {
     return m_po.getPropertyUri(name);
@@ -568,7 +570,7 @@ CacheingPropertyObject::encache() const
 void
 CacheingPropertyObject::encacheType() const
 {
-    if (m_type != QUrl()) return;
+    if (m_type != Uri()) return;
     m_type = m_po.getObjectType();
 }
 

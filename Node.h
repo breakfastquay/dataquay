@@ -35,8 +35,9 @@
 #define _DATAQUAY_NODE_H_
 
 #include <QString>
-#include <QUrl>
 #include <QVariant>
+
+#include "Uri.h"
 
 class QDataStream;
 class QTextStream;
@@ -67,16 +68,16 @@ public:
      * Construct a node with a URI node type and the given URI.
      *
      * Note that URIs using namespace prefixes will need to be
-     * expanded before they can safely be represented in a QUrl.  Call
+     * expanded before they can safely be represented in a Uri.  Call
      * Store::expand() to achieve this.  In general you should ensure
      * that URIs are expanded when placed in a Node object rather than
      * being stored in prefixed form.
      *
      * (One basic principle of this RDF library is that we use QString
      * to represent URIs that may be local or namespace prefixed, and
-     * QUrl to represent expanded or canonical URIs.)
+     * Uri to represent expanded or canonical URIs.)
      */
-    Node(QUrl u) : type(URI), value(u.toString()) { }
+    Node(Uri u) : type(URI), value(u.toString()) { }
 
     /**
      * Construct a node with the given node type and value, and with
@@ -109,9 +110,9 @@ public:
      * node's value storing the XSD representation and the node's
      * datatype storing the XSD datatype URI.
      *
-     * QVariants containing QUrls are converted to URI nodes.  Note
+     * QVariants containing Uris are converted to URI nodes.  Note
      * that URIs using namespace prefixes will need to be expanded
-     * before they can safely be represented in a QUrl or URL variant.
+     * before they can safely be represented in a Uri or URL variant.
      * Call Store::expand() to achieve this.  In general you should
      * ensure that URIs are expanded when placed in a Node object
      * rather than being stored in prefixed form.
@@ -129,10 +130,10 @@ public:
      *
      * See fromVariant for details of the conversion.
      *
-     * Note that URI nodes are returned as QUrl variants, not QString
-     * variants.  This may result in invalid QUrls if the URIs were
-     * not properly expanded on construction (see the notes about
-     * fromVariant).
+     * Note that URI nodes are returned as variants with user type
+     * corresponding to Uri, not as QString variants.  This may result
+     * in invalid Uris if the URIs were not properly expanded on
+     * construction (see the notes about fromVariant).
      */
     QVariant toVariant() const;
 

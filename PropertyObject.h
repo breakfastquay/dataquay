@@ -36,7 +36,6 @@
 
 #include <QString>
 #include <QStringList>
-#include <QUrl>
 #include <QHash>
 #include <QVariant>
 #include <QVariantList>
@@ -100,7 +99,7 @@ public:
      * default prefix for properties taken from the global default
      * (see setDefaultPropertyPrefix) and the given "subject" URI.
      */
-    PropertyObject(Store *s, QUrl myUri);
+    PropertyObject(Store *s, Uri myUri);
 
     /**
      * Construct a PropertyObject acting on the given Store, with the
@@ -115,7 +114,7 @@ public:
      * given default prefix for properties and the given "subject"
      * URI.
      */
-    PropertyObject(Store *s, QString propertyPrefix, QUrl myUri);
+    PropertyObject(Store *s, QString propertyPrefix, Uri myUri);
 
     /**
      * Construct a PropertyObject acting on the given Store, with the
@@ -144,14 +143,14 @@ public:
      * Return the rdf:type of my URI, if any.  If more than one is
      * defined, return the first one found.
      */
-    QUrl getObjectType() const;
+    Uri getObjectType() const;
 
     /**
      * Return the rdf:type of my URI, if any, querying through the
      * given transaction.  If more than one is defined, return the
      * first one found.
      */
-    QUrl getObjectType(Transaction *tx) const;
+    Uri getObjectType(Transaction *tx) const;
 
     /**
      * Return true if the property object has the given property.  That
@@ -279,7 +278,7 @@ public:
      * match those for my URI and the expansion of the given property
      * name, then insert a new triple whose object part is the URI.
      */
-    void setProperty(QString name, QUrl uri);
+    void setProperty(QString name, Uri uri);
 
     /**
      * Set the given property to the given node.  That is, first
@@ -306,7 +305,7 @@ public:
      * expansion of the given property name, then insert a new triple
      * whose object part is the URI.
      */
-    void setProperty(Transaction *tx, QString name, QUrl uri);
+    void setProperty(Transaction *tx, QString name, Uri uri);
 
     /**
      * Set the given property to the given node through the given
@@ -385,7 +384,7 @@ public:
      * PropertyObject documentation for details of how these names are
      * expanded.
      */
-    QUrl getPropertyUri(QString name) const;
+    Uri getPropertyUri(QString name) const;
 
     /**
      * Set the global default property prefix.  This will be used as
@@ -397,7 +396,7 @@ public:
 private:
     Store *m_store;
     QString m_pfx;
-    QUrl m_upfx;
+    Uri m_upfx;
     Node m_node;
     static QString m_defaultPrefix;
 };
@@ -420,13 +419,13 @@ private:
 class CacheingPropertyObject
 {
 public:
-    CacheingPropertyObject(Store *s, QUrl myUri);
+    CacheingPropertyObject(Store *s, Uri myUri);
     CacheingPropertyObject(Store *s, QString myUri);
-    CacheingPropertyObject(Store *s, QString propertyPrefix, QUrl myUri);
+    CacheingPropertyObject(Store *s, QString propertyPrefix, Uri myUri);
     CacheingPropertyObject(Store *s, QString propertyPrefix, QString myUri);
     CacheingPropertyObject(Store *s, QString propertyPrefix, Node myUri);
 
-    QUrl getObjectType() const;
+    Uri getObjectType() const;
 
     bool hasProperty(QString name) const;
 
@@ -437,7 +436,7 @@ public:
     QStringList getPropertyNames() const;
 
     void setProperty(QString name, QVariant value);
-    void setProperty(QString name, QUrl value);
+    void setProperty(QString name, Uri value);
     void setProperty(QString name, Node node);
     void setPropertyList(QString name, QVariantList values);
     void setPropertyList(QString name, Nodes nodes);
@@ -448,12 +447,12 @@ public:
     void removeProperty(QString name);
 
     Store *getStore(Transaction *tx) const;
-    QUrl getPropertyUri(QString name) const;
+    Uri getPropertyUri(QString name) const;
 
 private:
     PropertyObject m_po;
     typedef QHash<QString, Nodes> Properties;
-    mutable QUrl m_type;
+    mutable Uri m_type;
     mutable Properties m_cache; // note: value is never empty
     mutable bool m_cached;
     void encache() const;

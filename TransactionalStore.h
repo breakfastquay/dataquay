@@ -122,9 +122,9 @@ public:
     ResultSet query(QString sparql) const;
     Triple matchFirst(Triple t) const;
     Node queryFirst(QString sparql, QString bindingName) const;
-    QUrl getUniqueUri(QString prefix) const;
+    Uri getUniqueUri(QString prefix) const;
     Node addBlankNode();
-    QUrl expand(QString uri) const;
+    Uri expand(QString uri) const;
 
 signals:
     void transactionCommitted();
@@ -146,9 +146,9 @@ private:
         ResultSet query(QString sparql) const;
         Triple matchFirst(Triple t) const;
         Node queryFirst(QString sparql, QString bindingName) const;
-        QUrl getUniqueUri(QString prefix) const;
+        Uri getUniqueUri(QString prefix) const;
         Node addBlankNode();
-        QUrl expand(QString uri) const;
+        Uri expand(QString uri) const;
 
         // Transaction interface
         ChangeSet getChanges() const;

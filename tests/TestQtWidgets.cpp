@@ -9,7 +9,6 @@
 #include "../Debug.h"
 
 #include <QStringList>
-#include <QUrl>
 #include <QMutex>
 #include <QMutexLocker>
 #include <QWidget>
@@ -68,13 +67,13 @@ struct LayoutLoader : public ObjectMapper::LoadCallback {
 	QObject *centralOf = 0;
 
 	if (pod.hasProperty("layout")) {
-	    layout = m->loadFrom(map, pod.getProperty("layout").toUrl());
+	    layout = m->loadFrom(map, Uri(pod.getProperty("layout").toUrl()));
 	}
 	if (pod.hasProperty("layout_of")) {
-	    layoutOf = m->loadFrom(map, pod.getProperty("layout_of").toUrl());
+	    layoutOf = m->loadFrom(map, Uri(pod.getProperty("layout_of").toUrl()));
 	}
 	if (pod.hasProperty("central_widget_of")) {
-	    centralOf = m->loadFrom(map, pod.getProperty("central_widget_of").toUrl());
+	    centralOf = m->loadFrom(map, Uri(pod.getProperty("central_widget_of").toUrl()));
 	}
 
 	if (centralOf) {

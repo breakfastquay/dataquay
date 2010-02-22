@@ -106,7 +106,7 @@ public:
         addTypeMapping(className, m_s->expand(uri));
     }
 
-    void addTypeMapping(QString className, QUrl uri) {
+    void addTypeMapping(QString className, Uri uri) {
         m_typeMap[uri] = className;
         m_typeRMap[className] = uri;
     }
@@ -119,7 +119,7 @@ public:
         addPropertyMapping(className, propertyName, m_s->expand(uri));
     }
 
-    void addPropertyMapping(QString className, QString propertyName, QUrl uri) {
+    void addPropertyMapping(QString className, QString propertyName, Uri uri) {
         m_propertyMap[className][uri] = propertyName;
         m_propertyRMap[className][propertyName] = uri;
     }
@@ -148,22 +148,22 @@ public:
         return m_bp;
     }
 
-    void loadProperties(QObject *o, QUrl uri) {
+    void loadProperties(QObject *o, Uri uri) {
         NodeObjectMap map;
         loadProperties(map, o, uri, false);
     }
 
-    void storeProperties(QObject *o, QUrl uri) {
+    void storeProperties(QObject *o, Uri uri) {
         ObjectNodeMap map;
         storeProperties(map, o, uri, false);
     }
 
-    QObject *loadObject(QUrl uri, QObject *parent) {
+    QObject *loadObject(Uri uri, QObject *parent) {
         NodeObjectMap map;
 	return loadSingle(map, uri, parent, "", false);
     }
 
-    QObject *loadObjectTree(QUrl root, QObject *parent) {
+    QObject *loadObjectTree(Uri root, QObject *parent) {
         NodeObjectMap map;
         QObject *rv = loadTree(map, root, parent);
         loadConnections(map);
@@ -180,8 +180,8 @@ public:
             
             if (t.a.type != Node::URI || t.c.type != Node::URI) continue;
 
-            QUrl objectUri = t.a.value;
-            QString typeUri = t.c.value;
+            Uri objectUri(t.a.value);
+            Uri typeUri(t.c.value);
 
             QString className;
 
@@ -220,17 +220,17 @@ public:
         return superRoot;
     }
 
-    QUrl storeObject(QObject *o) {
+    Uri storeObject(QObject *o) {
         ObjectNodeMap map;
-        return storeSingle(map, o, false).value;
+        return Uri(storeSingle(map, o, false).value);
     }
 
-    QUrl storeObjectTree(QObject *root) {
+    Uri storeObjectTree(QObject *root) {
         ObjectNodeMap map;
         foreach (QObject *o, root->findChildren<QObject *>()) {
             map[o] = Node();
         }
-        return storeTree(map, root).value;
+        return Uri(storeTree(map, root).value);
     }
 
     void storeAllObjects(QObjectList list) {
@@ -304,14 +304,14 @@ private:
     QString m_relationshipPrefix;
     QList<LoadCallback *> m_loadCallbacks;
     QList<StoreCallback *> m_storeCallbacks;
-    QMap<QUrl, QString> m_typeMap;
-    QHash<QString, QUrl> m_typeRMap;
+    QMap<Uri, QString> m_typeMap;
+    QHash<QString, Uri> m_typeRMap;
     QHash<QString, QString> m_typeUriPrefixMap;
-    QHash<QString, QMap<QUrl, QString> > m_propertyMap;
-    QHash<QString, QHash<QString, QUrl> > m_propertyRMap;
+    QHash<QString, QMap<Uri, QString> > m_propertyMap;
+    QHash<QString, QHash<QString, Uri> > m_propertyRMap;
 
-    QString typeUriToClassName(QUrl typeUri);
-    QUrl classNameToTypeUri(QString className);
+    QString typeUriToClassName(Uri typeUri);
+    Uri classNameToTypeUri(QString className);
 
     QObject *loadTree(NodeObjectMap &map, Node node, QObject *parent);
     QObject *loadSingle(NodeObjectMap &map, Node node, QObject *parent,
@@ -335,14 +335,14 @@ private:
     void callStoreCallbacks(ObjectNodeMap &map, QObject *o, Node node);
 
     void storeProperties(ObjectNodeMap &map, QObject *o, Node node, bool follow);            
-    void removeOldPropertyNodes(Node node, QUrl propertyUri);
+    void removeOldPropertyNodes(Node node, Uri propertyUri);
     Nodes variantToPropertyNodeList(ObjectNodeMap &map, QVariant v, bool follow);
     Node objectToPropertyNode(ObjectNodeMap &map, QObject *o, bool follow);
     Node listToPropertyNode(ObjectNodeMap &map, QVariantList list, bool follow);
 };
 
 QString
-ObjectMapper::D::typeUriToClassName(QUrl typeUri)
+ObjectMapper::D::typeUriToClassName(Uri typeUri)
 {
     if (m_typeMap.contains(typeUri)) {
         return m_typeMap[typeUri];
@@ -356,14 +356,14 @@ ObjectMapper::D::typeUriToClassName(QUrl typeUri)
     return s;
 }
 
-QUrl
+Uri
 ObjectMapper::D::classNameToTypeUri(QString className)
 {
-    QUrl typeUri;
+    Uri typeUri;
     if (m_typeRMap.contains(className)) {
         typeUri = m_typeRMap[className];
     } else {
-        typeUri = QString(m_typePrefix + className).replace("::", "/");
+        typeUri = Uri(QString(m_typePrefix + className).replace("::", "/"));
     }
     return typeUri;
 }
@@ -591,7 +591,7 @@ ObjectMapper::D::storeProperties(ObjectNodeMap &map, QObject *o,
 
         Nodes pnodes = variantToPropertyNodeList(map, value, follow);
 
-        QUrl puri;
+        Uri puri;
         if (m_propertyRMap[cname].contains(pname)) {
             //!!! could this mapping be done by PropertyObject?
             puri = m_propertyRMap[cname][pname];
@@ -616,7 +616,7 @@ ObjectMapper::D::storeProperties(ObjectNodeMap &map, QObject *o,
 }            
             
 void
-ObjectMapper::D::removeOldPropertyNodes(Node node, QUrl propertyUri) 
+ObjectMapper::D::removeOldPropertyNodes(Node node, Uri propertyUri) 
 {
     //!!! make PropertyObject do this?
     Triple t(node, propertyUri, Node());
@@ -803,7 +803,7 @@ ObjectMapper::D::loadSingle(NodeObjectMap &map, Node node, QObject *parent,
     Triple t = m_s->matchFirst(Triple(node, "a", Node()));
     if (t.c.type == Node::URI) {
         try {
-            className = typeUriToClassName(t.c.value);
+            className = typeUriToClassName(Uri(t.c.value));
         } catch (UnknownTypeException) {
             DEBUG << "loadSingle: Unknown type URI " << t.c.value << endl;
             if (classHint == "") throw;
@@ -830,7 +830,7 @@ ObjectMapper::D::loadSingle(NodeObjectMap &map, Node node, QObject *parent,
     if (!o) throw ConstructionFailedException(className);
 	
     if (node.type == Node::URI) {
-        o->setProperty("uri", m_s->expand(node.value));
+        o->setProperty("uri", QVariant::fromValue(m_s->expand(node.value)));
     }
     map[node] = o;
 
@@ -870,8 +870,8 @@ ObjectMapper::D::loadConnections(NodeObjectMap &map)
 
     foreach (Dictionary d, rs) {
 
-        QUrl sourceUri = d["sobj"].value;
-        QUrl targetUri = d["tobj"].value;
+        Uri sourceUri(d["sobj"].value);
+        Uri targetUri(d["tobj"].value);
         if (!map.contains(sourceUri) || !map.contains(targetUri)) continue;
 
         QString sourceSignal = signalTemplate.replace("xxx", d["ssig"].value);
@@ -920,8 +920,8 @@ ObjectMapper::D::storeSingle(ObjectNodeMap &map, QObject *o, bool follow, bool b
     QVariant uriVar = o->property("uri");
 
     if (uriVar != QVariant()) {
-        if (uriVar.type() == QVariant::Url) {
-            node = uriVar.toUrl();
+        if (Uri::isUri(uriVar)) {
+            node = uriVar.value<Uri>();
         } else {
             node = m_s->expand(uriVar.toString());
         }
@@ -936,8 +936,8 @@ ObjectMapper::D::storeSingle(ObjectNodeMap &map, QObject *o, bool follow, bool b
             tag.replace("::", "_");
             prefix = ":" + tag;
         }
-        QUrl uri = m_s->getUniqueUri(prefix);
-        o->setProperty("uri", uri); //!!! document this
+        Uri uri = m_s->getUniqueUri(prefix);
+        o->setProperty("uri", QVariant::fromValue(uri)); //!!! document this
         node = uri;
     }
 
@@ -972,7 +972,7 @@ Node
 ObjectMapper::D::storeTree(ObjectNodeMap &map, QObject *o)
 {
     if (m_osp == StoreObjectsWithURIs) {
-        if (o->property("uri") == QVariant()) return QUrl();
+        if (o->property("uri") == QVariant()) return Uri();
     }
 
     Node me = storeSingle(map, o, true);
@@ -1042,7 +1042,7 @@ ObjectMapper::addTypeMapping(QString className, QString uri)
 }
 
 void
-ObjectMapper::addTypeMapping(QString className, QUrl uri)
+ObjectMapper::addTypeMapping(QString className, Uri uri)
 {
     m_d->addTypeMapping(className, uri);
 }
@@ -1060,7 +1060,7 @@ ObjectMapper::addPropertyMapping(QString className, QString propertyName, QStrin
 }
 
 void
-ObjectMapper::addPropertyMapping(QString className, QString propertyName, QUrl uri)
+ObjectMapper::addPropertyMapping(QString className, QString propertyName, Uri uri)
 {
     m_d->addPropertyMapping(className, propertyName, uri);
 }
@@ -1102,25 +1102,25 @@ ObjectMapper::getBlankNodePolicy() const
 }
 
 void
-ObjectMapper::loadProperties(QObject *o, QUrl uri)
+ObjectMapper::loadProperties(QObject *o, Uri uri)
 {
     m_d->loadProperties(o, uri);
 }
 
 void
-ObjectMapper::storeProperties(QObject *o, QUrl uri)
+ObjectMapper::storeProperties(QObject *o, Uri uri)
 {
     m_d->storeProperties(o, uri);
 }
 
 QObject *
-ObjectMapper::loadObject(QUrl uri, QObject *parent)
+ObjectMapper::loadObject(Uri uri, QObject *parent)
 {
     return m_d->loadObject(uri, parent);
 }
 
 QObject *
-ObjectMapper::loadObjectTree(QUrl rootUri, QObject *parent)
+ObjectMapper::loadObjectTree(Uri rootUri, QObject *parent)
 {
     return m_d->loadObjectTree(rootUri, parent);
 }
@@ -1131,13 +1131,13 @@ ObjectMapper::loadAllObjects(QObject *parent)
     return m_d->loadAllObjects(parent);
 }
 
-QUrl
+Uri
 ObjectMapper::storeObject(QObject *o)
 {
     return m_d->storeObject(o);
 }
 
-QUrl
+Uri
 ObjectMapper::storeObjectTree(QObject *root)
 {
     return m_d->storeObjectTree(root);

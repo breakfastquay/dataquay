@@ -34,7 +34,6 @@
 #ifndef _DATAQUAY_OBJECT_MAPPER_H_
 #define _DATAQUAY_OBJECT_MAPPER_H_
 
-#include <QUrl>
 #include "../Node.h"
 
 #include <exception>
@@ -106,7 +105,7 @@ public:
     void setRelationshipPrefix(QString prefix);
 
     void addTypeMapping(QString className, QString uri);
-    void addTypeMapping(QString className, QUrl uri);
+    void addTypeMapping(QString className, Uri uri);
 
     /**
      * Add a mapping between class name and the common parts of any
@@ -136,7 +135,7 @@ public:
 
     //!!! n.b. document that uris must be distinct (can't map to properties to same RDF predicate as we'd be unable to distinguish between them on reload -- we don't use the object type to distinguish which predicate is which)
     void addPropertyMapping(QString className, QString propertyName, QString uri);
-    void addPropertyMapping(QString className, QString propertyName, QUrl uri);
+    void addPropertyMapping(QString className, QString propertyName, Uri uri);
     
     enum PropertyStorePolicy {
         /** Store only properties that differ from default object */
@@ -173,7 +172,7 @@ public:
      * Load to the given object all QObject properties defined in this
      * object mapper's store for the given object URI.
      */
-    void loadProperties(QObject *o, QUrl uri);
+    void loadProperties(QObject *o, Uri uri);
 
     //!!! transaction/connection management?
 
@@ -184,7 +183,7 @@ public:
      * given object, as QObject property types associated with the
      * given object URI.
      */
-    void storeProperties(QObject *o, QUrl uri);
+    void storeProperties(QObject *o, Uri uri);
 
     //!!! want loadObject, loadTree, loadGraph, loadAllGraphs (loadGraph equivalent to loadFrom) -- and then loader callback gets passed an enum value identifying load type
     
@@ -194,12 +193,12 @@ public:
      * will be determined by the rdf:type for the URI.
      *!!!??? type prefix? how these map to class names?
      */
-    QObject *loadObject(QUrl uri, QObject *parent); // may throw ConstructionFailedException, UnknownTypeException
-    QObject *loadObjectTree(QUrl rootUri, QObject *parent); // may throw ConstructionFailedException
+    QObject *loadObject(Uri uri, QObject *parent); // may throw ConstructionFailedException, UnknownTypeException
+    QObject *loadObjectTree(Uri rootUri, QObject *parent); // may throw ConstructionFailedException
     QObject *loadAllObjects(QObject *parent); // may throw ConstructionFailedException
 
-    QUrl storeObject(QObject *o);
-    QUrl storeObjectTree(QObject *root);
+    Uri storeObject(QObject *o);
+    Uri storeObjectTree(QObject *root);
     void storeAllObjects(QObjectList);
     //!!! want a method to store all objects (and pass back and forth object map?)
 
