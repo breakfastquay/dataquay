@@ -48,16 +48,55 @@ class QVariant;
 namespace Dataquay
 {
 
+/**
+ * Class to represent URIs.  The Uri is a very thin wrapper around a
+ * string.  Its purpose is to distinguish between abbreviated URIs
+ * which may be subject to prefix expansion (represented by strings)
+ * and properly expanded URIs (represented by Uri).
+ *
+ * In terms of the Turtle syntax, anything written within angle
+ * brackets is a Uri, while a bare string in URI context is not: it
+ * should be stored as a QString and converted to a Uri using
+ * Store::expand().  For example, <http://xmlns.com/foaf/0.1/name> is
+ * a Uri, while foaf:name is just a string.  Never store the latter
+ * form in a Uri object without expanding it first.
+ *
+ * (Wherever a method in Dataquay accepts a URI as a QString type, it
+ * is safe to assume that it will expand any prefixes used in the URI
+ * before use.  Some methods exist in alternative forms with Uri or
+ * QString arguments; the QString form does prefix expansion, while
+ * the Uri form does not.)
+ *
+ * Dataquay uses Uri in preference to QUrl because the latter is
+ * relatively slow to convert to and from string forms.  Uri imposes
+ * no overhead over a string, it simply aids type safety.
+ */
 class Uri
 {
 public:
+    /**
+     * Construct an empty (invalid, null) URI.
+     */
     Uri() {
     }
+
+    /**
+     * Construct a URI from the given string, which is expected to
+     * contain the text of a complete well-formed URI.  To construct a
+     * Uri from an abbreviated URI via prefix expansion, use
+     * Store::expand() instead.  This constructor is intentionally
+     * marked explicit; no silent conversion is available.
+     */
     explicit Uri(const QString &s) : m_uri(s) {
 #ifndef NDEBUG
 	checkComplete();
 #endif
     }
+
+    /**
+     * Construct a URI from the given QUrl, which is expected to
+     * contain a complete well-formed URI.
+     */
     explicit Uri(const QUrl &u) : m_uri(u.toString()) {
 #ifndef NDEBUG
 	checkComplete();
@@ -66,16 +105,16 @@ public:
     ~Uri() {
     }
 
-    QString toString() const { return m_uri; }
-    QUrl toUrl() const { return QUrl(m_uri); }
-    
-    int length() const { return m_uri.length(); }
+    inline QString toString() const { return m_uri; }
+    inline QUrl toUrl() const { return QUrl(m_uri); }
+    inline int length() const { return m_uri.length(); }
+
     QString scheme() const;
 
     bool operator==(const Uri &u) const;
-    bool operator!=(const Uri &u) const { return !operator==(u); }
-    bool operator<(const Uri &u) const { return m_uri < u.m_uri; }
-    bool operator>(const Uri &u) const { return u < *this; }
+    inline bool operator!=(const Uri &u) const { return !operator==(u); }
+    inline bool operator<(const Uri &u) const { return m_uri < u.m_uri; }
+    inline bool operator>(const Uri &u) const { return u < *this; }
 
     //!!! is there a nicer way to do this?
     static int metaTypeId();

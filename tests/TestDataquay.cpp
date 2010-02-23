@@ -93,10 +93,10 @@ testBasicStore()
         } else {
             cerr << "Starting tests with absolute base URI" << endl;
             store.clear();
-            store.setBaseUri("http://blather-de-hoop/");
+            store.setBaseUri(Uri("http://blather-de-hoop/"));
         }
 
-        QString base = store.getBaseUri();
+        QString base = store.getBaseUri().toString();
 
         int count = 0;
         int fromFred = 0;
@@ -219,7 +219,7 @@ testBasicStore()
         ++count;
         ++fromFred;
 
-        store.addPrefix("foaf", "http://xmlns.com/foaf/0.1/");
+        store.addPrefix("foaf", Uri("http://xmlns.com/foaf/0.1/"));
     
         if (!store.add(Triple(Node(Node::URI, ":alice"),
                               Node(Node::URI, "foaf:knows"),
@@ -461,7 +461,7 @@ testBasicStore()
     
         cerr << "Testing file load..." << endl;
 
-        BasicStore *store2 = BasicStore::load("file:test.ttl");
+        BasicStore *store2 = BasicStore::load(QUrl("file:test.ttl"));
 
         cerr << "Testing file re-save..." << endl;
 
@@ -510,7 +510,8 @@ testBasicStore()
         if (haveBaseUri) {
             cerr << "Testing import into original store..." << endl;
 
-            store.import("file:test2.ttl", BasicStore::ImportIgnoreDuplicates);
+            store.import(QUrl("file:test2.ttl"),
+                         BasicStore::ImportIgnoreDuplicates);
 
             results = store.query(q);
             if (results.size() != 1) {
@@ -532,9 +533,9 @@ testImportOptions()
 
     cerr << "testImportOptions starting..." << endl;
 
-    store.setBaseUri("http://blather-de-hoop/");
+    store.setBaseUri(Uri("http://blather-de-hoop/"));
 
-    QString base = store.getBaseUri();
+    QString base = store.getBaseUri().toString();
 
     int count = 0;
 
@@ -577,7 +578,7 @@ testImportOptions()
     store.save("test3.ttl");
     
     try {
-        store.import("file:test3.ttl", BasicStore::ImportFailOnDuplicates);
+        store.import(QUrl("file:test3.ttl"), BasicStore::ImportFailOnDuplicates);
     } catch (RDFDuplicateImportException) {
         cerr << "Correctly caught RDFDuplicateImportException when importing duplicate store" << endl;
     }
@@ -589,7 +590,7 @@ testImportOptions()
     }
     
     try {
-        store.import("file:test3.ttl", BasicStore::ImportPermitDuplicates);
+        store.import(QUrl("file:test3.ttl"), BasicStore::ImportPermitDuplicates);
     } catch (RDFDuplicateImportException) {
         cerr << "Correctly caught RDFDuplicateImportException when importing duplicate store with duplicates permitted" << endl;
     }
@@ -600,8 +601,8 @@ testImportOptions()
     store.clear();
 
     try {
-        store.import("file:test3.ttl", BasicStore::ImportIgnoreDuplicates);
-        store.import("file:test3.ttl", BasicStore::ImportIgnoreDuplicates);
+        store.import(QUrl("file:test3.ttl"), BasicStore::ImportIgnoreDuplicates);
+        store.import(QUrl("file:test3.ttl"), BasicStore::ImportIgnoreDuplicates);
     } catch (RDFDuplicateImportException) {
         cerr << "Wrongly caught RDFDuplicateImportException when importing duplicate store with ImportIgnoreDuplicates" << endl;
         return false;
@@ -624,7 +625,7 @@ testTransactionalStore()
     cerr << "testTransactionalStore starting..." << endl;
 
     store.clear();
-    store.setBaseUri("http://blather-de-hoop/");
+    store.setBaseUri(Uri("http://blather-de-hoop/"));
 
     TransactionalStore ts(&store);
 
@@ -853,7 +854,7 @@ testConnection()
     cerr << "testConnection starting..." << endl;
 
     store.clear();
-    store.setBaseUri("http://blather-de-hoop/");
+    store.setBaseUri(Uri("http://blather-de-hoop/"));
 
     TransactionalStore ts(&store);
     

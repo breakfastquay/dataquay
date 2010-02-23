@@ -37,6 +37,8 @@
 #include <QString>
 #include <exception>
 
+#include "Uri.h"
+
 namespace Dataquay
 {
 
@@ -50,6 +52,8 @@ class RDFException : virtual public std::exception
 public:
     RDFException(QString message, QString data = "") throw() :
         m_message(message), m_data(data) { }
+    RDFException(QString message, Uri data) throw() :
+        m_message(message), m_data(data.toString()) { }
     virtual ~RDFException() throw() { }
     virtual const char *what() const throw() {
         if (m_data == "") {

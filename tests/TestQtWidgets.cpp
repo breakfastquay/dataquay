@@ -38,8 +38,8 @@ namespace Dataquay
 namespace Test
 {
 
-static QString qtypePrefix = "http://breakfastquay.com/rdf/dataquay/qtype/";
-static QString dqPrefix = "http://breakfastquay.com/rdf/dataquay/common/"; //???
+static Uri qtypePrefix("http://breakfastquay.com/rdf/dataquay/qtype/");
+static Uri dqPrefix("http://breakfastquay.com/rdf/dataquay/common/"); //???
 
 struct LayoutLoader : public ObjectMapper::LoadCallback {
 
@@ -48,7 +48,7 @@ struct LayoutLoader : public ObjectMapper::LoadCallback {
 	cerr << "LayoutLoader::loaded: uri " << node.value.toStdString() << ", object type " << o->metaObject()->className() << endl;
 
 	Store *s = m->getStore();
-	PropertyObject pod(s, dqPrefix, node); //!!! was cacheing, but that doesn't support this interface yet
+	PropertyObject pod(s, dqPrefix.toString(), node); //!!! was cacheing, but that doesn't support this interface yet
 
 	QObject *parent = o->parent();
 	if (dynamic_cast<QMainWindow *>(parent) &&
@@ -109,7 +109,7 @@ struct LayoutStorer : public ObjectMapper::StoreCallback {
 
     void stored(ObjectMapper *m, ObjectMapper::ObjectNodeMap &map, QObject *o, Node node)
     {
-	PropertyObject pod(m->getStore(), dqPrefix, node);
+	PropertyObject pod(m->getStore(), dqPrefix.toString(), node);
 
 	QLayout *layout = dynamic_cast<QLayout *>(o);
 	if (layout) {

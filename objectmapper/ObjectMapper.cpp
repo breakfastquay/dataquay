@@ -54,9 +54,9 @@
 
 namespace Dataquay {
 
-static QString defaultTypePrefix = "http://breakfastquay.com/rdf/dataquay/objectmapper/type/";
-static QString defaultPropertyPrefix = "http://breakfastquay.com/rdf/dataquay/objectmapper/property/";
-static QString defaultRelationshipPrefix = "http://breakfastquay.com/rdf/dataquay/objectmapper/relationship/";
+static Uri defaultTypePrefix("http://breakfastquay.com/rdf/dataquay/objectmapper/type/");
+static Uri defaultPropertyPrefix("http://breakfastquay.com/rdf/dataquay/objectmapper/property/");
+static Uri defaultRelationshipPrefix("http://breakfastquay.com/rdf/dataquay/objectmapper/relationship/");
 
 class ObjectMapper::D
 {
@@ -78,27 +78,27 @@ public:
         return m_s;
     }
 
-    QString getObjectTypePrefix() const {
+    Uri getObjectTypePrefix() const {
         return m_typePrefix;
     }
 
-    void setObjectTypePrefix(QString prefix) {
+    void setObjectTypePrefix(Uri prefix) {
         m_typePrefix = prefix;
     }
 
-    QString getPropertyPrefix() const {
+    Uri getPropertyPrefix() const {
         return m_propertyPrefix;
     }
 
-    void setPropertyPrefix(QString prefix) { 
+    void setPropertyPrefix(Uri prefix) { 
         m_propertyPrefix = prefix;
     }
 
-    QString getRelationshipPrefix() const {
+    Uri getRelationshipPrefix() const {
         return m_relationshipPrefix;
     }
 
-    void setRelationshipPrefix(QString prefix) { 
+    void setRelationshipPrefix(Uri prefix) { 
         m_relationshipPrefix = prefix;
     }
 
@@ -112,6 +112,10 @@ public:
     }
 
     void addTypeUriPrefixMapping(QString className, QString prefix) {
+        addTypeUriPrefixMapping(className, m_s->expand(prefix));
+    }
+
+    void addTypeUriPrefixMapping(QString className, Uri prefix) {
         m_typeUriPrefixMap[className] = prefix;
     }
 
@@ -255,9 +259,9 @@ public:
         // we make them explicit (as we will do in a moment); they
         // just default to the one in the ctor
 
-	CacheingPropertyObject po(m_s, m_propertyPrefix, node);
+	CacheingPropertyObject po(m_s, m_propertyPrefix.toString(), node);
 
-        QString followsProp = m_relationshipPrefix + "follows";
+        QString followsProp = m_relationshipPrefix.toString() + "follows";
 	if (po.hasProperty(followsProp)) {
             try {
                 loadFrom(map, po.getPropertyNode(followsProp));
@@ -265,7 +269,7 @@ public:
 	}
 
         QObject *parent = 0;
-        QString parentProp = m_relationshipPrefix + "parent";
+        QString parentProp = m_relationshipPrefix.toString() + "parent";
 	if (po.hasProperty(parentProp)) {
             try {
                 parent = loadFrom(map, po.getPropertyNode(parentProp));
@@ -303,14 +307,14 @@ private:
     PropertyStorePolicy m_psp;
     ObjectStorePolicy m_osp;
     BlankNodePolicy m_bp;
-    QString m_typePrefix;
-    QString m_propertyPrefix;
-    QString m_relationshipPrefix;
+    Uri m_typePrefix;
+    Uri m_propertyPrefix;
+    Uri m_relationshipPrefix;
     QList<LoadCallback *> m_loadCallbacks;
     QList<StoreCallback *> m_storeCallbacks;
     QMap<Uri, QString> m_typeMap;
     QHash<QString, Uri> m_typeRMap;
-    QHash<QString, QString> m_typeUriPrefixMap;
+    QHash<QString, Uri> m_typeUriPrefixMap;
     QHash<QString, QHash<Uri, QString> > m_propertyMap;
     QHash<QString, QHash<QString, Uri> > m_propertyRMap;
 
@@ -354,7 +358,7 @@ ObjectMapper::D::typeUriToClassName(Uri typeUri)
         return m_typeMap[typeUri];
     }
     QString s = typeUri.toString();
-    if (!s.startsWith(m_typePrefix)) {
+    if (!s.startsWith(m_typePrefix.toString())) {
         throw UnknownTypeException(s);
     }
     s = s.right(s.length() - m_typePrefix.length());
@@ -369,7 +373,7 @@ ObjectMapper::D::classNameToTypeUri(QString className)
     if (m_typeRMap.contains(className)) {
         typeUri = m_typeRMap[className];
     } else {
-        typeUri = Uri(QString(m_typePrefix + className).replace("::", "/"));
+        typeUri = Uri(QString(m_typePrefix.toString() + className).replace("::", "/"));
     }
     return typeUri;
 }
@@ -382,7 +386,7 @@ ObjectMapper::D::loadProperties(NodeObjectMap &map, QObject *o, Node node,
 
     bool myPo = false;
     if (!po) {
-        po = new CacheingPropertyObject(m_s, m_propertyPrefix, node);
+        po = new CacheingPropertyObject(m_s, m_propertyPrefix.toString(), node);
         myPo = true;
     }
 
@@ -568,7 +572,7 @@ ObjectMapper::D::storeProperties(ObjectNodeMap &map, QObject *o,
                                  Node node, bool follow)
 {
     QString cname = o->metaObject()->className();
-    PropertyObject po(m_s, m_propertyPrefix, node);
+    PropertyObject po(m_s, m_propertyPrefix.toString(), node);
 
     for (int i = 0; i < o->metaObject()->propertyCount(); ++i) {
 
@@ -880,7 +884,7 @@ ObjectMapper::D::loadConnections(NodeObjectMap &map)
           " ?conn a rel:Connection; rel:source ?s; rel:target ?t. "
           " ?s rel:object ?sobj; rel:signal ?ssig. "
           " ?t rel:object ?tobj; rel:slot ?tslot. "
-          " } ").arg(m_relationshipPrefix));
+          " } ").arg(m_relationshipPrefix.toString()));
 
     foreach (Dictionary d, rs) {
 
@@ -912,7 +916,7 @@ ObjectMapper::D::loadTree(NodeObjectMap &map, Node node, QObject *parent)
 
     if (o) {
         Triples childTriples = m_s->match
-            (Triple(Node(), m_relationshipPrefix + "parent", node));
+            (Triple(Node(), m_relationshipPrefix.toString() + "parent", node));
         foreach (Triple t, childTriples) {
             loadTree(map, t.a, o);
         }
@@ -944,7 +948,7 @@ ObjectMapper::D::storeSingle(ObjectNodeMap &map, QObject *o, bool follow, bool b
     } else {
         QString prefix;
         if (m_typeUriPrefixMap.contains(className)) {
-            prefix = m_typeUriPrefixMap[className];
+            prefix = m_typeUriPrefixMap[className].toString();
         } else {
             QString tag = className.toLower() + "_";
             tag.replace("::", "_");
@@ -963,7 +967,7 @@ ObjectMapper::D::storeSingle(ObjectNodeMap &map, QObject *o, bool follow, bool b
         map.contains(o->parent()) &&
         map[o->parent()] != Node()) {
 
-        m_s->add(Triple(node, m_relationshipPrefix + "parent",
+        m_s->add(Triple(node, m_relationshipPrefix.toString() + "parent",
                         map[o->parent()]));
     }
 
@@ -1013,38 +1017,38 @@ ObjectMapper::getStore()
     return m_d->getStore();
 }
 
-QString
+Uri
 ObjectMapper::getObjectTypePrefix() const
 {
     return m_d->getObjectTypePrefix();
 }
 
 void
-ObjectMapper::setObjectTypePrefix(QString prefix)
+ObjectMapper::setObjectTypePrefix(Uri prefix)
 {
     m_d->setObjectTypePrefix(prefix);
 }
 
-QString
+Uri
 ObjectMapper::getPropertyPrefix() const
 {
     return m_d->getPropertyPrefix();
 }
 
 void
-ObjectMapper::setPropertyPrefix(QString prefix)
+ObjectMapper::setPropertyPrefix(Uri prefix)
 {
     m_d->setPropertyPrefix(prefix);
 }
 
-QString
+Uri
 ObjectMapper::getRelationshipPrefix() const
 {
     return m_d->getRelationshipPrefix();
 }
 
 void
-ObjectMapper::setRelationshipPrefix(QString prefix)
+ObjectMapper::setRelationshipPrefix(Uri prefix)
 {
     m_d->setRelationshipPrefix(prefix);
 }
@@ -1063,6 +1067,12 @@ ObjectMapper::addTypeMapping(QString className, Uri uri)
 
 void
 ObjectMapper::addTypeUriPrefixMapping(QString className, QString prefix)
+{
+    m_d->addTypeUriPrefixMapping(className, prefix);
+}
+
+void
+ObjectMapper::addTypeUriPrefixMapping(QString className, Uri prefix)
 {
     m_d->addTypeUriPrefixMapping(className, prefix);
 }

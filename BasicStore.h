@@ -63,12 +63,12 @@ public:
      * The default base URI is "#" (resolve local URIs relative to
      * this document).
      */
-    void setBaseUri(QString uri);
+    void setBaseUri(Uri uri);
 
     /**
      * Retrieve the base URI for the store.
      */
-    QString getBaseUri() const;
+    Uri getBaseUri() const;
     
     /**
      * Empty the store (including prefixes as well as triples).
@@ -90,7 +90,7 @@ public:
      * For example, the URI ":blather" will be expanded to the base
      * URI plus "blather".
      */
-    void addPrefix(QString prefix, QString uri);
+    void addPrefix(QString prefix, Uri uri);
 
     // Store interface
 
@@ -164,7 +164,7 @@ public:
      * depends on the underlying RDF library configuration.  The
      * default is to guess the format if possible.
      */
-    void import(QString url, ImportDuplicatesMode idm, QString format = "");
+    void import(QUrl url, ImportDuplicatesMode idm, QString format = "");
 
     /**
      * Construct a new BasicStore from the RDF document at the given
@@ -180,7 +180,7 @@ public:
      * depends on the underlying RDF library configuration.  The
      * default is to guess the format if possible.
      */
-    static BasicStore *load(QString url, QString format = "");
+    static BasicStore *load(QUrl url, QString format = "");
 
 private:
     class D;

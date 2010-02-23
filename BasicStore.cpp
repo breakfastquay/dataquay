@@ -55,11 +55,11 @@ class BasicStore::D
 {
 public:
     D() : m_storage(0), m_model(0), m_counter(0) {
-        m_baseUri = "#";
+        m_baseUri = Uri("#");
         m_prefixes[""] = m_baseUri;
         // note this is also hardcoded in expand():
-        m_prefixes["rdf"] = "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
-        m_prefixes["xsd"] = "http://www.w3.org/2001/XMLSchema#";
+        m_prefixes["rdf"] = Uri("http://www.w3.org/1999/02/22-rdf-syntax-ns#");
+        m_prefixes["xsd"] = Uri("http://www.w3.org/2001/XMLSchema#");
         clear();
     }
 
@@ -69,13 +69,13 @@ public:
         if (m_storage) librdf_free_storage(m_storage);
     }
     
-    void setBaseUri(QString baseUri) {
+    void setBaseUri(Uri baseUri) {
         QMutexLocker plocker(&m_prefixLock);
         m_baseUri = baseUri;
         m_prefixes[""] = m_baseUri;
     }
     
-    QString getBaseUri() const {
+    Uri getBaseUri() const {
         return m_baseUri;
     }
 
@@ -94,7 +94,7 @@ public:
         if (!m_model) throw RDFException("Failed to create RDF data model");
     }
 
-    void addPrefix(QString prefix, QString uri) {
+    void addPrefix(QString prefix, Uri uri) {
         QMutexLocker plocker(&m_prefixLock);
         m_prefixes[prefix] = uri;
     }
@@ -258,8 +258,49 @@ public:
         return expand(uri);
     }
 
-    Uri expand(QString uri) const {
-        return Uri(prefixExpand(uri));
+    Uri expand(QString shrt) const {
+
+        if (shrt == "a") {
+            static Uri rdfTypeUri
+                ("http://www.w3.org/1999/02/22-rdf-syntax-ns#type");
+            return rdfTypeUri;
+        }
+
+        int index = shrt.indexOf(':');
+        if (index == 0) {
+            // starts with colon
+            return Uri(m_baseUri.toString() + shrt.right(shrt.length() - 1));
+        } else if (index > 0) {
+            // colon appears in middle somewhere
+            if (index + 2 < shrt.length() &&
+                shrt[index+1] == '/' &&
+                shrt[index+2] == '/') {
+                // we have found "://", this is a scheme, therefore
+                // the uri is already expanded
+                return Uri(shrt);
+            }
+        } else {
+            // no colon present, no possibility of expansion
+            return Uri(shrt);
+        }
+
+        // fall through only for colon in middle and no "://" found,
+        // i.e. a plausible prefix appears
+
+        QString prefix = shrt.left(index);
+        QString expanded;
+
+        m_prefixLock.lock();
+        PrefixMap::const_iterator pi = m_prefixes.find(prefix);
+        if (pi != m_prefixes.end()) {
+            expanded = pi.value().toString() +
+                shrt.right(shrt.length() - (index + 1));
+        } else {
+            expanded = shrt;
+        }
+        m_prefixLock.unlock();
+
+        return Uri(expanded);
     }
 
     Node addBlankNode() {
@@ -274,7 +315,7 @@ public:
         QMutexLocker wlocker(&m_librdfLock);
         QMutexLocker plocker(&m_prefixLock);
 
-        librdf_uri *base_uri = stringToUri(m_baseUri);
+        librdf_uri *base_uri = uriToLrdfUri(m_baseUri);
         QByteArray b = filename.toLocal8Bit();
         const char *lname = b.data();
 
@@ -284,9 +325,9 @@ public:
         for (PrefixMap::const_iterator i = m_prefixes.begin();
              i != m_prefixes.end(); ++i) {
             QByteArray b = i.key().toUtf8();
-            librdf_serializer_set_namespace(s, stringToUri(i.value()), b.data());
+            librdf_serializer_set_namespace(s, uriToLrdfUri(i.value()), b.data());
         }
-        librdf_serializer_set_namespace(s, stringToUri(m_baseUri), "");
+        librdf_serializer_set_namespace(s, uriToLrdfUri(m_baseUri), "");
         
         if (librdf_serializer_serialize_model_to_file(s, lname, base_uri, m_model)) {
             librdf_free_serializer(s);
@@ -296,13 +337,13 @@ public:
         }
     }
 
-    void import(QString url, ImportDuplicatesMode idm, QString format) {
+    void import(QUrl url, ImportDuplicatesMode idm, QString format) {
 
         QMutexLocker wlocker(&m_librdfLock);
         QMutexLocker plocker(&m_prefixLock);
 
-        librdf_uri *luri = stringToUri(url);
-        librdf_uri *base_uri = stringToUri(m_baseUri);
+        librdf_uri *luri = uriToLrdfUri(Uri(url));
+        librdf_uri *base_uri = uriToLrdfUri(m_baseUri);
 
         if (format == "") format = "guess";
 
@@ -317,7 +358,8 @@ public:
             if (librdf_parser_parse_into_model
                 (parser, luri, base_uri, m_model)) {
                 librdf_free_parser(parser);
-                throw RDFException("Failed to import model from URL", url);
+                throw RDFException("Failed to import model from URL",
+                                   url.toString());
             }
         } else { // ImportFailOnDuplicates and ImportIgnoreDuplicates modes
 
@@ -346,7 +388,8 @@ public:
             try { // so as to free parser and im on exception
 
                 if (librdf_parser_parse_into_model(parser, luri, base_uri, im)) {
-                    throw RDFException("Failed to import model from URL", url);
+                    throw RDFException("Failed to import model from URL",
+                                       url.toString());
                 }
                 all = tripleToStatement(Triple());
 
@@ -404,17 +447,17 @@ public:
             const char *pfx = librdf_parser_get_namespaces_seen_prefix(parser, i);
             librdf_uri *uri = librdf_parser_get_namespaces_seen_uri(parser, i);
             QString qpfx = QString::fromUtf8(pfx);
-            QString quri = uriToString(uri);
+            Uri quri = lrdfUriToUri(uri);
             DEBUG << "namespace " << i << ": " << qpfx << " -> " << quri << endl;
-            if (qpfx == "" && quri != "#") {
+            if (qpfx == "" && quri != Uri("#")) {
                 // base uri
-                if (m_baseUri == "#") {
-                    std::cerr << "BasicStore::import: NOTE: Loading file into store with no base URI; setting base URI to <" << quri.toStdString() << "> from file" << std::endl;
+                if (m_baseUri == Uri("#")) {
+                    std::cerr << "BasicStore::import: NOTE: Loading file into store with no base URI; setting base URI to <" << quri.toString().toStdString() << "> from file" << std::endl;
                     m_baseUri = quri;
                     m_prefixes[""] = m_baseUri;
                 } else {
                     if (quri != m_baseUri) {
-                        std::cerr << "BasicStore::import: NOTE: Base URI of loaded file differs from base URI of store (<" << quri.toStdString() << "> != <" << m_baseUri.toStdString() << ">)" << std::endl;
+                        std::cerr << "BasicStore::import: NOTE: Base URI of loaded file differs from base URI of store (<" << quri.toString().toStdString() << "> != <" << m_baseUri.toString().toStdString() << ">)" << std::endl;
                     }
                 }
             }
@@ -464,8 +507,8 @@ private:
     librdf_model *m_model;
     static QMutex m_librdfLock; // assume the worst
 
-    typedef QMap<QString, QString> PrefixMap;
-    QString m_baseUri;
+    typedef QMap<QString, Uri> PrefixMap;
+    Uri m_baseUri;
     PrefixMap m_prefixes;
     mutable QMutex m_prefixLock; // also protects m_baseUri
 
@@ -507,61 +550,18 @@ private:
         return true;
     }
 
-    librdf_uri *stringToUri(QString uri) const {
+    librdf_uri *uriToLrdfUri(Uri uri) const {
         librdf_uri *luri = librdf_new_uri
-            (m_w.getWorld(), (const unsigned char *)uri.toUtf8().data());
+            (m_w.getWorld(),
+             (const unsigned char *)uri.toString().toUtf8().data());
         if (!luri) throw RDFException("Failed to construct URI from string", uri);
         return luri;
     }
 
-    QString uriToString(librdf_uri *u) const {
+    Uri lrdfUriToUri(librdf_uri *u) const {
         const char *s = (const char *)librdf_uri_as_string(u);
-        if (s) return QString::fromUtf8(s);
-        else return "";
-    }
-
-    QString prefixExpand(const QString uri) const {
-
-        if (uri == "a") {
-            static QString rdfTypeUri
-                ("http://www.w3.org/1999/02/22-rdf-syntax-ns#type");
-            return rdfTypeUri;
-        }
-
-        int index = uri.indexOf(':');
-        if (index == 0) {
-            // starts with colon
-            return m_baseUri + uri.right(uri.length() - 1);
-        } else if (index > 0) {
-            // colon appears in middle somewhere
-            if (index + 2 < uri.length() &&
-                uri[index+1] == '/' &&
-                uri[index+2] == '/') {
-                // we have found "://", this is a scheme, therefore
-                // the uri is already expanded
-                return uri;
-            }
-        } else {
-            // no colon present, no possibility of expansion
-            return uri;
-        }
-
-        // fall through only for colon in middle and no "://" found,
-        // i.e. a plausible prefix appears
-
-        QString prefix = uri.left(index);
-        QString expanded;
-
-        m_prefixLock.lock();
-        PrefixMap::const_iterator pi = m_prefixes.find(prefix);
-        if (pi != m_prefixes.end()) {
-            expanded = pi.value() + uri.right(uri.length() - (index + 1));
-        } else {
-            expanded = uri;
-        }
-        m_prefixLock.unlock();
-
-        return expanded;
+        if (s) return Uri(QString::fromUtf8(s));
+        else return Uri();
     }
 
     librdf_node *nodeToLrdfNode(Node v) const { // called with m_librdfLock held
@@ -579,9 +579,9 @@ private:
         }
             break;
         case Node::URI: {
-            QString value = prefixExpand(v.value);
-            librdf_uri *uri = stringToUri(value);
-            if (!uri) throw RDFException("Failed to construct URI from value string", v.value);
+            Uri value = expand(v.value);
+            librdf_uri *uri = uriToLrdfUri(value);
+            if (!uri) throw RDFException("Failed to construct URI from value ", v.value);
             node = librdf_new_node_from_uri(m_w.getWorld(), uri);
             if (!node) throw RDFException("Failed to construct node from URI");
         }
@@ -590,12 +590,13 @@ private:
             QByteArray b = v.value.toUtf8();
             const unsigned char *literal = (const unsigned char *)b.data();
             if (v.datatype != "") {
-                QString dtu = prefixExpand(v.datatype);
-                librdf_uri *type_uri = stringToUri(dtu);
+                Uri dtu = expand(v.datatype);
+                librdf_uri *type_uri = uriToLrdfUri(dtu);
                 node = librdf_new_node_from_typed_literal
                     (m_w.getWorld(), literal, 0, type_uri);
                 if (!node) throw RDFException
-                               ("Failed to construct node from typed literal");
+                               ("Failed to construct node from literal of type ",
+                                v.datatype);
             } else {
                 node = librdf_new_node_from_literal
                     (m_w.getWorld(), literal, 0, 0);
@@ -617,7 +618,7 @@ private:
 
             v.type = Node::URI;
             librdf_uri *uri = librdf_node_get_uri(node);
-            v.value = uriToString(uri);
+            v.value = lrdfUriToUri(uri).toString();
 
         } else if (librdf_node_is_literal(node)) {
 
@@ -625,7 +626,7 @@ private:
             const char *s = (const char *)librdf_node_get_literal_value(node);
             if (s) v.value = QString::fromUtf8(s);
             librdf_uri *type_uri = librdf_node_get_literal_value_datatype_uri(node);
-            if (type_uri) v.datatype = uriToString(type_uri);
+            if (type_uri) v.datatype = lrdfUriToUri(type_uri).toString();
             
         } else if (librdf_node_is_blank(node)) {
 
@@ -688,7 +689,7 @@ private:
 
     ResultSet runQuery(QString rawQuery) const {
     
-        if (m_baseUri == "#") {
+        if (m_baseUri == Uri("#")) {
             std::cerr << "BasicStore::runQuery: WARNING: Query requested on RDF store with default '#' base URI: results may be not as expected" << std::endl;
         }
 
@@ -696,7 +697,8 @@ private:
         m_prefixLock.lock();
         for (PrefixMap::const_iterator i = m_prefixes.begin();
              i != m_prefixes.end(); ++i) {
-            sparql += QString(" PREFIX %1: <%2> ").arg(i.key()).arg(i.value());
+            sparql += QString(" PREFIX %1: <%2> ")
+                .arg(i.key()).arg(i.value().toString());
         }
         m_prefixLock.unlock();
         sparql += rawQuery;
@@ -770,12 +772,12 @@ BasicStore::~BasicStore()
 }
 
 void
-BasicStore::setBaseUri(QString uri)
+BasicStore::setBaseUri(Uri uri)
 {
     m_d->setBaseUri(uri);
 }
 
-QString
+Uri
 BasicStore::getBaseUri() const
 {
     return m_d->getBaseUri();
@@ -824,7 +826,7 @@ BasicStore::match(Triple t) const
 }
 
 void
-BasicStore::addPrefix(QString prefix, QString uri)
+BasicStore::addPrefix(QString prefix, Uri uri)
 {
     m_d->addPrefix(prefix, uri);
 }
@@ -872,13 +874,13 @@ BasicStore::save(QString filename) const
 }
 
 void
-BasicStore::import(QString url, ImportDuplicatesMode idm, QString format)
+BasicStore::import(QUrl url, ImportDuplicatesMode idm, QString format)
 {
     m_d->import(url, idm, format);
 }
 
 BasicStore *
-BasicStore::load(QString url, QString format)
+BasicStore::load(QUrl url, QString format)
 {
     BasicStore *s = new BasicStore();
     // store is empty, ImportIgnoreDuplicates is faster

@@ -96,14 +96,14 @@ public:
     Store *getStore();
 
     //... document
-    QString getObjectTypePrefix() const;
-    void setObjectTypePrefix(QString prefix);
+    Uri getObjectTypePrefix() const;
+    void setObjectTypePrefix(Uri prefix);
 
-    QString getPropertyPrefix() const;
-    void setPropertyPrefix(QString prefix);
+    Uri getPropertyPrefix() const;
+    void setPropertyPrefix(Uri prefix);
 
-    QString getRelationshipPrefix() const;
-    void setRelationshipPrefix(QString prefix);
+    Uri getRelationshipPrefix() const;
+    void setRelationshipPrefix(Uri prefix);
 
     void addTypeMapping(QString className, QString uri);
     void addTypeMapping(QString className, Uri uri);
@@ -133,6 +133,7 @@ public:
      * mapper will not generate a class for URIs without rdf:type.
      */
     void addTypeUriPrefixMapping(QString className, QString prefix);
+    void addTypeUriPrefixMapping(QString className, Uri prefix);
 
     //!!! n.b. document that uris must be distinct (can't map to properties to same RDF predicate as we'd be unable to distinguish between them on reload -- we don't use the object type to distinguish which predicate is which)
     void addPropertyMapping(QString className, QString propertyName, QString uri);

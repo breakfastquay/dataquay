@@ -111,8 +111,8 @@ public:
 
     /**
      * Construct a PropertyObject acting on the given Store, with the
-     * given default prefix for properties and the given "subject"
-     * URI.
+     * given default prefix (which will itself be prefix expanded) for
+     * properties and the given "subject" URI.
      */
     PropertyObject(Store *s, QString propertyPrefix, Uri myUri);
 
@@ -410,11 +410,6 @@ private:
  * usually faster than PropertyObject as it avoids datastore access,
  * but it can only be used in contexts where it is known that no other
  * agent may be modifying the same set of properties.
- 
- *!!! needs to be updated with newer PropertyObject functions, and its
-      cache is not very good (e.g. hasProperty followed by getProperty
-      is slow)
-
  */
 class CacheingPropertyObject
 {
