@@ -44,8 +44,107 @@
 namespace Dataquay
 {
 
-static const Uri encodedVariantTypeURI("http://breakfastquay.com/dataquay/datatype/encodedvariant");
+static const Uri encodedVariantTypeURI
+("http://breakfastquay.com/dataquay/datatype/encodedvariant");
 
+static const Uri xsdPrefix
+("http://www.w3.org/2001/XMLSchema#");
+
+// Type maps to be used when converting from Node to Variant and
+// Variant to Node, respectively.  These are not symmetrical -- for
+// example, we convert xsd:string to QString, but convert QString to
+// an untyped literal ("literal" and "literal"^^xsd:string compare
+// differently and most people just use "literal", so we're more
+// likely to achieve interoperable results if we don't type plain
+// strings).  Similarly we convert both double and float to
+// xsd:decimal, but always convert xsd:decimal to double.
+
+typedef QHash<Uri, QPair<int, Node::VariantEncoder *> > DatatypeMetatypeMap;
+static DatatypeMetatypeMap datatypeMetatypeMap;
+
+typedef QHash<int, QPair<Uri, Node::VariantEncoder *> > MetatypeDatatypeMap;
+static MetatypeDatatypeMap metatypeDatatypeMap;
+
+struct StandardVariantEncoder : public Node::VariantEncoder {
+    QString fromVariant(const QVariant &v) {
+        return v.toString();
+    }
+};
+
+struct LongVariantEncoder : public StandardVariantEncoder {
+    QVariant toVariant(const QString &s) {
+        return QVariant::fromValue<long>(s.toLong());
+    }
+};
+
+struct ULongVariantEncoder : public StandardVariantEncoder {
+    QVariant toVariant(const QString &s) {
+        return QVariant::fromValue<unsigned long>(s.toULong());
+    }
+};
+
+struct DoubleVariantEncoder : public StandardVariantEncoder {
+    QVariant toVariant(const QString &s) {
+        return QVariant::fromValue<double>(s.toDouble());
+    }
+};
+
+struct StringVariantEncoder : public StandardVariantEncoder {
+    QVariant toVariant(const QString &s) {
+        return QVariant::fromValue<QString>(s);
+    }
+};
+
+struct BoolVariantEncoder : public Node::VariantEncoder {
+    QString fromVariant(const QVariant &v) {
+        return (v.toBool() ? "true" : "false");
+    }
+    QVariant toVariant(const QString &s) {
+        return QVariant::fromValue<bool>((s == "true") ||
+                                         (s == "1"));
+    }
+};
+
+struct NodeMetatypeMapRegistrar {
+
+    void registerXsd(QString name, int id, Node::VariantEncoder *enc) {
+        datatypeMetatypeMap[Uri(xsdPrefix.toString() + name)] =
+            QPair<int, Node::VariantEncoder *>(id, enc);
+    }
+
+    void registerXsd(int id, QString name, Node::VariantEncoder *enc) {
+        metatypeDatatypeMap[id] = QPair<Uri, Node::VariantEncoder *>
+            (Uri(xsdPrefix.toString() + name), enc);
+    }
+
+    NodeMetatypeMapRegistrar() {
+        registerXsd("string", QMetaType::QString, new StringVariantEncoder());
+        registerXsd("boolean", QMetaType::Bool, new BoolVariantEncoder());
+        registerXsd("int", QMetaType::Int, new LongVariantEncoder());
+        registerXsd("long", QMetaType::Long, new LongVariantEncoder());
+        registerXsd("integer", QMetaType::Long, new LongVariantEncoder());
+        registerXsd("unsignedInt", QMetaType::UInt, new ULongVariantEncoder());
+        registerXsd("nonNegativeInteger", QMetaType::ULong, new ULongVariantEncoder());
+        registerXsd("float", QMetaType::Float, new DoubleVariantEncoder());
+        registerXsd("double", QMetaType::Double, new DoubleVariantEncoder());
+        registerXsd("decimal", QMetaType::Double, new DoubleVariantEncoder());
+
+        registerXsd(QMetaType::QString, "", new StringVariantEncoder());
+        registerXsd(QMetaType::Bool, "boolean", new BoolVariantEncoder());
+        registerXsd(QMetaType::Int, "integer", new LongVariantEncoder());
+        registerXsd(QMetaType::Long, "integer", new LongVariantEncoder());
+        registerXsd(QMetaType::UInt, "integer", new ULongVariantEncoder());
+        registerXsd(QMetaType::ULong, "integer", new ULongVariantEncoder());
+        registerXsd(QMetaType::Float, "decimal", new DoubleVariantEncoder());
+        registerXsd(QMetaType::Double, "decimal", new DoubleVariantEncoder());
+
+//        registerXsd(QMetaType::Time, "duration");
+//        registerXsd(QMetaType::Date, "date");
+    }
+};
+
+static NodeMetatypeMapRegistrar registrar;
+/*
 static
 QString
 qTimeToXsdDuration(QTime t)
@@ -67,17 +166,55 @@ qTimeToXsdDuration(QTime t)
             .arg(t.second() + double(t.msec())/1000.0);
     }
 }
-
+*/
 Node
-Node::fromVariant(QVariant v)
+Node::fromVariant(const QVariant &v)
 {
-    static const QString pfx = "http://www.w3.org/2001/XMLSchema#";
+    DEBUG << "Node::fromVariant: QVariant type is " << v.userType()
+          << " (" << int(v.userType()) << "), variant is " << v << endl;
 
-    Node n;
-    n.type = Literal;
+    if (Uri::isUri(v)) {
+        return Node(v.value<Uri>());
+    }
 
-    DEBUG << "Node::fromVariant: QVariant type is " << v.type() << " (" << int(v.type()) << "), variant is " << v << endl;
+    int id = v.userType();
     
+    MetatypeDatatypeMap::const_iterator i = metatypeDatatypeMap.find(id);
+
+    if (i != metatypeDatatypeMap.end()) {
+        
+        Node n;
+        n.type = Literal;
+        n.datatype = i.value().first;
+
+        if (i.value().second) {
+
+            // encoder present
+            n.value = i.value().second->fromVariant(v);
+
+        } else {
+
+            // datatype present, but no encoder: extract as string
+            n.value = v.toString();
+        }
+
+        return n;
+
+    } else {
+
+        // no datatype defined
+        QByteArray b;
+        QDataStream ds(&b, QIODevice::WriteOnly);
+        ds << v;
+        
+        Node n;
+        n.type = Literal;
+        n.datatype = encodedVariantTypeURI;
+        n.value = QString::fromAscii(b.toPercentEncoding());        
+        return n;
+    }
+
+    /*
     switch (v.type()) {
 
     case QVariant::Url:
@@ -129,19 +266,10 @@ Node::fromVariant(QVariant v)
         break;
         
     default:
-        if (Uri::isUri(v)) {
-            n.type = URI;
-            n.value = v.value<Uri>().toString();
         } else {
-            QByteArray b;
-            QDataStream ds(&b, QIODevice::WriteOnly);
-            ds << v;
-            n.datatype = encodedVariantTypeURI.toString();
-            n.value = QString::fromAscii(b.toPercentEncoding());
         }
     }
-
-    return n;
+    */
 }
 
 QVariant
@@ -152,6 +280,45 @@ Node::toVariant() const
     } else if (type == Nothing || type == Blank) {
         return QVariant();
     }
+
+    if (datatype == Uri()) {
+        return QVariant::fromValue<QString>(value);
+    }
+
+    DatatypeMetatypeMap::const_iterator i = datatypeMetatypeMap.find(datatype);
+
+    if (i != datatypeMetatypeMap.end()) {
+        
+        if (i.value().second) {
+
+            // encoder present
+            return i.value().second->toVariant(value);
+
+        } else {
+
+            // datatype present, but no encoder: can do nothing
+            // interesting with this, encode as string
+            return QVariant::fromValue<QString>(value);
+        }
+
+    } else {
+
+        // no datatype defined
+        if (datatype == encodedVariantTypeURI) {
+            QByteArray benc = value.toAscii();
+            QByteArray b = QByteArray::fromPercentEncoding(benc);
+            QDataStream ds(&b, QIODevice::ReadOnly);
+            QVariant v;
+            ds >> v;
+            return v;
+        } else {
+            return QVariant::fromValue<QString>(value);
+        }
+    }
+
+        
+
+/*
 
     Uri dtUri(datatype);
 
@@ -206,6 +373,7 @@ Node::toVariant() const
         return v;
     }        
     return QVariant::fromValue<QString>(value);
+*/
 }
 
 bool
@@ -248,9 +416,7 @@ operator<<(std::ostream &out, const Node &n)
         out << "[]";
         break;
     case Node::URI:
-        //!!! is there any way to distinguish between prefixed and expanded
-        // URIs?  should we be passing around full URIs with <> already?
-        if (n.value.startsWith("http:") || n.value.startsWith("file:")) {
+        if (n.value.contains("://") || n.value.startsWith('#')) {
             out << "<" << n.value.toStdString() << ">";
         } else if (n.value == "") {
             out << "[empty-uri]";
@@ -260,7 +426,7 @@ operator<<(std::ostream &out, const Node &n)
         break;
     case Node::Literal:
         out << "\"" << n.value.toStdString() << "\"";
-        if (n.datatype != "") out << "^^" << n.datatype.toStdString();
+        if (n.datatype != Uri()) out << "^^" << n.datatype.toString().toStdString();
         break;
     case Node::Blank:
         out << "[blank " << n.value.toStdString() << "]";
@@ -277,9 +443,7 @@ operator<<(QTextStream &out, const Node &n)
         out << "[]";
         break;
     case Node::URI:
-        //!!! is there any way to distinguish between prefixed and expanded
-        // URIs?  should we be passing around full URIs with <> already?
-        if (n.value.startsWith("http:") || n.value.startsWith("file:")) {
+        if (n.value.contains("://") || n.value.startsWith('#')) {
             out << "<" << n.value << ">";
         } else if (n.value == "") {
             out << "[empty-uri]";
@@ -289,7 +453,7 @@ operator<<(QTextStream &out, const Node &n)
         break;
     case Node::Literal:
         out << "\"" << n.value << "\"";
-        if (n.datatype != "") out << "^^" << n.datatype;
+        if (n.datatype != Uri()) out << "^^" << n.datatype.toString();
         break;
     case Node::Blank:
         out << "[blank " << n.value << "]";

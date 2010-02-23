@@ -34,10 +34,10 @@
 #ifndef _DATAQUAY_NODE_H_
 #define _DATAQUAY_NODE_H_
 
+#include "Uri.h"
+
 #include <QString>
 #include <QVariant>
-
-#include "Uri.h"
 
 class QDataStream;
 class QTextStream;
@@ -89,7 +89,7 @@ public:
      * Construct a node with the given node type, value, and data type
      * URI.
      */
-    Node(Type t, QString v, QString dt) : type(t), value(v), datatype(dt) { }
+    Node(Type t, QString v, Uri dt) : type(t), value(v), datatype(dt) { }
 
     Node(const Node &n) :
         type(n.type), value(n.value), datatype(n.datatype) {
@@ -123,7 +123,7 @@ public:
      * read from or interchanged using the node's value.  These types
      * are given a specific fixed datatype URI.
      */
-    static Node fromVariant(QVariant v);
+    static Node fromVariant(const QVariant &v);
 
     /**
      * Convert a Node to a QVariant.
@@ -137,6 +137,15 @@ public:
      */
     QVariant toVariant() const;
 
+    struct VariantEncoder {
+        virtual QString fromVariant(const QVariant &v) = 0;
+        virtual QVariant toVariant(const QString &n) = 0;
+    };
+
+    static void registerDatatype(Uri datatypeUri,
+                                 int qMetaTypeId,
+                                 VariantEncoder * = 0);
+
     bool operator<(const Node &n) const {
         if (type != n.type) return type < n.type;
         if (value != n.value) return value < n.value;
@@ -146,7 +155,7 @@ public:
     
     Type type;
     QString value;
-    QString datatype;
+    Uri datatype;
 };
 
 /**

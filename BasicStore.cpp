@@ -589,8 +589,8 @@ private:
         case Node::Literal: {
             QByteArray b = v.value.toUtf8();
             const unsigned char *literal = (const unsigned char *)b.data();
-            if (v.datatype != "") {
-                Uri dtu = expand(v.datatype);
+            if (v.datatype != Uri()) {
+                Uri dtu = v.datatype;
                 librdf_uri *type_uri = uriToLrdfUri(dtu);
                 node = librdf_new_node_from_typed_literal
                     (m_w.getWorld(), literal, 0, type_uri);
@@ -626,7 +626,7 @@ private:
             const char *s = (const char *)librdf_node_get_literal_value(node);
             if (s) v.value = QString::fromUtf8(s);
             librdf_uri *type_uri = librdf_node_get_literal_value_datatype_uri(node);
-            if (type_uri) v.datatype = lrdfUriToUri(type_uri).toString();
+            if (type_uri) v.datatype = lrdfUriToUri(type_uri);
             
         } else if (librdf_node_is_blank(node)) {
 
