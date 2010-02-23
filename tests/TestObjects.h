@@ -119,4 +119,8 @@ Q_DECLARE_METATYPE(QList<B*>)
 Q_DECLARE_METATYPE(QList<C*>)
 Q_DECLARE_METATYPE(QSet<C*>)
 
+typedef int SomeValueType;
+
+Q_DECLARE_METATYPE(SomeValueType)
+
 #endif

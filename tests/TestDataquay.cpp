@@ -82,7 +82,7 @@ testBasicStore()
 {
     BasicStore store;
 
-    cerr << "testRDFStore starting..." << endl;
+    cerr << "testBasicStore starting..." << endl;
 
     for (int i = 0; i < 2; ++i) {
 
@@ -523,6 +523,74 @@ testBasicStore()
     }
 
     std::cerr << "testBasicStore done" << std::endl;
+    return true;
+}
+    
+bool
+testDatatypes()
+{
+    BasicStore store;
+
+    cerr << "testDatatypes starting..." << endl;
+
+    // Untyped literal should convert to QString
+
+    Node n(Node::Literal, "Fred Jenkins", Uri());
+
+    QVariant v = n.toVariant();
+    if (v.userType() != QMetaType::QString) {
+        cerr << "Plain literal node converted to variant has unexpected type "
+             << v.userType() << " (expected " << QMetaType::QString << ")" << endl;
+        return false;
+    }
+
+    Triple t(store.expand(":fred"),
+             Uri("http://xmlns.com/foaf/0.1/name"),
+             n);
+
+    if (!store.add(t)) {
+        cerr << "Failed to add triple to store" << endl;
+        return false;
+    }
+
+    t.c = Node();
+    Triple t0(store.matchFirst(t));
+    Node n0(t.c);
+    if (n0.datatype != n.datatype) {
+        cerr << "Failed to retrieve expected nil datatype" << endl;
+        return false;
+    }
+
+    n = Node(Node::Literal, "1", store.expand("xsd:integer"));
+
+    v = n.toVariant();
+    if (v.userType() != QMetaType::Long) {
+        cerr << "Integer literal node converted to variant has unexpected type "
+             << v.userType() << " (expected " << QMetaType::Long << ")" << endl;
+        return false;
+    }
+
+    t = Triple(store.expand(":fred"),
+               store.expand(":number_of_jobs"),
+               n);
+    
+    if (!store.add(t)) {
+        cerr << "Failed to add triple to store" << endl;
+        return false;
+    }
+
+    t.c = Node();
+    t0 = store.matchFirst(t);
+    n0 = t.c;
+    if (n0.datatype != n.datatype) {
+        cerr << "Failed to retrieve expected integer datatype" << endl;
+        return false;
+    }
+
+    SomeValueType v = 4;
+
+
+
     return true;
 }
   
@@ -1177,6 +1245,7 @@ main(int argc, char **argv)
     }
 
     if (!Dataquay::Test::testBasicStore()) return 1;
+    if (!Dataquay::Test::testDatatypes()) return 1;
     if (!Dataquay::Test::testImportOptions()) return 1;
     if (!Dataquay::Test::testTransactionalStore()) return 1;
     if (!Dataquay::Test::testConnection()) return 1;
