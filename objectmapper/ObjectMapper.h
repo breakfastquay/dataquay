@@ -34,6 +34,7 @@
 #ifndef _DATAQUAY_OBJECT_MAPPER_H_
 #define _DATAQUAY_OBJECT_MAPPER_H_
 
+#include "../Uri.h"
 #include "../Node.h"
 
 #include <exception>

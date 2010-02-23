@@ -382,7 +382,7 @@ ObjectMapper::D::loadProperties(NodeObjectMap &map, QObject *o, Node node,
 
     bool myPo = false;
     if (!po) {
-        po = new CacheingPropertyObject po(m_s, m_propertyPrefix, node);
+        po = new CacheingPropertyObject(m_s, m_propertyPrefix, node);
         myPo = true;
     }
 
