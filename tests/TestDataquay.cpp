@@ -715,7 +715,7 @@ testDatatypes()
     Uri nsvDtUri("http://blather-de-hoop/nonstreamable");
 
     Node::registerDatatype(nsvDtUri,
-                           QMetaType::type("NonStreamableValueType"),
+                           "NonStreamableValueType",
                            new NonStreamableEncoder());
 
     n = Node::fromVariant(nsvv);
@@ -753,9 +753,9 @@ testDatatypes()
         return false;
     }
 
-
     // also means to retrieve node as particular variant type even
-    // when node datatype is missing
+    // when node datatype is missing -- nah, we can always just set
+    // the datatype
 
     return true;
 }
@@ -1417,7 +1417,7 @@ main(int argc, char **argv)
     if (!Dataquay::Test::testConnection()) return 1;
     if (!Dataquay::Test::testObjectMapper()) return 1;
 
-//    if (!Dataquay::Test::testQtWidgets(argc, argv)) return 1;
+    if (!Dataquay::Test::testQtWidgets(argc, argv)) return 1;
 
     std::cerr << "testDataquay successfully completed" << std::endl;
     return 0;

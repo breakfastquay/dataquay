@@ -106,13 +106,36 @@ struct BoolVariantEncoder : public Node::VariantEncoder {
 };
 
 void
-Node::registerDatatype(Uri datatype, int metatype, VariantEncoder *enc) {
-    datatypeMetatypeMap[datatype] =
-        QPair<int, Node::VariantEncoder *>(metatype, enc);
-    metatypeDatatypeMap[metatype] =
-        QPair<Uri, Node::VariantEncoder *>(datatype, enc);
+Node::registerDatatype(Uri datatype, QString typeName, VariantEncoder *enc) {
+    QByteArray ba = typeName.toLocal8Bit();
+    int id = QMetaType::type(ba.data());
+    if (id <= 0) {
+        std::cerr << "WARNING: Node::registerDatatype: Type name \""
+                  << typeName.toStdString() << "\" is unknown to QMetaType, "
+                  << "cannot register it here" << std::endl;
+        return;
+    }
+    datatypeMetatypeMap[datatype] = QPair<int, Node::VariantEncoder *>(id, enc);
+    metatypeDatatypeMap[id] = QPair<Uri, Node::VariantEncoder *>(datatype, enc);
 }
     
+Uri
+Node::getDatatype(QString typeName)
+{
+    QByteArray ba = typeName.toLocal8Bit();
+    int id = QMetaType::type(ba.data());
+    if (id <= 0) return Uri();
+    if (!metatypeDatatypeMap.contains(id)) return Uri();
+    return metatypeDatatypeMap[id].first;
+}
+
+QString
+Node::getVariantTypeName(Uri datatype)
+{
+    if (!datatypeMetatypeMap.contains(datatype)) return "";
+    return QMetaType::typeName(datatypeMetatypeMap[datatype].first);
+}
+
 struct NodeMetatypeMapRegistrar {
 
     void registerXsd(QString name, int id, Node::VariantEncoder *enc) {
@@ -137,7 +160,6 @@ struct NodeMetatypeMapRegistrar {
         registerXsd("double", QMetaType::Double, new DoubleVariantEncoder());
         registerXsd("decimal", QMetaType::Double, new DoubleVariantEncoder());
 
-//        registerXsd(QMetaType::QString, "", new StringVariantEncoder());
         registerXsd(QMetaType::Bool, "boolean", new BoolVariantEncoder());
         registerXsd(QMetaType::Int, "integer", new LongVariantEncoder());
         registerXsd(QMetaType::Long, "integer", new LongVariantEncoder());
@@ -152,7 +174,7 @@ struct NodeMetatypeMapRegistrar {
 };
 
 static NodeMetatypeMapRegistrar registrar;
-/*
+/*!!! move this (and converse) to examples/ as example of encoder registration
 static
 QString
 qTimeToXsdDuration(QTime t)
@@ -210,7 +232,7 @@ Node::fromVariant(const QVariant &v)
 
     } else {
 
-        // no datatype defined
+        // no datatype defined: use opaque encoding for "unknown" type
         QByteArray b;
         QDataStream ds(&b, QIODevice::WriteOnly);
         ds << v;
@@ -221,63 +243,6 @@ Node::fromVariant(const QVariant &v)
         n.value = QString::fromAscii(b.toPercentEncoding());        
         return n;
     }
-
-    /*
-    switch (v.type()) {
-
-    case QVariant::Url:
-        n.type = URI;
-        n.value = v.toUrl().toString();
-        break;
-
-    case QVariant::Bool:
-        n.datatype = pfx + "boolean";
-        n.value = (v.toBool() ? "true" : "false");
-        break;
-
-    case QVariant::Int:
-        n.datatype = pfx + "integer";
-        n.value = v.toString();
-        break;
-
-    case QMetaType::UInt:
-        n.datatype = pfx + "integer";
-        n.value = v.toString();
-        break;
-
-    case QVariant::String:
-        // It seems to be inadvisable to encode strings as
-        // ^^xsd:string, because "literal" and "literal"^^xsd:string
-        // compare differently and most people just use "literal".
-        // (Similarly we write integer and decimal instead of the
-        // "machine" types int, double etc, because they seem more
-        // useful from a practical interoperability perspective -- the
-        // fact that we can't actually handle arbitrary numerical
-        // lengths we'll have to treat as an "implementation issue")
-        n.datatype = "";
-        n.value = v.toString();
-        break;
-
-    case QVariant::Double:
-        n.datatype = pfx + "decimal";
-        n.value = v.toString();
-        break;
-
-    case QMetaType::Float:
-        n.datatype = pfx + "decimal";
-        n.value = v.toString();
-        break;
-
-    case QVariant::Time:
-        n.datatype = pfx + "duration";
-        n.value = qTimeToXsdDuration(v.toTime());
-        break;
-        
-    default:
-        } else {
-        }
-    }
-    */
 }
 
 QVariant
@@ -295,93 +260,42 @@ Node::toVariant() const
 
     DatatypeMetatypeMap::const_iterator i = datatypeMetatypeMap.find(datatype);
 
-    if (i != datatypeMetatypeMap.end()) {
-        
-        if (i.value().second) {
+    if (datatype == encodedVariantTypeURI) {
 
-            // encoder present
-            return i.value().second->toVariant(value);
-
-        } else {
-
-            // datatype present, but no encoder: can do nothing
-            // interesting with this, encode as string
-            return QVariant::fromValue<QString>(value);
-        }
-
-    } else {
-
-        // no datatype defined
-        if (datatype == encodedVariantTypeURI) {
-            QByteArray benc = value.toAscii();
-            QByteArray b = QByteArray::fromPercentEncoding(benc);
-            QDataStream ds(&b, QIODevice::ReadOnly);
-            QVariant v;
-            ds >> v;
-            return v;
-        } else {
-            return QVariant::fromValue<QString>(value);
-        }
-    }
-
-        
-
-/*
-
-    Uri dtUri(datatype);
-
-    static const QString pfx = "http://www.w3.org/2001/XMLSchema#";
-
-#define DATATYPE(x) \
-    static const Uri x ## Uri(pfx + #x)
-
-    DATATYPE(string);
-    DATATYPE(boolean);
-    DATATYPE(int);
-    DATATYPE(long);
-    DATATYPE(integer);
-    DATATYPE(double);
-    DATATYPE(decimal);
-    DATATYPE(float);
-    DATATYPE(unsignedInt);
-    DATATYPE(nonNegativeInteger);
-
-#undef DATATYPE
-
-    DEBUG << "Node::toVariant: datatype = " << datatype << endl;
-
-    if (dtUri == stringUri) {
-        return QVariant::fromValue<QString>(value);
-    }
-    if (dtUri == booleanUri) {
-        return QVariant::fromValue<bool>((value == "true") ||
-                                         (value == "1"));
-    }
-    if (dtUri == intUri) {
-        return QVariant::fromValue<int>(value.toInt());
-    }
-    if (dtUri == longUri || dtUri == integerUri) {
-        return QVariant::fromValue<long>(value.toLong());
-    }
-    if (dtUri == doubleUri || dtUri == decimalUri) {
-        return QVariant::fromValue<double>(value.toDouble());
-    }
-    if (dtUri == floatUri) {
-        return QVariant::fromValue<float>(value.toFloat());
-    }
-    if (dtUri == unsignedIntUri || dtUri == nonNegativeIntegerUri) {
-        return QVariant::fromValue<unsigned>(value.toUInt());
-    }
-    if (dtUri == encodedVariantTypeURI) {
+        // Opaque encoding used for "unknown" types.  If this is
+        // encoding is in use, we must decode from it even if the type
+        // is actually known
         QByteArray benc = value.toAscii();
         QByteArray b = QByteArray::fromPercentEncoding(benc);
         QDataStream ds(&b, QIODevice::ReadOnly);
         QVariant v;
         ds >> v;
         return v;
-    }        
-    return QVariant::fromValue<QString>(value);
-*/
+
+    } else {
+        if (i != datatypeMetatypeMap.end()) {
+        
+            // known datatype
+
+            if (i.value().second) {
+
+                // encoder present
+                return i.value().second->toVariant(value);
+
+            } else {
+
+                // datatype present, but no encoder: can do nothing
+                // interesting with this, convert as string
+                return QVariant::fromValue<QString>(value);
+            }
+
+        } else {
+
+            // unknown datatype, but not "unknown type" encoding;
+            // convert as a string
+            return QVariant::fromValue<QString>(value);
+        }
+    }
 }
 
 bool
@@ -434,7 +348,7 @@ operator<<(std::ostream &out, const Node &n)
         break;
     case Node::Literal:
         out << "\"" << n.value.toStdString() << "\"";
-        if (n.datatype != Uri()) out << "^^" << n.datatype.toString().toStdString();
+        if (n.datatype != Uri()) out << "^^" << n.datatype;
         break;
     case Node::Blank:
         out << "[blank " << n.value.toStdString() << "]";
@@ -461,7 +375,7 @@ operator<<(QTextStream &out, const Node &n)
         break;
     case Node::Literal:
         out << "\"" << n.value << "\"";
-        if (n.datatype != Uri()) out << "^^" << n.datatype.toString();
+        if (n.datatype != Uri()) out << "^^" << n.datatype;
         break;
     case Node::Blank:
         out << "[blank " << n.value << "]";

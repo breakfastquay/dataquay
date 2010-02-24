@@ -137,21 +137,44 @@ public:
      */
     QVariant toVariant() const;
 
-    struct VariantEncoder {
-        virtual QVariant toVariant(const QString &n) = 0;
-        virtual QString fromVariant(const QVariant &v) = 0;
-    };
-
-    static void registerDatatype(Uri datatypeUri,
-                                 int qMetaTypeId, //!!! or metatype name?
-                                 VariantEncoder * = 0);
-
     bool operator<(const Node &n) const {
         if (type != n.type) return type < n.type;
         if (value != n.value) return value < n.value;
         if (datatype != n.datatype) return datatype < n.datatype;
         return false;
     }
+
+    struct VariantEncoder {
+        virtual QVariant toVariant(const QString &n) = 0;
+        virtual QString fromVariant(const QVariant &v) = 0;
+    };
+
+    /**
+     * Register an association between a particular datatype URI and a
+     * type which can be stored in a QVariant.  This can be used to
+     * provide meaningful conversions between literal nodes and
+     * QVariant objects in addition to the built-in types.
+     *
+     * For conversions from variant, once an association has been made
+     * via this call, a subsequent call to Node::fromVariant given a
+     * variant whose type is that of the given variantTypeName will
+     * return a Node of the specified datatype.  If an encoder is also
+     * given, it will be used for the QVariant-to-string conversion
+     * needed to produce a value string in the correct form for the
+     * RDF datatype.
+     *
+     * For conversions to variant, the encoder is required.  If it is
+     * provided, then a subsequent call to Node::toVariant on a node
+     * of the given datatype will result in a variant of the specified
+     * type, produced by calling the encoder's toVariant method with
+     * the node's value string as argument.
+     */
+    static void registerDatatype(Uri datatype,
+                                 QString variantTypeName,
+                                 VariantEncoder *encoder = 0);
+
+    static Uri getDatatype(QString variantTypeName);
+    static QString getVariantTypeName(Uri datatype);
     
     Type type;
     QString value;
