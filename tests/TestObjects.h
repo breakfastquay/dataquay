@@ -119,7 +119,7 @@ Q_DECLARE_METATYPE(QList<B*>)
 Q_DECLARE_METATYPE(QList<C*>)
 Q_DECLARE_METATYPE(QSet<C*>)
 
-typedef int SomeValueType;
+enum SomeValueType { ValueA = 0, ValueB, ValueC, ValueD, ValueE };
 
 Q_DECLARE_METATYPE(SomeValueType)
 

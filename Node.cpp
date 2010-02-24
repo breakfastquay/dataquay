@@ -129,7 +129,7 @@ struct NodeMetatypeMapRegistrar {
         registerXsd("double", QMetaType::Double, new DoubleVariantEncoder());
         registerXsd("decimal", QMetaType::Double, new DoubleVariantEncoder());
 
-        registerXsd(QMetaType::QString, "", new StringVariantEncoder());
+//        registerXsd(QMetaType::QString, "", new StringVariantEncoder());
         registerXsd(QMetaType::Bool, "boolean", new BoolVariantEncoder());
         registerXsd(QMetaType::Int, "integer", new LongVariantEncoder());
         registerXsd(QMetaType::Long, "integer", new LongVariantEncoder());

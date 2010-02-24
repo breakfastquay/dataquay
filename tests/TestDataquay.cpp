@@ -549,7 +549,7 @@ testDatatypes()
              n);
 
     if (!store.add(t)) {
-        cerr << "Failed to add triple to store" << endl;
+        cerr << "Failed to add string-type triple to store" << endl;
         return false;
     }
 
@@ -575,21 +575,81 @@ testDatatypes()
                n);
     
     if (!store.add(t)) {
-        cerr << "Failed to add triple to store" << endl;
+        cerr << "Failed to add int-type triple to store" << endl;
         return false;
     }
 
     t.c = Node();
     t0 = store.matchFirst(t);
-    n0 = t.c;
+    n0 = t0.c;
     if (n0.datatype != n.datatype) {
-        cerr << "Failed to retrieve expected integer datatype" << endl;
+        cerr << "Failed to retrieve expected integer datatype (found instead <"
+             << n0.datatype.toString().toStdString() << "> for value \""
+             << n0.value.toStdString() << "\")" << endl;
         return false;
     }
 
-    SomeValueType v = 4;
+    SomeValueType sv = ValueC;
+    qRegisterMetaType<SomeValueType>("SomeValueType");
 
+    // first some tests on basic QVariant storage just to ensure we've
+    // registered the type correctly and our understanding of expected
+    // behaviour is correct
 
+    if (QMetaType::type("SomeValueType") <= 0) {
+        cerr << "No QMetaType registration for SomeValueType? Type lookup returns " << QMetaType::type("SomeValueType") << endl;
+        return false;
+    }
+
+    QVariant svv = QVariant::fromValue<SomeValueType>(sv);
+    if (svv.userType() != QMetaType::type("SomeValueType")) {
+        cerr << "QVariant does not contain expected type " << QMetaType::type("SomeValueType") << " for SomeValueType (found instead " << svv.userType() << ")" << endl;
+        return false;
+    }
+
+    if (svv.value<SomeValueType>() != sv) {
+        cerr << "QVariant does not contain expected value " << sv << " for SomeValueType (found instead " << svv.value<SomeValueType>() << ")" << endl;
+        return false;
+    }
+
+    // now Node tests for this new type, first with no encoder registered
+
+    n = Node::fromVariant(svv);
+
+//!!! no -- the type is actually encodedVariantTypeURI from Node.cpp, and this is what we should expect -- but it's not public! we can't test it -- fix this
+//    if (n.datatype != Uri()) {
+//        cerr << "Node converted from unknown type has unexpected datatype <" 
+//             << n.datatype.toString().toStdString() << "> (expected nil)" << endl;
+//        return false;
+//    }
+
+    t = Triple(store.expand(":fred"),
+               store.expand(":has_some_value"),
+               n);
+    
+    if (!store.add(t)) {
+        cerr << "Failed to add unknown-type triple to store" << endl;
+        return false;
+    }
+
+    t.c = Node();
+    t0 = store.matchFirst(t);
+    n0 = t0.c;
+    if (n0.datatype != n.datatype) {
+        cerr << "Failed to retrieve expected unknown-type datatype (found instead <"
+             << n0.datatype.toString().toStdString() << "> for value \""
+             << n0.value.toStdString() << "\")" << endl;
+        return false;
+    }
+
+    QVariant v0 = n0.toVariant();
+    if (v0 != svv) {
+        cerr << "Conversion of unknown-type node back to variant yielded unexpected value " << v0.value<SomeValueType>() << " of type " << v0.userType() << " (expected " << svv.value<SomeValueType>() << " of type " << svv.userType() << ")" << endl;
+        return false;
+    }
+
+    // also means to retrieve node as particular variant type even
+    // when node datatype is missing
 
     return true;
 }

@@ -63,7 +63,8 @@ Uri::checkComplete() const
 {
 #ifndef NDEBUG
     if (!m_uri.isEmpty() && m_uri[0] != '#' &&
-	!m_uri.contains(QRegExp("^[a-zA-Z]+://"))) {
+	!m_uri.contains(QRegExp("^[a-zA-Z]+://")) &&
+        !m_uri.startsWith("file:")) { // file uri may be relative: file:x.wav
 	std::cerr << "WARNING: URI <" << m_uri.toStdString()
 		  << "> is not complete; lacks scheme" << std::endl;
     }
