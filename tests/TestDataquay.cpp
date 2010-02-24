@@ -52,6 +52,17 @@
 using std::cerr;
 using std::endl;
 
+QDataStream &operator<<(QDataStream &out, StreamableValueType v) {
+    return out << int(v);
+}
+
+QDataStream &operator>>(QDataStream &in, StreamableValueType &v) {
+    int i;
+    in >> i;
+    v = StreamableValueType(i);
+    return in;
+}
+
 namespace Dataquay
 {
 namespace Test
@@ -535,6 +546,8 @@ testDatatypes()
 
     // Untyped literal should convert to QString
 
+    cerr << "Testing basic conversions..." << endl;
+
     Node n(Node::Literal, "Fred Jenkins", Uri());
 
     QVariant v = n.toVariant();
@@ -589,30 +602,41 @@ testDatatypes()
         return false;
     }
 
-    SomeValueType sv = ValueC;
-    qRegisterMetaType<SomeValueType>("SomeValueType");
+    StreamableValueType sv = ValueC;
+    NonStreamableValueType nsv = ValueJ;
+    qRegisterMetaType<StreamableValueType>("StreamableValueType");
+    qRegisterMetaType<NonStreamableValueType>("NonStreamableValueType");
 
     // first some tests on basic QVariant storage just to ensure we've
     // registered the type correctly and our understanding of expected
     // behaviour is correct
 
-    if (QMetaType::type("SomeValueType") <= 0) {
-        cerr << "No QMetaType registration for SomeValueType? Type lookup returns " << QMetaType::type("SomeValueType") << endl;
+    cerr << "Testing streamable-value to variant conversion..." << endl;
+
+    if (QMetaType::type("StreamableValueType") <= 0) {
+        cerr << "No QMetaType registration for StreamableValueType? Type lookup returns " << QMetaType::type("StreamableValueType") << endl;
         return false;
     }
 
-    QVariant svv = QVariant::fromValue<SomeValueType>(sv);
-    if (svv.userType() != QMetaType::type("SomeValueType")) {
-        cerr << "QVariant does not contain expected type " << QMetaType::type("SomeValueType") << " for SomeValueType (found instead " << svv.userType() << ")" << endl;
+    QVariant svv = QVariant::fromValue<StreamableValueType>(sv);
+    if (svv.userType() != QMetaType::type("StreamableValueType")) {
+        cerr << "QVariant does not contain expected type " << QMetaType::type("StreamableValueType") << " for StreamableValueType (found instead " << svv.userType() << ")" << endl;
         return false;
     }
 
-    if (svv.value<SomeValueType>() != sv) {
-        cerr << "QVariant does not contain expected value " << sv << " for SomeValueType (found instead " << svv.value<SomeValueType>() << ")" << endl;
+    if (svv.value<StreamableValueType>() != sv) {
+        cerr << "QVariant does not contain expected value " << sv << " for StreamableValueType (found instead " << svv.value<StreamableValueType>() << ")" << endl;
         return false;
     }
 
-    // now Node tests for this new type, first with no encoder registered
+    // Now register the stream operators necessary to permit
+    // Node-QVariant conversion using an opaque "unknown type" node
+    // datatype and the standard QVariant datastream streaming; then
+    // test conversion that way
+
+    cerr << "Testing streamable-value (without encoder, so unknown type) to Node conversion..." << endl;
+
+    qRegisterMetaTypeStreamOperators<StreamableValueType>("StreamableValueType");
 
     n = Node::fromVariant(svv);
 
@@ -643,10 +667,92 @@ testDatatypes()
     }
 
     QVariant v0 = n0.toVariant();
-    if (v0 != svv) {
-        cerr << "Conversion of unknown-type node back to variant yielded unexpected value " << v0.value<SomeValueType>() << " of type " << v0.userType() << " (expected " << svv.value<SomeValueType>() << " of type " << svv.userType() << ")" << endl;
+    if (v0.userType() != svv.userType() ||
+        v0.value<StreamableValueType>() != svv.value<StreamableValueType>()) {
+        cerr << "Conversion of unknown-type node back to variant yielded unexpected value " << v0.value<StreamableValueType>() << " of type " << v0.userType() << " (expected " << svv.value<StreamableValueType>() << " of type " << svv.userType() << ")" << endl;
         return false;
     }
+
+    // Now we do the whole thing again using NonStreamableValueType
+    // with a registered encoder, rather than StreamableValueType with
+    // no encoder but a stream operator instead
+
+    cerr << "Testing non-streamable-value (with encoder and datatype) to Node conversion..." << endl;
+
+    QVariant nsvv = QVariant::fromValue<NonStreamableValueType>(nsv);
+    if (nsvv.userType() != QMetaType::type("NonStreamableValueType")) {
+        cerr << "QVariant does not contain expected type " << QMetaType::type("NonStreamableValueType") << " for NonStreamableValueType (found instead " << nsvv.userType() << ")" << endl;
+        return false;
+    }
+
+    if (nsvv.value<NonStreamableValueType>() != nsv) {
+        cerr << "QVariant does not contain expected value " << nsv << " for NonStreamableValueType (found instead " << nsvv.value<NonStreamableValueType>() << ")" << endl;
+        return false;
+    }
+
+    struct NonStreamableEncoder : public Node::VariantEncoder {
+        QVariant toVariant(const QString &s) {
+            if (s == "F") return QVariant::fromValue(ValueF);
+            else if (s == "G") return QVariant::fromValue(ValueG);
+            else if (s == "H") return QVariant::fromValue(ValueH);
+            else if (s == "I") return QVariant::fromValue(ValueI);
+            else if (s == "J") return QVariant::fromValue(ValueJ);
+            else return QVariant();
+        }
+        QString fromVariant(const QVariant &v) {
+            NonStreamableValueType nsv = v.value<NonStreamableValueType>();
+            switch (nsv) {
+            case ValueF: return "F";
+            case ValueG: return "G";
+            case ValueH: return "H";
+            case ValueI: return "I";
+            case ValueJ: return "J";
+            default: return "";
+            }
+        }
+    };
+
+    Uri nsvDtUri("http://blather-de-hoop/nonstreamable");
+
+    Node::registerDatatype(nsvDtUri,
+                           QMetaType::type("NonStreamableValueType"),
+                           new NonStreamableEncoder());
+
+    n = Node::fromVariant(nsvv);
+
+    if (n.datatype != nsvDtUri) {
+        cerr << "Node converted from custom type has unexpected datatype <" 
+             << n.datatype.toString().toStdString() << "> (expected <"
+             << nsvDtUri.toString().toStdString() << ")" << endl;
+        return false;
+    }
+
+    t = Triple(store.expand(":fred"),
+               store.expand(":has_some_other_value"),
+               n);
+    
+    if (!store.add(t)) {
+        cerr << "Failed to add custom-type triple to store" << endl;
+        return false;
+    }
+
+    t.c = Node();
+    t0 = store.matchFirst(t);
+    n0 = t0.c;
+    if (n0.datatype != n.datatype) {
+        cerr << "Failed to retrieve expected custom-type datatype (found instead <"
+             << n0.datatype.toString().toStdString() << "> for value \""
+             << n0.value.toStdString() << "\")" << endl;
+        return false;
+    }
+
+    v0 = n0.toVariant();
+    if (v0.userType() != nsvv.userType() ||
+        v0.value<NonStreamableValueType>() != nsvv.value<NonStreamableValueType>()) {
+        cerr << "Conversion of unknown-type node back to variant yielded unexpected value " << v0.value<NonStreamableValueType>() << " of type " << v0.userType() << " (expected " << nsvv.value<NonStreamableValueType>() << " of type " << nsvv.userType() << ")" << endl;
+        return false;
+    }
+
 
     // also means to retrieve node as particular variant type even
     // when node datatype is missing
@@ -1311,7 +1417,7 @@ main(int argc, char **argv)
     if (!Dataquay::Test::testConnection()) return 1;
     if (!Dataquay::Test::testObjectMapper()) return 1;
 
-    if (!Dataquay::Test::testQtWidgets(argc, argv)) return 1;
+//    if (!Dataquay::Test::testQtWidgets(argc, argv)) return 1;
 
     std::cerr << "testDataquay successfully completed" << std::endl;
     return 0;

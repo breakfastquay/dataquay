@@ -138,12 +138,12 @@ public:
     QVariant toVariant() const;
 
     struct VariantEncoder {
-        virtual QString fromVariant(const QVariant &v) = 0;
         virtual QVariant toVariant(const QString &n) = 0;
+        virtual QString fromVariant(const QVariant &v) = 0;
     };
 
     static void registerDatatype(Uri datatypeUri,
-                                 int qMetaTypeId,
+                                 int qMetaTypeId, //!!! or metatype name?
                                  VariantEncoder * = 0);
 
     bool operator<(const Node &n) const {

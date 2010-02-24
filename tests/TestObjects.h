@@ -119,8 +119,23 @@ Q_DECLARE_METATYPE(QList<B*>)
 Q_DECLARE_METATYPE(QList<C*>)
 Q_DECLARE_METATYPE(QSet<C*>)
 
-enum SomeValueType { ValueA = 0, ValueB, ValueC, ValueD, ValueE };
+/* StreamableValueType is a type that can be streamed to QDataStream
+ * and thus converted automatically to QVariant, but that will not be
+ * registered with a Node encoder -- so Node must use an "unknown
+ * type" datatype
+ */
+enum StreamableValueType { ValueA = 0, ValueB, ValueC, ValueD, ValueE };
 
-Q_DECLARE_METATYPE(SomeValueType)
+/* NonStreamableValueType is a type that cannot be streamed to
+ * QDataStream, but that we will register with a Node encoder -- so
+ * Node can give it the proper datatype
+ */
+enum NonStreamableValueType { ValueF = 0, ValueG, ValueH, ValueI, ValueJ };
+
+extern QDataStream &operator<<(QDataStream &out, StreamableValueType v);
+extern QDataStream &operator>>(QDataStream &in, StreamableValueType &v);
+    
+Q_DECLARE_METATYPE(StreamableValueType)
+Q_DECLARE_METATYPE(NonStreamableValueType)
 
 #endif

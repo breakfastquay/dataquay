@@ -96,15 +96,23 @@ struct StringVariantEncoder : public StandardVariantEncoder {
 };
 
 struct BoolVariantEncoder : public Node::VariantEncoder {
-    QString fromVariant(const QVariant &v) {
-        return (v.toBool() ? "true" : "false");
-    }
     QVariant toVariant(const QString &s) {
         return QVariant::fromValue<bool>((s == "true") ||
                                          (s == "1"));
     }
+    QString fromVariant(const QVariant &v) {
+        return (v.toBool() ? "true" : "false");
+    }
 };
 
+void
+Node::registerDatatype(Uri datatype, int metatype, VariantEncoder *enc) {
+    datatypeMetatypeMap[datatype] =
+        QPair<int, Node::VariantEncoder *>(metatype, enc);
+    metatypeDatatypeMap[metatype] =
+        QPair<Uri, Node::VariantEncoder *>(datatype, enc);
+}
+    
 struct NodeMetatypeMapRegistrar {
 
     void registerXsd(QString name, int id, Node::VariantEncoder *enc) {
