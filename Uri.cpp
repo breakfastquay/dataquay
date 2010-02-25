@@ -49,25 +49,27 @@
 namespace Dataquay
 {
 
-struct UriRegistrar {
-    static int type;
-    static QMutex mutex;
-    static void registerType() {
+class UriRegistrar {
+public:
+    static UriRegistrar *instance() {
+        static UriRegistrar *inst = 0;
+        static QMutex mutex;
         mutex.lock();
-        if (type == 0) {
-            type = qRegisterMetaType<Uri>("Dataquay::Uri");
-            qRegisterMetaTypeStreamOperators<Uri>("Dataquay::Uri");
-        }
+        if (inst == 0) inst = new UriRegistrar();
         mutex.unlock();
+        return inst;
     }
+
+    int getType() const { return type; }
+
+private:
+    int type;
+
     UriRegistrar() {
-        registerType();
+        type = qRegisterMetaType<Uri>("Dataquay::Uri");
+        qRegisterMetaTypeStreamOperators<Uri>("Dataquay::Uri");
     }
 };
-
-int UriRegistrar::type = 0;
-QMutex UriRegistrar::mutex;
-static UriRegistrar uriRegistrar;
 
 QString
 Uri::metaTypeName()
@@ -78,12 +80,12 @@ Uri::metaTypeName()
 int
 Uri::metaTypeId()
 {
-    UriRegistrar::registerType();
-    if (uriRegistrar.type <= 0) {
+    int t = UriRegistrar::instance()->getType();
+    if (t <= 0) {
 	DEBUG << "Uri::metaTypeId: No meta type available -- did static registration fail?" << endl;
 	return 0;
     }
-    return uriRegistrar.type;
+    return t;
 }
 
 void

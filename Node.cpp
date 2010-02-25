@@ -40,6 +40,7 @@
 #include <QTime>
 #include <QByteArray>
 #include <QMetaType>
+#include <QMutex>
 
 namespace Dataquay
 {
@@ -50,22 +51,6 @@ static const Uri encodedVariantTypeURI
 static const Uri xsdPrefix
 ("http://www.w3.org/2001/XMLSchema#");
 
-// Type maps to be used when converting from Node to Variant and
-// Variant to Node, respectively.  These are not symmetrical -- for
-// example, we convert xsd:string to QString, but convert QString to
-// an untyped literal ("literal" and "literal"^^xsd:string compare
-// differently and most people just use "literal", so we're more
-// likely to achieve interoperable results if we don't type plain
-// strings).  Similarly we convert both double and float to
-// xsd:decimal, but always convert xsd:decimal to double.  However, we
-// do currently impose symmetry for user-provided types (that is, our
-// registerDatatype method adds the datatype to both maps).
-
-typedef QHash<Uri, QPair<int, Node::VariantEncoder *> > DatatypeMetatypeMap;
-static DatatypeMetatypeMap datatypeMetatypeMap;
-
-typedef QHash<int, QPair<Uri, Node::VariantEncoder *> > MetatypeDatatypeMap;
-static MetatypeDatatypeMap metatypeDatatypeMap;
 
 struct StandardVariantEncoder : public Node::VariantEncoder {
     QString fromVariant(const QVariant &v) {
@@ -125,50 +110,74 @@ struct QUrlVariantEncoder : public Node::VariantEncoder {
     }
 };
 
-void
-Node::registerDatatype(Uri datatype, QString typeName, VariantEncoder *enc) {
-    QByteArray ba = typeName.toLocal8Bit();
-    int id = QMetaType::type(ba.data());
-    if (id <= 0) {
-        std::cerr << "WARNING: Node::registerDatatype: Type name \""
-                  << typeName.toStdString() << "\" is unknown to QMetaType, "
-                  << "cannot register it here" << std::endl;
-        return;
+// Type maps to be used when converting from Node to Variant and
+// Variant to Node, respectively.  These are not symmetrical -- for
+// example, we convert xsd:string to QString, but convert QString to
+// an untyped literal ("literal" and "literal"^^xsd:string compare
+// differently and most people just use "literal", so we're more
+// likely to achieve interoperable results if we don't type plain
+// strings).  Similarly we convert both double and float to
+// xsd:decimal, but always convert xsd:decimal to double.  However, we
+// do currently impose symmetry for user-provided types (that is, our
+// registerDatatype method adds the datatype to both maps).
+
+class DatatypeMetatypeAssociation
+{
+public:
+    static DatatypeMetatypeAssociation *instance() {
+        static DatatypeMetatypeAssociation *inst = 0;
+        static QMutex mutex;
+        mutex.lock();
+        if (inst == 0) inst = new DatatypeMetatypeAssociation();
+        mutex.unlock();
+        return inst;
     }
-    datatypeMetatypeMap[datatype] = QPair<int, Node::VariantEncoder *>(id, enc);
-    metatypeDatatypeMap[id] = QPair<Uri, Node::VariantEncoder *>(datatype, enc);
-}
     
-Uri
-Node::getDatatype(QString typeName)
-{
-    QByteArray ba = typeName.toLocal8Bit();
-    int id = QMetaType::type(ba.data());
-    if (id <= 0) return Uri();
-    if (!metatypeDatatypeMap.contains(id)) return Uri();
-    return metatypeDatatypeMap[id].first;
-}
+    int getMetatypeId(Uri dt) {
+        DatatypeMetatypeMap::const_iterator i = datatypeMetatypeMap.find(dt);
+        if (i != datatypeMetatypeMap.end()) return i->first;
+        return 0;
+    }
 
-QString
-Node::getVariantTypeName(Uri datatype)
-{
-    if (!datatypeMetatypeMap.contains(datatype)) return "";
-    return QMetaType::typeName(datatypeMetatypeMap[datatype].first);
-}
+    bool getDatatype(int mt, Uri &dt) {
+        MetatypeDatatypeMap::const_iterator i = metatypeDatatypeMap.find(mt);
+        if (i != metatypeDatatypeMap.end()) {
+            dt = i->first;
+            return true;
+        }
+        return false;
+    }
 
-struct NodeMetatypeMapRegistrar {
+    Node::VariantEncoder *getEncoder(Uri dt) {
+        DatatypeMetatypeMap::const_iterator i = datatypeMetatypeMap.find(dt);
+        if (i != datatypeMetatypeMap.end()) return i->second;
+        return 0;
+    }
+
+    Node::VariantEncoder *getEncoder(int id) {
+        MetatypeDatatypeMap::const_iterator i = metatypeDatatypeMap.find(id);
+        if (i != metatypeDatatypeMap.end()) return i->second;
+        return 0;
+    }
+
+    void registerDatatype(Uri dt, int id, Node::VariantEncoder *enc) {
+        datatypeMetatypeMap[dt] = QPair<int, Node::VariantEncoder *>(id, enc);
+    }
+
+    void registerDatatype(int id, Uri dt, Node::VariantEncoder *enc) {
+        metatypeDatatypeMap[id] = QPair<Uri, Node::VariantEncoder *>(dt, enc);
+    }
 
     void registerXsd(QString name, int id, Node::VariantEncoder *enc) {
-        datatypeMetatypeMap[Uri(xsdPrefix.toString() + name)] =
-            QPair<int, Node::VariantEncoder *>(id, enc);
+        registerDatatype(Uri(xsdPrefix.toString() + name), id, enc);
     }
 
     void registerXsd(int id, QString name, Node::VariantEncoder *enc) {
-        metatypeDatatypeMap[id] = QPair<Uri, Node::VariantEncoder *>
-            (Uri(xsdPrefix.toString() + name), enc);
+        registerDatatype(id, Uri(xsdPrefix.toString() + name), enc);
     }
 
-    NodeMetatypeMapRegistrar() {
+private:
+    DatatypeMetatypeAssociation() {
         registerXsd("string", QMetaType::QString, new StringVariantEncoder());
         registerXsd("boolean", QMetaType::Bool, new BoolVariantEncoder());
         registerXsd("int", QMetaType::Int, new LongVariantEncoder());
@@ -192,29 +201,63 @@ struct NodeMetatypeMapRegistrar {
         // nodes and handled separately rather than being stored in
         // literal nodes... but necessary if an untyped literal is
         // presented for conversion via toVariant(Uri::metaTypeId())
-        metatypeDatatypeMap[Uri::metaTypeId()] =
-            QPair<Uri, Node::VariantEncoder *>(Uri(), new UriVariantEncoder());
+        registerDatatype(Uri::metaTypeId(), Uri(), new UriVariantEncoder());
 
         // Similarly, although no datatype is associated with QUrl, it
         // could be presented when trying to convert a URI Node using
         // an explicit variant type target (e.g. to assign RDF URIs to
         // QUrl properties rather than Uri ones)
-        metatypeDatatypeMap[QMetaType::QUrl] =
-            QPair<Uri, Node::VariantEncoder *>(Uri(), new QUrlVariantEncoder());
+        registerDatatype(QMetaType::QUrl, Uri(), new QUrlVariantEncoder());
 
         // QString is a known variant type, but has no datatype when
         // writing (we write strings as untyped literals because
         // that's what seems most useful).  We already registered it
         // with xsd:string for reading.
-        metatypeDatatypeMap[QMetaType::QString] =
-            QPair<Uri, Node::VariantEncoder *>(Uri(), new StringVariantEncoder());
-
-//        registerXsd(QMetaType::Time, "duration");
-//        registerXsd(QMetaType::Date, "date");
+        registerDatatype(QMetaType::QString, Uri(), new StringVariantEncoder());
     }
+
+    typedef QHash<Uri, QPair<int, Node::VariantEncoder *> > DatatypeMetatypeMap;
+    DatatypeMetatypeMap datatypeMetatypeMap;
+
+    typedef QHash<int, QPair<Uri, Node::VariantEncoder *> > MetatypeDatatypeMap;
+    MetatypeDatatypeMap metatypeDatatypeMap;
 };
 
-static NodeMetatypeMapRegistrar registrar;
+void
+Node::registerDatatype(Uri dt, QString typeName, VariantEncoder *enc)
+{
+    QByteArray ba = typeName.toLocal8Bit();
+    int id = QMetaType::type(ba.data());
+    if (id <= 0) {
+        std::cerr << "WARNING: Node::registerDatatype: Type name \""
+                  << typeName.toStdString() << "\" is unknown to QMetaType, "
+                  << "cannot register it here" << std::endl;
+        return;
+    }
+    DatatypeMetatypeAssociation::instance()->registerDatatype(dt, id, enc);
+    DatatypeMetatypeAssociation::instance()->registerDatatype(id, dt, enc);
+}
+    
+Uri
+Node::getDatatype(QString typeName)
+{
+    QByteArray ba = typeName.toLocal8Bit();
+    int id = QMetaType::type(ba.data());
+    if (id <= 0) return Uri();
+    Uri dt;
+    if (DatatypeMetatypeAssociation::instance()->getDatatype(id, dt)) return dt;
+    //!!! else what? no way to indicate this distinction
+    return Uri();
+}
+
+QString
+Node::getVariantTypeName(Uri datatype)
+{
+    int id = DatatypeMetatypeAssociation::instance()->getMetatypeId(datatype);
+    if (id > 0) return QMetaType::typeName(id);
+    else return QString();
+}
+
 /*!!! move this (and converse) to examples/ as example of encoder registration
 static
 QString
@@ -238,6 +281,7 @@ qTimeToXsdDuration(QTime t)
     }
 }
 */
+
 Node
 Node::fromVariant(const QVariant &v)
 {
@@ -253,22 +297,19 @@ Node::fromVariant(const QVariant &v)
 
     int id = v.userType();
     
-    MetatypeDatatypeMap::const_iterator i = metatypeDatatypeMap.find(id);
-
-    if (i != metatypeDatatypeMap.end()) {
+    DatatypeMetatypeAssociation *a = DatatypeMetatypeAssociation::instance();
+    Uri datatype;
+    if (a->getDatatype(id, datatype)) {
         
         Node n;
         n.type = Literal;
-        n.datatype = i.value().first;
+        n.datatype = datatype;
 
-        if (i.value().second) {
+        VariantEncoder *encoder = a->getEncoder(id);
 
-            // encoder present
-            n.value = i.value().second->fromVariant(v);
-
+        if (encoder) {
+            n.value = encoder->fromVariant(v);
         } else {
-
-            // datatype present, but no encoder: extract as string
             n.value = v.toString();
         }
 
@@ -276,7 +317,7 @@ Node::fromVariant(const QVariant &v)
 
     } else {
 
-        // no datatype defined: use opaque encoding for "unknown" type
+        // unknown type: use opaque encoding
         QByteArray b;
         QDataStream ds(&b, QIODevice::WriteOnly);
         ds << v;
@@ -315,20 +356,17 @@ Node::toVariant() const
         ds >> v;
         return v;
     }
-        
-    DatatypeMetatypeMap::const_iterator i = datatypeMetatypeMap.find(datatype);
 
-    if (i != datatypeMetatypeMap.end()) {
+    DatatypeMetatypeAssociation *a = DatatypeMetatypeAssociation::instance();
+    int id = a->getMetatypeId(datatype);
         
-        // known datatype
+    if (id > 0) {
+        
+        VariantEncoder *encoder = a->getEncoder(datatype);
 
-        if (i.value().second) {
-            
-            // encoder present
-            return i.value().second->toVariant(value);
-            
+        if (encoder) {
+            return encoder->toVariant(value);
         } else {
-            
             // datatype present, but no encoder: can do nothing
             // interesting with this, convert as string
             return QVariant::fromValue<QString>(value);
@@ -345,9 +383,10 @@ Node::toVariant() const
 QVariant
 Node::toVariant(int metatype) const
 {
-    MetatypeDatatypeMap::const_iterator i = metatypeDatatypeMap.find(metatype);
+    VariantEncoder *encoder =
+        DatatypeMetatypeAssociation::instance()->getEncoder(metatype);
 
-    if (i == metatypeDatatypeMap.end()) {
+    if (!encoder) {
         std::cerr << "WARNING: Node::toVariant: Unsupported metatype id "
                   << metatype << " (\"" << QMetaType::typeName(metatype)
                   << "\"), register it with registerDatatype please"
@@ -355,17 +394,7 @@ Node::toVariant(int metatype) const
         return QVariant();
     }
 
-    if (i.value().second) {
-
-        // encoder present
-        return i.value().second->toVariant(value);
-
-    } else {
-
-        // datatype present, but no encoder: can do nothing
-        // interesting with this, convert as string
-        return QVariant::fromValue<QString>(value);
-    }
+    return encoder->toVariant(value);
 }
 
 bool

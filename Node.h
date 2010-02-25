@@ -151,6 +151,7 @@ public:
      * must have been registered using registerDatatype, if it is not
      * one of the types with built-in support).  If no encoder is
      * found, a QString variant will be returned instead.
+     *!!! should this not be QString metaTypeName like registerDatatype?
      */
     QVariant toVariant(int metaTypeId) const;
 
