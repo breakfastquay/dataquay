@@ -67,13 +67,13 @@ struct LayoutLoader : public ObjectMapper::LoadCallback {
 	QObject *centralOf = 0;
 
 	if (pod.hasProperty("layout")) {
-	    layout = m->loadFrom(map, Uri(pod.getProperty("layout").toUrl()));
+	    layout = m->loadFrom(map, Uri(pod.getProperty("layout").value<Uri>()));
 	}
 	if (pod.hasProperty("layout_of")) {
-	    layoutOf = m->loadFrom(map, Uri(pod.getProperty("layout_of").toUrl()));
+	    layoutOf = m->loadFrom(map, Uri(pod.getProperty("layout_of").value<Uri>()));
 	}
 	if (pod.hasProperty("central_widget_of")) {
-	    centralOf = m->loadFrom(map, Uri(pod.getProperty("central_widget_of").toUrl()));
+	    centralOf = m->loadFrom(map, Uri(pod.getProperty("central_widget_of").value<Uri>()));
 	}
 
 	if (centralOf) {

@@ -81,13 +81,12 @@ public:
 
     /**
      * Construct a node with the given node type and value, and with
-     * no defined data type URI.
+     * no defined datatype.
      */
     Node(Type t, QString v) : type(t), value(v) { }
 
     /**
-     * Construct a node with the given node type, value, and data type
-     * URI.
+     * Construct a node with the given node type, value, and datatype.
      */
     Node(Type t, QString v, Uri dt) : type(t), value(v), datatype(dt) { }
 
@@ -122,6 +121,7 @@ public:
      * converted back again using toVariant but cannot be directly
      * read from or interchanged using the node's value.  These types
      * are given a specific fixed datatype URI.
+     *!!! update for custom encoders
      */
     static Node fromVariant(const QVariant &v);
 
@@ -134,8 +134,25 @@ public:
      * corresponding to Uri, not as QString variants.  This may result
      * in invalid Uris if the URIs were not properly expanded on
      * construction (see the notes about fromVariant).
+     *!!! update for custom encoders
      */
     QVariant toVariant() const;
+
+    /**
+     * Convert a Node to a QVariant, with a nudge for the variant
+     * type, used to override the default variant type corresponding
+     * to the node's datatype.  This is marginally simpler than
+     * setting the datatype on the node and then converting, and so
+     * may be convenient in situations where the proper RDF datatype
+     * is missing.
+     *
+     * Meaningful results still depend on having the proper encoder
+     * available (i.e. the type name whose QMetaType id is metaTypeId
+     * must have been registered using registerDatatype, if it is not
+     * one of the types with built-in support).  If no encoder is
+     * found, a QString variant will be returned instead.
+     */
+    QVariant toVariant(int metaTypeId) const;
 
     bool operator<(const Node &n) const {
         if (type != n.type) return type < n.type;

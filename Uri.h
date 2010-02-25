@@ -117,6 +117,7 @@ public:
     inline bool operator>(const Uri &u) const { return u < *this; }
 
     //!!! is there a nicer way to do this?
+    static QString metaTypeName();
     static int metaTypeId();
     static bool isUri(const QVariant &);
     

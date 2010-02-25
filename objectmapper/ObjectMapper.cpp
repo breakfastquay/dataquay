@@ -336,6 +336,8 @@ private:
                                        Nodes pnodes, bool follow);
     QObject *propertyNodeToObject(NodeObjectMap &map, QString typeName,
                                   Node pnode);
+    QVariant propertyNodeToVariant(NodeObjectMap &map, QString typeName,
+                                   Node pnode);
     QVariantList propertyNodeToList(NodeObjectMap &map, QString typeName,
                                     Node pnode, bool follow);
 
@@ -412,29 +414,30 @@ ObjectMapper::D::loadProperties(NodeObjectMap &map, QObject *o, Node node,
         pnodes = po->getPropertyNodeList(plookup);
         if (pnodes.empty()) continue;
         
-        int type = property.type();
-        int userType = property.userType();
-        QString typeName;
-
-        if (type == QVariant::UserType) {
-            typeName = QMetaType::typeName(userType);
-        } else {
-            typeName = QMetaType::typeName(type);
-        }
-
+        QString typeName = property.typeName();
         QVariant value = propertyNodeListToVariant
             (map, typeName, pnodes, follow);
 
-        if (value.isValid()) {
-            QByteArray pnba = pname.toLocal8Bit();
-            if (!o->setProperty(pnba.data(), value)) {
-                DEBUG << "loadProperties: Property set failed "
-                      << "for property " << pname << " to value of type "
-                      << value.type() << " and value " << value
-                      << " from (first) node " << pnodes[0].value
-                      << endl;
-                std::cerr << "ObjectMapper::loadProperties: Failed to set property on object, ignoring" << std::endl;
-            }
+        if (!value.isValid()) continue;
+
+        QByteArray pnba = pname.toLocal8Bit();
+        if (!o->setProperty(pnba.data(), value)) {
+            DEBUG << "loadProperties: Property set failed "
+                  << "for property " << pname << " of type "
+                  << typeName << " (" << property.userType()
+                  << ") to value of type " << value.type() 
+                  << " and value " << value
+                  << " from (first) node " << pnodes[0].value
+                  << endl;
+            DEBUG << "loadProperties: If the RDF datatype is correct, check "
+                  << "[1] that the datatype is known to Dataquay::Node for "
+                  << "node-variant conversion"
+                  << "(datatype is one of the standard set, "
+                  << "or registered with Node::registerDatatype) and "
+                  << "[2] that the Q_PROPERTY type declaration " << property.typeName()
+                  << " matches the name passed to qRegisterMetaType (including namespace)"
+                  << endl;
+            std::cerr << "ObjectMapper::loadProperties: Failed to set property on object, ignoring" << std::endl;
         }
     }
 
@@ -508,8 +511,67 @@ ObjectMapper::D::propertyNodeListToVariant(NodeObjectMap &map,
         return QVariant();
 
     } else {
-        return firstNode.toVariant();
+
+        return propertyNodeToVariant(map, typeName, firstNode);
     }
+}
+
+
+QVariant
+ObjectMapper::D::propertyNodeToVariant(NodeObjectMap &map, 
+                                       QString typeName, Node pnode)
+{
+    // Usually we can take the default conversion from node to
+    // QVariant.  But in two cases this will fail in ways we need to
+    // correct:
+    // 
+    // - The node is an untyped literal and the property is known to
+    // have a type other than string (default conversion would produce
+    // a string)
+    // 
+    // - The node is a URI and the property is known to have a type
+    // other than Uri (several legitimate property types could
+    // reasonably receive data from a URI node)
+    //
+    // One case should not be corrected:
+    //
+    // - The node has a type but it doesn't match that of the property
+    //
+    // We have to fail that one, because we're not in any position to
+    // do general type conversion here.
+
+    if (typeName == "") {
+        return pnode.toVariant();
+    }
+
+    bool acceptDefault = true;
+
+    if (pnode.type == Node::URI && typeName != Uri::metaTypeName()) {
+
+        DEBUG << "ObjectMapper::propertyNodeListToVariant: "
+              << "Non-URI property is target for RDF URI, converting" << endl;
+        
+        acceptDefault = false;
+
+    } else if (pnode.type == Node::Literal &&
+               pnode.datatype == Uri() && // no datatype
+               typeName != QMetaType::typeName(QMetaType::QString)) {
+
+        DEBUG << "ObjectMapper::propertyNodeListToVariant: "
+              << "No datatype for RDF literal, deducing from typename \""
+              << typeName << "\"" << endl;
+
+        acceptDefault = false;
+    }
+
+    if (acceptDefault) {
+        return pnode.toVariant();
+    }
+
+    QByteArray ba = typeName.toLocal8Bit();
+    int metatype = QMetaType::type(ba.data());
+    if (metatype != 0) return pnode.toVariant(metatype);
+    else return pnode.toVariant();
 }
 
 QObject *
@@ -663,11 +725,11 @@ ObjectMapper::D::variantToPropertyNodeList(ObjectNodeMap &map, QVariant v, bool 
 {
     const char *typeName = 0;
 
-    if (v.type() == QVariant::UserType) {
-        typeName = QMetaType::typeName(v.userType());
-    } else {
-        typeName = v.typeName();
-    }
+//!!! unnecessary    if (v.type() == QVariant::UserType) {
+    typeName = QMetaType::typeName(v.userType());
+//    } else {
+//        typeName = v.typeName();
+//    }
 
     Nodes nodes;
 

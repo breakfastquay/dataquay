@@ -554,7 +554,7 @@ private:
         librdf_uri *luri = librdf_new_uri
             (m_w.getWorld(),
              (const unsigned char *)uri.toString().toUtf8().data());
-        if (!luri) throw RDFException("Failed to construct URI from string", uri);
+        if (!luri) throw RDFException("Failed to construct URI", uri);
         return luri;
     }
 
@@ -691,6 +691,7 @@ private:
     
         if (m_baseUri == Uri("#")) {
             std::cerr << "BasicStore::runQuery: WARNING: Query requested on RDF store with default '#' base URI: results may be not as expected" << std::endl;
+            //!!! but in what way? explicate
         }
 
         QString sparql;

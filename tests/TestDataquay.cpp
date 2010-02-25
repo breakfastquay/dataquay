@@ -557,6 +557,13 @@ testDatatypes()
         return false;
     }
 
+    Node n0 = Node::fromVariant(v);
+    if (n0.datatype != n.datatype) {
+        cerr << "String variant converted to node has unexpected non-nil datatype "
+             << n0.datatype << endl;
+        return false;
+    }
+
     Triple t(store.expand(":fred"),
              Uri("http://xmlns.com/foaf/0.1/name"),
              n);
@@ -568,7 +575,7 @@ testDatatypes()
 
     t.c = Node();
     Triple t0(store.matchFirst(t));
-    Node n0(t.c);
+    n0 = t.c;
     if (n0.datatype != n.datatype) {
         cerr << "Failed to retrieve expected nil datatype" << endl;
         return false;
@@ -580,6 +587,13 @@ testDatatypes()
     if (v.userType() != QMetaType::Long) {
         cerr << "Integer literal node converted to variant has unexpected type "
              << v.userType() << " (expected " << QMetaType::Long << ")" << endl;
+        return false;
+    }
+
+    n0 = Node::fromVariant(v);
+    if (n0.datatype != n.datatype) {
+        cerr << "Long integer variant converted to node has unexpected datatype "
+             << n0.datatype.toString().toStdString() << " (expected " << n.datatype.toString().toStdString() << ")" << endl;
         return false;
     }
 
@@ -754,8 +768,26 @@ testDatatypes()
     }
 
     // also means to retrieve node as particular variant type even
-    // when node datatype is missing -- nah, we can always just set
-    // the datatype
+    // when node datatype is missing.  Just setting the datatype on
+    // the node isn't ideal, since we'd have to do it in more than one
+    // step (i.e. looking up what the datatype was supposed to be)
+
+    n0.datatype = Uri();
+
+    // first test without prompting
+    v0 = n0.toVariant();
+    if (v0.userType() != QMetaType::QString) {
+        cerr << "Conversion of unknown-type node with no datatype back to variant yielded unexpected type " << v0.userType() << " (expected " << QMetaType::QString << " for plain string variant)" << endl;
+        return false;
+    }
+
+    // now with
+    v0 = n0.toVariant(QMetaType::type("NonStreamableValueType"));
+    if (v0.userType() != nsvv.userType() ||
+        v0.value<NonStreamableValueType>() != nsvv.value<NonStreamableValueType>()) {
+        cerr << "Conversion of unknown-type node with no datatype but prompted type back to variant yielded unexpected value " << v0.value<NonStreamableValueType>() << " of type " << v0.userType() << " (expected " << nsvv.value<NonStreamableValueType>() << " of type " << nsvv.userType() << ")" << endl;
+        return false;
+    }
 
     return true;
 }

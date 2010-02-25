@@ -36,6 +36,7 @@
 #include <QDataStream>
 #include <QTextStream>
 #include <QVariant>
+#include <QMutex>
 
 #include <iostream>
 
@@ -49,14 +50,41 @@ namespace Dataquay
 {
 
 struct UriRegistrar {
-    int type;
+    static int type;
+    static QMutex mutex;
+    static void registerType() {
+        mutex.lock();
+        if (type == 0) {
+            type = qRegisterMetaType<Uri>("Dataquay::Uri");
+            qRegisterMetaTypeStreamOperators<Uri>("Dataquay::Uri");
+        }
+        mutex.unlock();
+    }
     UriRegistrar() {
-	type = qRegisterMetaType<Uri>("Dataquay::Uri");
-	qRegisterMetaTypeStreamOperators<Uri>("Dataquay::Uri");
+        registerType();
     }
 };
 
+int UriRegistrar::type = 0;
+QMutex UriRegistrar::mutex;
 static UriRegistrar uriRegistrar;
+
+QString
+Uri::metaTypeName()
+{
+    return "Dataquay::Uri";
+}
+
+int
+Uri::metaTypeId()
+{
+    UriRegistrar::registerType();
+    if (uriRegistrar.type <= 0) {
+	DEBUG << "Uri::metaTypeId: No meta type available -- did static registration fail?" << endl;
+	return 0;
+    }
+    return uriRegistrar.type;
+}
 
 void
 Uri::checkComplete() const
@@ -69,7 +97,7 @@ Uri::checkComplete() const
 		  << "> is not complete; lacks scheme" << std::endl;
     }
 #endif
-}	
+}
 
 QString
 Uri::scheme() const
@@ -89,16 +117,6 @@ Uri::operator==(const Uri &u) const
 	if (m_uri.at(i) != other.at(i)) return false;
     }
     return true;
-}
-
-int
-Uri::metaTypeId()
-{
-    if (uriRegistrar.type <= 0) {
-	DEBUG << "Uri::metaTypeId: No meta type available -- did static registration fail?" << endl;
-	return 0;
-    }
-    return uriRegistrar.type;
 }
 
 bool
