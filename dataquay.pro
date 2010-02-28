@@ -25,6 +25,7 @@ HEADERS += BasicStore.h \
            Uri.h \
            objectmapper/ContainerBuilder.h \
            objectmapper/ObjectBuilder.h \
+           objectmapper/ObjectLoader.h \
            objectmapper/ObjectMapper.h \
            objectmapper/ObjectStorer.h \
            objectmapper/TypeMapping.h
@@ -39,6 +40,7 @@ SOURCES += BasicStore.cpp \
            Uri.cpp \
            objectmapper/ContainerBuilder.cpp \
            objectmapper/ObjectBuilder.cpp \
+           objectmapper/ObjectLoader.cpp \
            objectmapper/ObjectMapper.cpp \
            objectmapper/ObjectStorer.cpp \
            objectmapper/TypeMapping.cpp
