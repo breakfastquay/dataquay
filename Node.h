@@ -163,6 +163,7 @@ public:
     }
 
     struct VariantEncoder {
+        //!!! these could both just be called "convert"
         virtual QVariant toVariant(const QString &n) = 0;
         virtual QString fromVariant(const QVariant &v) = 0;
     };
