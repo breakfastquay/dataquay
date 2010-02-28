@@ -153,5 +153,114 @@ private:
     QHash<QString, QHash<QString, Uri> > m_propertyRMap;
 };
 
+TypeMapping::TypeMapping() :
+    m_d(new D())
+{
+}
+
+TypeMapping::TypeMapping(const TypeMapping &tm) :
+    m_d(new D(*tm.m_d))
+{
+}
+
+TypeMapping &
+TypeMapping::operator=(const TypeMapping &tm)
+{
+    if (this != &tm) {
+	delete m_d;
+	m_d = new D(*tm.m_d);
+    }
+    return *this;
+}
+
+TypeMapping::~TypeMapping()
+{
+    delete m_d;
+}
+
+void
+TypeMapping::setObjectTypePrefix(Uri prefix)
+{
+    m_d->setObjectTypePrefix(prefix);
+}
+
+Uri
+TypeMapping::getObjectTypePrefix() const
+{
+    return m_d->getObjectTypePrefix();
+}
+
+void
+TypeMapping::setPropertyPrefix(Uri prefix)
+{
+    m_d->setPropertyPrefix(prefix);
+}
+
+Uri
+TypeMapping::getPropertyPrefix() const
+{
+    return m_d->getPropertyPrefix();
+}
+
+void
+TypeMapping::setRelationshipPrefix(Uri prefix)
+{
+    m_d->setRelationshipPrefix(prefix);
+}
+
+Uri
+TypeMapping::getRelationshipPrefix() const
+{
+    return m_d->getRelationshipPrefix();
+}
+
+void
+TypeMapping::addTypeMapping(QString className, Uri uri)
+{
+    m_d->addTypeMapping(className, uri);
+}
+
+bool
+TypeMapping::getTypeUriForClass(QString className, Uri &uri)
+{
+    return m_d->getTypeUriForClass(className, uri);
+}
+
+bool
+TypeMapping::getClassForTypeUri(Uri uri, QString &className)
+{
+    return m_d->getClassForTypeUri(uri, className);
+}
+
+void
+TypeMapping::addTypeUriPrefixMapping(QString className, Uri prefix)
+{
+    m_d->addTypeUriPrefixMapping(className, prefix);
+}
+
+bool
+TypeMapping::getUriPrefixForClass(QString className, Uri &prefix)
+{
+    return m_d->getUriPrefixForClass(className, prefix);
+}
+
+void
+TypeMapping::addPropertyMapping(QString className, QString propertyName, Uri uri)
+{
+    m_d->addPropertyMapping(className, propertyName, uri);
+}
+
+bool
+TypeMapping::getPropertyUri(QString className, QString propertyName, Uri &uri)
+{
+    return m_d->getPropertyUri(className, propertyName, uri);
+}
+
+bool
+TypeMapping::getPropertyName(QString className, Uri propertyUri, QString &propertyName)
+{
+    return m_d->getPropertyName(className, propertyUri, propertyName);
+}
+
 }
 

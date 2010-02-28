@@ -37,7 +37,9 @@
 #include "../PropertyObject.h"
 #include "../TransactionalStore.h"
 #include "../Connection.h"
-#include "../objectmapper/ObjectMapper.h"
+#include "../objectmapper/ObjectLoader.h"
+#include "../objectmapper/ObjectStorer.h"
+#include "../objectmapper/TypeMapping.h"
 #include "../objectmapper/ObjectBuilder.h"
 #include "../objectmapper/ContainerBuilder.h"
 #include "../RDFException.h"
@@ -1241,21 +1243,30 @@ compare(Triples t1, Triples t2)
 bool
 testReloadability(Store &s0)
 {
-    ObjectMapper m0(&s0);
-    m0.setObjectStorePolicy(ObjectMapper::StoreObjectsWithURIs);
-    m0.setPropertyStorePolicy(ObjectMapper::StoreIfChanged);
+    ObjectLoader m0(&s0);
     QObject *parent = m0.loadAllObjects(0);
+
     BasicStore s1;
-    ObjectMapper m1(&s1);
+    ObjectStorer m1(&s1);
+    //!!! test these options (elsewhere) -- or lose them --
+    //!!! n.b. setting StoreObjectsWithURIs true here will prevent
+    //!!! anything useful being stored, because parent has no URI
+//    m1.setObjectStorePolicy(ObjectStorer::StoreObjectsWithURIs);
+    //   m1.setPropertyStorePolicy(ObjectStorer::StoreIfChanged);
     m1.storeObjectTree(parent);
-    QObject *newParent = m1.loadAllObjects(0);
+    s1.save("test-object-mapper-3a.ttl");
+
+    ObjectLoader o1(&s1);
+    QObject *newParent = o1.loadAllObjects(0);
+
     BasicStore s2;
-    ObjectMapper m2(&s2);
+    ObjectStorer m2(&s2);
     m2.storeObjectTree(newParent);
-    s2.addPrefix("type", m2.getObjectTypePrefix());
-    s2.addPrefix("property", m2.getPropertyPrefix());
-    s2.addPrefix("rel", m2.getRelationshipPrefix());
-    s2.save("test-object-mapper-3.ttl");
+
+    s2.addPrefix("type", m2.getTypeMapping().getObjectTypePrefix());
+    s2.addPrefix("property", m2.getTypeMapping().getPropertyPrefix());
+    s2.addPrefix("rel", m2.getTypeMapping().getRelationshipPrefix());
+    s2.save("test-object-mapper-3b.ttl");
 
     Triples t1 = s1.match(Triple());
     Triples t2 = s2.match(Triple());
@@ -1276,20 +1287,21 @@ testObjectMapper()
 
     BasicStore store;
     
-    ObjectMapper mapper(&store);
-    mapper.setObjectStorePolicy(ObjectMapper::StoreAllObjects);
-    mapper.setPropertyStorePolicy(ObjectMapper::StoreIfChanged);
-    store.addPrefix("type", mapper.getObjectTypePrefix());
-    store.addPrefix("property", mapper.getPropertyPrefix());
-    store.addPrefix("rel", mapper.getRelationshipPrefix());
+    ObjectStorer storer(&store);
+    storer.setObjectStorePolicy(ObjectStorer::StoreAllObjects);
+    storer.setPropertyStorePolicy(ObjectStorer::StoreIfChanged);
+    store.addPrefix("type", storer.getTypeMapping().getObjectTypePrefix());
+    store.addPrefix("property", storer.getTypeMapping().getPropertyPrefix());
+    store.addPrefix("rel", storer.getTypeMapping().getRelationshipPrefix());
     
     QObject *o = new QObject;
     o->setObjectName("Test Object");
 
-    Uri uri = mapper.storeObject(o);
+    Uri uri = storer.storeObject(o);
     cerr << "Stored QObject as " << uri << endl;
 
-    QObject *recalled = mapper.loadObject(uri, 0);
+    ObjectLoader loader(&store);
+    QObject *recalled = loader.loadObject(uri, 0);
     if (!recalled) {
         cerr << "Failed to recall object" << endl;
         return false;
@@ -1303,7 +1315,7 @@ testObjectMapper()
     t->setSingleShot(true);
     t->setInterval(4);
 
-    Uri turi = mapper.storeObject(t);
+    Uri turi = storer.storeObject(t);
     cerr << "Stored QTimer as " << turi << endl;
 
     qRegisterMetaType<A*>("A*");
@@ -1326,7 +1338,7 @@ testObjectMapper()
 
     A *a = new A(o);
     a->setRef(t);
-    Uri auri = mapper.storeObject(a);
+    Uri auri = storer.storeObject(a);
     cerr << "Stored A-object as " << auri << endl;
     
     B *b = new B(o);
@@ -1334,8 +1346,8 @@ testObjectMapper()
 
     bool caught = false;
     try {
-        recalled = mapper.loadObject(turi, 0);
-    } catch (ObjectMapper::UnknownTypeException) {
+        recalled = loader.loadObject(turi, 0);
+    } catch (ObjectLoader::UnknownTypeException) {
         cerr << "Correctly caught UnknownTypeException when trying to recall unregistered object" << endl;
         caught = true;
     }
@@ -1346,7 +1358,7 @@ testObjectMapper()
 
     ObjectBuilder::getInstance()->registerClass<QTimer, QObject>();
 
-    recalled = mapper.loadObject(turi, 0);
+    recalled = loader.loadObject(turi, 0);
     if (!recalled) {
         cerr << "Failed to recall object" << endl;
         return false;
@@ -1360,7 +1372,7 @@ testObjectMapper()
         return false;
     }
 
-    recalled = mapper.loadObject(auri, 0);
+    recalled = loader.loadObject(auri, 0);
     if (!recalled) {
         cerr << "Failed to recall A-object" << endl;
         return false;
@@ -1414,7 +1426,7 @@ testObjectMapper()
     c->setObjects(ol);
     a->setRef(c);
 
-    mapper.storeObjectTree(o);
+    storer.storeObjectTree(o);
 
     store.save("test-object-mapper-2.ttl");
 

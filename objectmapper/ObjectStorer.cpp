@@ -492,6 +492,18 @@ ObjectStorer::getStore()
 }
 
 void
+ObjectStorer::setTypeMapping(const TypeMapping &tm)
+{
+    m_d->setTypeMapping(tm);
+}
+
+const TypeMapping &
+ObjectStorer::getTypeMapping() const
+{
+    return m_d->getTypeMapping();
+}
+
+void
 ObjectStorer::setPropertyStorePolicy(PropertyStorePolicy policy)
 {
     m_d->setPropertyStorePolicy(policy);

@@ -4,8 +4,10 @@
 #include "../TransactionalStore.h"
 #include "../Connection.h"
 #include "../RDFException.h"
-#include "../objectmapper/ObjectMapper.h"
+#include "../objectmapper/ObjectStorer.h"
+#include "../objectmapper/ObjectLoader.h"
 #include "../objectmapper/ObjectBuilder.h"
+#include "../objectmapper/TypeMapping.h"
 #include "../Debug.h"
 
 #include <QStringList>
@@ -41,9 +43,9 @@ namespace Test
 static Uri qtypePrefix("http://breakfastquay.com/rdf/dataquay/qtype/");
 static Uri dqPrefix("http://breakfastquay.com/rdf/dataquay/common/"); //???
 
-struct LayoutLoader : public ObjectMapper::LoadCallback {
+struct LayoutLoader : public ObjectLoader::LoadCallback {
 
-    void loaded(ObjectMapper *m, ObjectMapper::NodeObjectMap &map, Node node, QObject *o)
+    void loaded(ObjectLoader *m, ObjectLoader::NodeObjectMap &map, Node node, QObject *o)
     {
 	cerr << "LayoutLoader::loaded: uri " << node.value.toStdString() << ", object type " << o->metaObject()->className() << endl;
 
@@ -105,9 +107,9 @@ struct LayoutLoader : public ObjectMapper::LoadCallback {
     }
 };
 
-struct LayoutStorer : public ObjectMapper::StoreCallback {
+struct LayoutStorer : public ObjectStorer::StoreCallback {
 
-    void stored(ObjectMapper *m, ObjectMapper::ObjectNodeMap &map, QObject *o, Node node)
+    void stored(ObjectStorer *m, ObjectStorer::ObjectNodeMap &map, QObject *o, Node node)
     {
 	PropertyObject pod(m->getStore(), dqPrefix.toString(), node);
 
@@ -147,15 +149,17 @@ testQtWidgets(int argc, char **argv)
     b->registerClass<QMenuBar, QWidget>();
     b->registerClass<QAction, QObject>();
 
-    ObjectMapper mapper(&store);
-    mapper.setObjectTypePrefix(qtypePrefix);
-    mapper.setPropertyPrefix(qtypePrefix);
-    mapper.setRelationshipPrefix(dqPrefix);
+    TypeMapping mapping;
+    mapping.setObjectTypePrefix(qtypePrefix);
+    mapping.setPropertyPrefix(qtypePrefix);
+    mapping.setRelationshipPrefix(dqPrefix);
 
+    ObjectLoader oloader(&store);
+    oloader.setTypeMapping(mapping);
     LayoutLoader loader;
-    mapper.addLoadCallback(&loader);
+    oloader.addLoadCallback(&loader);
 
-    QObject *parent = mapper.loadAllObjects(0);
+    QObject *parent = oloader.loadAllObjects(0);
 
     QMainWindow *mw = qobject_cast<QMainWindow *>(parent);
     if (!mw) {
@@ -169,17 +173,21 @@ testQtWidgets(int argc, char **argv)
         }
     }
     if (mw) mw->show();
+    else {
+	std::cerr << "no main window! nothing will appear to happen!" << std::endl;
+    }
 
     BasicStore store2;
     store2.setBaseUri(store.getBaseUri());
     store2.addPrefix("dq", dqPrefix);
     store2.addPrefix("qtype", qtypePrefix);
-    ObjectMapper mapper2(&store2);
-    mapper2.setPropertyStorePolicy(ObjectMapper::StoreIfChanged);
-    mapper2.setObjectStorePolicy(ObjectMapper::StoreObjectsWithURIs);
+    ObjectStorer ostorer(&store2);
+    ostorer.setTypeMapping(mapping);
+    ostorer.setPropertyStorePolicy(ObjectStorer::StoreIfChanged);
+    ostorer.setObjectStorePolicy(ObjectStorer::StoreObjectsWithURIs);
     LayoutStorer storer;
-    mapper2.addStoreCallback(&storer);
-    mapper2.storeObjectTree(parent);
+    ostorer.addStoreCallback(&storer);
+    ostorer.storeObjectTree(parent);
     store2.save("test-qt-widgets-out.ttl");
 
     return app.exec();
