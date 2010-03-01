@@ -32,6 +32,7 @@
 */
 
 #include "TypeMapping.h"
+#include "ObjectMapperExceptions.h"
 
 #include <QHash>
 
@@ -41,6 +42,8 @@ namespace Dataquay
 static Uri defaultTypePrefix("http://breakfastquay.com/rdf/dataquay/objectmapper/type/");
 static Uri defaultPropertyPrefix("http://breakfastquay.com/rdf/dataquay/objectmapper/property/");
 static Uri defaultRelationshipPrefix("http://breakfastquay.com/rdf/dataquay/objectmapper/relationship/");
+
+//!!! NB this is not thread safe in any way -- should it be? we need to document it, either way
 
 class TypeMapping::D
 {
@@ -96,6 +99,30 @@ public:
 	    return true;
 	}
 	return false;
+    }
+
+    QString synthesiseClassForTypeUri(Uri typeUri) {
+        QString s;
+        if (getClassForTypeUri(typeUri, s)) {
+            return s;
+        }
+        s = typeUri.toString();
+        if (!s.startsWith(m_typePrefix.toString())) {
+            throw UnknownTypeException(s);
+        }
+        s = s.right(s.length() - m_typePrefix.length());
+        s.replace('/', "::");
+        return s;
+    }
+
+    Uri synthesiseTypeUriForClass(QString className) {
+        Uri typeUri;
+        if (getTypeUriForClass(className, typeUri)) {
+            return typeUri;
+        }
+        typeUri = Uri(QString(m_typePrefix.toString() + className)
+                      .replace("::", "/"));
+        return typeUri;
     }
 
     void addTypeUriPrefixMapping(QString className, Uri prefix) {
@@ -230,6 +257,18 @@ bool
 TypeMapping::getClassForTypeUri(Uri uri, QString &className)
 {
     return m_d->getClassForTypeUri(uri, className);
+}
+
+Uri
+TypeMapping::synthesiseTypeUriForClass(QString className)
+{
+    return m_d->synthesiseTypeUriForClass(className);
+}
+
+QString
+TypeMapping::synthesiseClassForTypeUri(Uri typeUri)
+{
+    return m_d->synthesiseClassForTypeUri(typeUri);
 }
 
 void

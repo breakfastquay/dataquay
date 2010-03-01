@@ -34,6 +34,14 @@
 #ifndef _DATAQUAY_NODE_H_
 #define _DATAQUAY_NODE_H_
 
+namespace Dataquay {
+class Node;
+}
+
+// Declare this early, to avoid any problems with instantiation order
+// arising from inclusion "races"
+extern unsigned int qHash(const Dataquay::Node &);
+
 #include "Uri.h"
 
 #include <QString>
@@ -207,7 +215,7 @@ typedef QList<Node> Nodes;
 
 bool operator==(const Node &a, const Node &b);
 bool operator!=(const Node &a, const Node &b);
-    
+
 QDataStream &operator<<(QDataStream &out, const Node &);
 QDataStream &operator>>(QDataStream &in, Node &);
 

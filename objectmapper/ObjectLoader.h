@@ -36,7 +36,7 @@
 
 #include "../Node.h"
 
-#include <QMap>
+#include <QHash>
 
 class QObject;
 
@@ -50,7 +50,7 @@ class ObjectLoader
 {
 public:
     /// Map from RDF node to object
-    typedef QMap<Node, QObject *> NodeObjectMap;
+    typedef QHash<Node, QObject *> NodeObjectMap;
 
     /**
      * Create an ObjectLoader ready to load objects from the given RDF
@@ -89,29 +89,6 @@ public:
     };
 
     void addLoadCallback(LoadCallback *callback);
-
-    class UnknownTypeException : virtual public std::exception {
-    public:
-        UnknownTypeException(QString type) throw() : m_type(type) { }
-        virtual ~UnknownTypeException() throw() { }
-        virtual const char *what() const throw() {
-            return QString("Unknown type: %1").arg(m_type).toLocal8Bit().data();
-        }
-    protected:
-        QString m_type;
-    };
-
-    class ConstructionFailedException : virtual public std::exception {
-    public:
-        ConstructionFailedException(QString type) throw() : m_type(type) { }
-        virtual ~ConstructionFailedException() throw() { }
-        virtual const char *what() const throw() {
-            return QString("Failed to construct type: %1")
-                .arg(m_type).toLocal8Bit().data();
-        }
-    protected:
-        QString m_type;
-    };
 
 private:
     class D;

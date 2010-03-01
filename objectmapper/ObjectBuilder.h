@@ -315,8 +315,8 @@ private:
     typedef QHash<QString, ExtractorBase *> ExtractorMap;
     ExtractorMap m_extractors;
 
-    QMap<QString, QString> m_cpmap;
-    QMap<QString, QString> m_pcmap;
+    QHash<QString, QString> m_cpmap;
+    QHash<QString, QString> m_pcmap;
 };
 
 }

@@ -62,8 +62,12 @@ public:
     Uri getRelationshipPrefix() const;
 
     void addTypeMapping(QString className, Uri uri);
+
     bool getTypeUriForClass(QString className, Uri &uri);
     bool getClassForTypeUri(Uri uri, QString &className);
+
+    Uri synthesiseTypeUriForClass(QString className); // may throw UnknownTypeException
+    QString synthesiseClassForTypeUri(Uri uri);
 
 
     /**

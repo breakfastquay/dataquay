@@ -42,6 +42,7 @@
 #include "../objectmapper/TypeMapping.h"
 #include "../objectmapper/ObjectBuilder.h"
 #include "../objectmapper/ContainerBuilder.h"
+#include "../objectmapper/ObjectMapperExceptions.h"
 #include "../RDFException.h"
 #include "../Debug.h"
 
@@ -1241,8 +1242,12 @@ compare(Triples t1, Triples t2)
 }
     
 bool
-testReloadability(Store &s0)
+testReloadability(BasicStore &s0)
 {
+    cerr << "Testing reload consistency..." << endl;
+
+    s0.save("test-reloadability-prior.ttl");
+
     ObjectLoader m0(&s0);
     QObject *parent = m0.loadAllObjects(0);
 
@@ -1254,10 +1259,20 @@ testReloadability(Store &s0)
 //    m1.setObjectStorePolicy(ObjectStorer::StoreObjectsWithURIs);
     //   m1.setPropertyStorePolicy(ObjectStorer::StoreIfChanged);
     m1.storeObjectTree(parent);
-    s1.save("test-object-mapper-3a.ttl");
+    s1.addPrefix("type", m1.getTypeMapping().getObjectTypePrefix());
+    s1.addPrefix("property", m1.getTypeMapping().getPropertyPrefix());
+    s1.addPrefix("rel", m1.getTypeMapping().getRelationshipPrefix());
+    s1.save("test-reloadability-a.ttl");
 
     ObjectLoader o1(&s1);
     QObject *newParent = o1.loadAllObjects(0);
+
+    if (newParent->children().size() != parent->children().size()) {
+        cerr << "Reloaded object parent has " << newParent->children().size()
+             << " children, expected " << parent->children().size()
+             << " to match prior copy" << endl;
+        return false;
+    }
 
     BasicStore s2;
     ObjectStorer m2(&s2);
@@ -1266,14 +1281,12 @@ testReloadability(Store &s0)
     s2.addPrefix("type", m2.getTypeMapping().getObjectTypePrefix());
     s2.addPrefix("property", m2.getTypeMapping().getPropertyPrefix());
     s2.addPrefix("rel", m2.getTypeMapping().getRelationshipPrefix());
-    s2.save("test-object-mapper-3b.ttl");
+    s2.save("test-reloadability-b.ttl");
 
     Triples t1 = s1.match(Triple());
     Triples t2 = s2.match(Triple());
     if (!compare(t1, t2)) {
         return false;
-    }
-    if (t1 != t2) {
     }
 
     //!!! test whether s1 and s2 are equal and whether newParent has all the same children as parent
@@ -1284,6 +1297,8 @@ bool
 testObjectMapper()
 {
     cerr << "testObjectMapper starting..." << endl;
+
+    cerr << "Testing simple QObject store and recall..." << endl;
 
     BasicStore store;
     
@@ -1311,12 +1326,52 @@ testObjectMapper()
         return false;
     }
 
+    if (!testReloadability(store)) return false;
+
+    cerr << "Testing QTimer store..." << endl;
+
     QTimer *t = new QTimer(o);
     t->setSingleShot(true);
     t->setInterval(4);
 
     Uri turi = storer.storeObject(t);
     cerr << "Stored QTimer as " << turi << endl;
+
+    cerr << "Testing QTimer recall without registration..." << endl;
+
+    bool caught = false;
+    try {
+        recalled = loader.loadObject(turi, 0);
+    } catch (UnknownTypeException) {
+        cerr << "Correctly caught UnknownTypeException when trying to recall unregistered object" << endl;
+        caught = true;
+    }
+    if (!caught) {
+        cerr << "Expected UnknownTypeException when trying to recall unregistered object did not materialise" << endl;
+        return false;
+    }
+
+    cerr << "Testing QTimer recall after registration..." << endl;
+
+    ObjectBuilder::getInstance()->registerClass<QTimer, QObject>();
+
+    recalled = loader.loadObject(turi, 0);
+    if (!recalled) {
+        cerr << "Failed to recall object" << endl;
+        return false;
+    }
+    if (recalled->objectName() != t->objectName()) {
+        cerr << "Wrong object name recalled" << endl;
+        return false;
+    }
+    if (!qobject_cast<QTimer *>(recalled)) {
+        cerr << "QTimer not a QTimer after recall" << endl;
+        return false;
+    }
+
+    if (!testReloadability(store)) return false;
+
+    cerr << "Testing custom object store and recall..." << endl;
 
     qRegisterMetaType<A*>("A*");
     qRegisterMetaType<B*>("B*");
@@ -1336,41 +1391,14 @@ testObjectMapper()
     ContainerBuilder::getInstance()->registerContainer<float, QList<float> >("float", "QList<float>", ContainerBuilder::SequenceKind);
     ContainerBuilder::getInstance()->registerContainer<C *, QSet<C *> >("C*", "QSet<C*>", ContainerBuilder::SetKind);
 
+    cerr << "Testing single custom object store..." << endl;
+
     A *a = new A(o);
     a->setRef(t);
     Uri auri = storer.storeObject(a);
     cerr << "Stored A-object as " << auri << endl;
-    
-    B *b = new B(o);
-    b->setA(a);
 
-    bool caught = false;
-    try {
-        recalled = loader.loadObject(turi, 0);
-    } catch (ObjectLoader::UnknownTypeException) {
-        cerr << "Correctly caught UnknownTypeException when trying to recall unregistered object" << endl;
-        caught = true;
-    }
-    if (!caught) {
-        cerr << "Expected UnknownTypeException when trying to recall unregistered object did not materialise" << endl;
-        return false;
-    }
-
-    ObjectBuilder::getInstance()->registerClass<QTimer, QObject>();
-
-    recalled = loader.loadObject(turi, 0);
-    if (!recalled) {
-        cerr << "Failed to recall object" << endl;
-        return false;
-    }
-    if (recalled->objectName() != t->objectName()) {
-        cerr << "Wrong object name recalled" << endl;
-        return false;
-    }
-    if (!qobject_cast<QTimer *>(recalled)) {
-        cerr << "QTimer not a QTimer after recall" << endl;
-        return false;
-    }
+    cerr << "Testing single custom object recall..." << endl;
 
     recalled = loader.loadObject(auri, 0);
     if (!recalled) {
@@ -1387,6 +1415,14 @@ testObjectMapper()
     }
 
     store.save("test-object-mapper.ttl");
+    cerr << "Saved single custom object example to test-object-mapper.ttl" << endl;
+
+    cerr << "Testing object network store and recall..." << endl;
+    
+    B *b = new B(o);
+    b->setA(a);
+
+    bool circular = true;
 
     C *c = new C;
     QStringList strings;
@@ -1401,7 +1437,10 @@ testObjectMapper()
     c->setFloats(floats);
     QList<B *> blist;
     B *b0 = new B;
-    b0->setA(a); //!!! restore this to test circular graphs
+    if (1) {
+        cerr << "(Including circular graph test)" << endl;
+        b0->setA(a);
+    }
     b0->setObjectName("b0");
     B *b1 = new B;
     A *a1 = new A;
@@ -1419,7 +1458,9 @@ testObjectMapper()
     c2->setObjectName("c2");
     cset.insert(c1);
     cset.insert(c2);
-    cset.insert(c);
+    if (circular) {
+        cset.insert(c);
+    }
     c->setCees(cset);
     QObjectList ol;
     ol << b2;

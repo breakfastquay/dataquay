@@ -34,6 +34,14 @@
 #ifndef _DATAQUAY_URI_H_
 #define _DATAQUAY_URI_H_
 
+namespace Dataquay {
+class Uri;
+}
+
+// Declare this early, to avoid any problems with instantiation order
+// arising from inclusion "races"
+extern unsigned int qHash(const Dataquay::Uri &u);
+
 #include <QString>
 #include <QUrl>
 
@@ -136,7 +144,6 @@ QTextStream &operator<<(QTextStream &out, const Uri &);
 
 }
 
-extern unsigned int qHash(const Dataquay::Uri &u);
 Q_DECLARE_METATYPE(Dataquay::Uri)
 
 #endif

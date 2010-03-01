@@ -485,5 +485,19 @@ operator<<(QTextStream &out, const Node &n)
 
 }
 
+unsigned int
+qHash(const Dataquay::Node &n)
+{
+    switch (n.type) {
+    case Dataquay::Node::URI:
+        return qHash(n.value);
+    case Dataquay::Node::Literal:
+        return qHash(n.value + n.datatype.toString());
+    case Dataquay::Node::Blank:
+        return qHash(n.value);
+    default:
+        return qHash("");
+    }
+}
 
 

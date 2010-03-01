@@ -39,7 +39,7 @@
 #include <QThread>
 #include <QMutex>
 #include <QMutexLocker>
-#include <QMap>
+#include <QHash>
 #include <QCryptographicHash>
 #include <QReadWriteLock>
 
@@ -507,7 +507,7 @@ private:
     librdf_model *m_model;
     static QMutex m_librdfLock; // assume the worst
 
-    typedef QMap<QString, Uri> PrefixMap;
+    typedef QHash<QString, Uri> PrefixMap;
     Uri m_baseUri;
     PrefixMap m_prefixes;
     mutable QMutex m_prefixLock; // also protects m_baseUri

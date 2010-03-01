@@ -31,6 +31,8 @@
     authorization.
 */
 
+#include "Uri.h"
+
 #include "PropertyObject.h"
 
 #include "Transaction.h"
@@ -418,16 +420,19 @@ CacheingPropertyObject::CacheingPropertyObject(Store *s, QString pfx, Node node)
 Uri
 CacheingPropertyObject::getObjectType() const
 {
-    encacheType();
-    return m_type;
+    encache();
+    Uri key = m_po.getStore(NoTransaction)->expand("a");
+    if (!m_cache.contains(key) || m_cache[key][0].type != Node::URI) {
+        return Uri();
+    }
+    return Uri(m_cache[key][0].value);
 }
 
 bool
 CacheingPropertyObject::hasProperty(QString name) const
 {
     encache();
-    Uri uri = m_po.getPropertyUri(name);
-    QString key = uri.toString();
+    Uri key = m_po.getPropertyUri(name);
     bool has = m_cache.contains(key);
     return has;
 }
@@ -436,8 +441,7 @@ QVariant
 CacheingPropertyObject::getProperty(QString name) const
 {
     encache();
-    Uri uri = m_po.getPropertyUri(name);
-    QString key = uri.toString();
+    Uri key = m_po.getPropertyUri(name);
     if (!m_cache.contains(key)) return QVariant();
     return m_cache[key][0].toVariant();
 }
@@ -446,8 +450,7 @@ QVariantList
 CacheingPropertyObject::getPropertyList(QString name) const
 {
     encache();
-    Uri uri = m_po.getPropertyUri(name);
-    QString key = uri.toString();
+    Uri key = m_po.getPropertyUri(name);
     if (!m_cache.contains(key)) return QVariantList();
     QVariantList vl;
     foreach (const Node &n, m_cache[key]) {
@@ -460,8 +463,7 @@ Node
 CacheingPropertyObject::getPropertyNode(QString name) const
 {
     encache();
-    Uri uri = m_po.getPropertyUri(name);
-    QString key = uri.toString();
+    Uri key = m_po.getPropertyUri(name);
     if (!m_cache.contains(key)) return Node();
     return m_cache[key][0];
 }
@@ -470,8 +472,7 @@ Nodes
 CacheingPropertyObject::getPropertyNodeList(QString name) const
 {
     encache();
-    Uri uri = m_po.getPropertyUri(name);
-    QString key = uri.toString();
+    Uri key = m_po.getPropertyUri(name);
     Nodes result;
     if (!m_cache.contains(key)) return result;
     result = m_cache[key];
@@ -557,17 +558,11 @@ CacheingPropertyObject::encache() const
         ->match(Triple(m_po.getNode(), Node(), Node()));
 
     for (int i = 0; i < ts.size(); ++i) {
-        m_cache[ts[i].b.value].push_back(ts[i].c);
+        if (ts[i].b.type != Node::URI) continue; // shouldn't happen, but
+        m_cache[Uri(ts[i].b.value)].push_back(ts[i].c);
     }
 
     m_cached = true;
-}
-
-void
-CacheingPropertyObject::encacheType() const
-{
-    if (m_type != Uri()) return;
-    m_type = m_po.getObjectType();
 }
 
 }

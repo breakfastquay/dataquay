@@ -40,6 +40,8 @@
 #include "../Store.h"
 #include "../Debug.h"
 
+#include <memory>
+
 #include <QMetaProperty>
 
 namespace Dataquay
@@ -144,8 +146,6 @@ private:
     BlankNodePolicy m_bp;
     QList<StoreCallback *> m_storeCallbacks;
 
-    Uri classNameToTypeUri(QString className);
-
     Node storeTree(ObjectNodeMap &map, QObject *o);
     Node storeSingle(ObjectNodeMap &map, QObject *o, bool follow, bool blank = false);
 
@@ -157,19 +157,6 @@ private:
     Node objectToPropertyNode(ObjectNodeMap &map, QObject *o, bool follow);
     Node listToPropertyNode(ObjectNodeMap &map, QVariantList list, bool follow);
 };
-
-Uri
-ObjectStorer::D::classNameToTypeUri(QString className)
-{
-    //!!! move this function to TypeMapping?
-    Uri typeUri;
-    if (m_tm.getTypeUriForClass(className, typeUri)) {
-	return typeUri;
-    }
-    typeUri = Uri(QString(m_tm.getObjectTypePrefix().toString() +
-			  className).replace("::", "/"));
-    return typeUri;
-}
 
 void
 ObjectStorer::D::storeProperties(ObjectNodeMap &map, QObject *o,
@@ -434,15 +421,28 @@ ObjectStorer::D::storeSingle(ObjectNodeMap &map, QObject *o, bool follow, bool b
 
     map[o] = node;
 
-    m_s->add(Triple(node, "a", classNameToTypeUri(className)));
+    m_s->add(Triple(node, "a", m_tm.synthesiseTypeUriForClass(className)));
+    
+    QObject *parent = o->parent();
+    if (parent && map.contains(parent)) {
+        
+        // if the parent is in the map (i.e. wants to be written) but
+        // has not been written yet, write it now
+        if (map[parent] == Node()) {
+            if (follow) {
+                DEBUG << "storeSingle: Parent of " << node << " has not been written yet, writing it" << endl;
+                storeSingle(map, parent, follow, blank);
+            }
+        }
+        
+        if (map[parent] != Node()) {
+            m_s->add(Triple(node,
+                            m_tm.getRelationshipPrefix().toString() + "parent",
+                            map[o->parent()]));
+        }
 
-    if (o->parent() &&
-        map.contains(o->parent()) &&
-        map[o->parent()] != Node()) {
-
-        m_s->add(Triple(node,
-			m_tm.getRelationshipPrefix().toString() + "parent",
-                        map[o->parent()]));
+    } else if (parent) {
+        DEBUG << "storeSingle: Not writing parent " << parent << " (it is not in map)" << endl;
     }
 
     storeProperties(map, o, node, follow);

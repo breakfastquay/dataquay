@@ -909,9 +909,10 @@ ObjectMapper::D::loadSingle(NodeObjectMap &map, Node node, QObject *parent,
     QObject *o = m_ob->build(className, parent);
     if (!o) throw ConstructionFailedException(className);
 	
-    if (node.type == Node::URI) {
+    if (node.type == Node::URI) { // not a blank node
         o->setProperty("uri", QVariant::fromValue(m_s->expand(node.value)));
     }
+
     map[node] = o;
 
     loadProperties(map, o, node, follow, po);

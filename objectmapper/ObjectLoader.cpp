@@ -39,19 +39,11 @@
 #include "TypeMapping.h"
 #include "Store.h"
 
-//#include <QMetaObject>
-#include <QMetaProperty>
-//#include <QVariant>
-//#include <QHash>
-//#include <QMap>
+#include "ObjectMapperExceptions.h"
 
-//#include <memory> // auto_ptr
+#include <QMetaProperty>
 
 #include "Debug.h"
-
-//#include <iostream>
-
-//#include <cassert>
 
 namespace Dataquay {
 
@@ -102,15 +94,14 @@ public:
 
         foreach (Triple t, candidates) {
             
-            if (t.a.type != Node::URI || t.c.type != Node::URI) continue;
+            if (t.c.type != Node::URI) continue;
 
-            Uri objectUri(t.a.value);
             Uri typeUri(t.c.value);
 
             QString className;
 
             try {
-                className = typeUriToClassName(typeUri);
+                className = m_tm.synthesiseClassForTypeUri(typeUri);
             } catch (UnknownTypeException) {
                 continue;
             }
@@ -120,7 +111,7 @@ public:
                 continue;
             }
             
-            loadFrom(map, objectUri, className);
+            loadFrom(map, t.a, className);
         }
 
         loadConnections(map);
@@ -137,7 +128,10 @@ public:
         }
 
         QObject *superRoot = parent;
-        if (!superRoot) superRoot = new QObject;
+        if (!superRoot) {
+            superRoot = new QObject;
+            superRoot->setObjectName("Dataquay ObjectLoader synthetic parent");
+        }
         foreach (QObject *o, rootObjects) {
             o->setParent(superRoot);
         }
@@ -145,6 +139,14 @@ public:
     }
 
     QObject *loadFrom(NodeObjectMap &map, Node node, QString classHint = "") {
+
+        DEBUG << "loadFrom: " << node << " (classHint " << classHint << ")" << endl;
+
+        //!!! should we return here before traversing parent and siblings? or only return after loadSingle call as we did before?
+        if (map.contains(node)) {
+            DEBUG << "loadFrom: " << node << " already loaded" << endl;
+            return map[node];
+        }
 
         // We construct the property object with the property prefix
         // rather than relationship prefix, so that we can reuse it in
@@ -169,6 +171,7 @@ public:
         QObject *parent = 0;
         QString parentProp = m_tm.getRelationshipPrefix().toString() + "parent";
 	if (po.hasProperty(parentProp)) {
+            DEBUG << "loadFrom: node " << node << " has parent, loading that first" << endl;
             try {
                 parent = loadFrom(map, po.getPropertyNode(parentProp));
             } catch (UnknownTypeException) {
@@ -197,8 +200,6 @@ private:
     TypeMapping m_tm;
     QList<LoadCallback *> m_loadCallbacks;
 
-    QString typeUriToClassName(Uri typeUri);
-
     QObject *loadTree(NodeObjectMap &map, Node node, QObject *parent);
     QObject *loadSingle(NodeObjectMap &map, Node node, QObject *parent,
                         QString classHint, bool follow,
@@ -219,23 +220,6 @@ private:
     QVariantList propertyNodeToList(NodeObjectMap &map, QString typeName,
                                     Node pnode, bool follow);
 };
-
-QString
-ObjectLoader::D::typeUriToClassName(Uri typeUri)
-{
-    //!!! move this function to TypeMapping?
-    QString s;
-    if (m_tm.getClassForTypeUri(typeUri, s)) {
-	return s;
-    }
-    s = typeUri.toString();
-    if (!s.startsWith(m_tm.getObjectTypePrefix().toString())) {
-        throw UnknownTypeException(s);
-    }
-    s = s.right(s.length() - m_tm.getObjectTypePrefix().length());
-    s = s.replace("/", "::");
-    return s;
-}
 
 void
 ObjectLoader::D::loadProperties(NodeObjectMap &map, QObject *o, Node node,
@@ -493,7 +477,10 @@ ObjectLoader::D::loadSingle(NodeObjectMap &map, Node node, QObject *parent,
                             QString classHint, bool follow,
                             CacheingPropertyObject *po)
 {
+    DEBUG << "loadSingle: " << node << endl;
+
     if (map.contains(node)) {
+        DEBUG << "loadSingle: " << node << " already loaded" << endl;
         return map[node];
     }
 
@@ -506,14 +493,20 @@ ObjectLoader::D::loadSingle(NodeObjectMap &map, Node node, QObject *parent,
     // we always use the RDF type if available, and refer to the
     // passed-in type only if that fails.
 
+    Uri typeUri;
     QString className;
 
-    Triple t = m_s->matchFirst(Triple(node, "a", Node()));
-    if (t.c.type == Node::URI) {
+    if (po) typeUri = po->getObjectType();
+    else {
+        Triple t = m_s->matchFirst(Triple(node, "a", Node()));
+        if (t.c.type == Node::URI) typeUri = Uri(t.c.value);
+    }
+
+    if (typeUri != Uri()) {
         try {
-            className = typeUriToClassName(Uri(t.c.value));
+            className = m_tm.synthesiseClassForTypeUri(typeUri);
         } catch (UnknownTypeException) {
-            DEBUG << "loadSingle: Unknown type URI " << t.c.value << endl;
+            DEBUG << "loadSingle: Unknown type URI " << typeUri << endl;
             if (classHint == "") throw;
             DEBUG << "(falling back to object class hint " << classHint << ")" << endl;
             className = classHint;

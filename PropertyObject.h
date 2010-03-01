@@ -446,12 +446,10 @@ public:
 
 private:
     PropertyObject m_po;
-    typedef QHash<QString, Nodes> Properties;
-    mutable Uri m_type;
+    typedef QHash<Uri, Nodes> Properties;
     mutable Properties m_cache; // note: value is never empty
     mutable bool m_cached;
     void encache() const;
-    void encacheType() const;
 };
 
 }

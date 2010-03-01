@@ -36,6 +36,8 @@
 
 #include "../Node.h"
 
+#include <QMap>
+
 class QObject;
 
 namespace Dataquay
@@ -48,7 +50,7 @@ class ObjectStorer
 {
 public:
     /// Map from object to RDF node
-    typedef QMap<QObject *, Node> ObjectNodeMap;
+    typedef QHash<QObject *, Node> ObjectNodeMap;
 
     /**
      * Create an ObjectStorer ready to store objects to the given RDF
