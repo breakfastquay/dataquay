@@ -115,6 +115,9 @@ public:
     void addStoreCallback(StoreCallback *callback);
 
 private:
+    ObjectStorer(const ObjectStorer &);
+    ObjectStorer &operator=(const ObjectStorer &);
+
     class D;
     D *m_d;
 };

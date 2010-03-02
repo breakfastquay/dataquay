@@ -91,6 +91,8 @@ public:
     void addLoadCallback(LoadCallback *callback);
 
 private:
+    ObjectLoader(const ObjectLoader &);
+    ObjectLoader &operator=(const ObjectLoader &);
     class D;
     D *m_d;
 };
