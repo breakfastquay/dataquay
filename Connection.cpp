@@ -273,13 +273,17 @@ Connection::expand(QString uri) const
 void 
 Connection::commit()
 {
+    emit committing();
     m_d->commit();
+    emit committed();
 }
 
 void 
 Connection::rollback()
 {
+    emit rollingBack();
     m_d->rollback();
+    emit rolledBack();
 }
 
 }

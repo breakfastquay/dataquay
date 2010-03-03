@@ -71,8 +71,10 @@ class Transaction;
  * Each Connection should be used in a single processing thread only.
  * Connection is not thread-safe.
  */
-class Connection : public Store
+class Connection : public QObject, public Store
 {
+    Q_OBJECT
+
 public:
     /**
      * Construct a Connection to the given TransactionalStore, through
@@ -87,18 +89,6 @@ public:
      */
     ~Connection();
 
-    /**
-     * Commit the outstanding Transaction, if any.
-     */
-    void commit();
-
-    /**
-     * Roll back the outstanding Transaction, if any, and prepare to
-     * begin a new Transaction the next time a modifying function is
-     * called.
-     */
-    void rollback();
-
     // Store interface
     bool add(Triple t);
     bool remove(Triple t);
@@ -112,6 +102,25 @@ public:
     Uri getUniqueUri(QString prefix) const;
     Node addBlankNode();
     Uri expand(QString uri) const;
+
+public slots:
+    /**
+     * Commit the outstanding Transaction, if any.
+     */
+    void commit();
+
+    /**
+     * Roll back the outstanding Transaction, if any, and prepare to
+     * begin a new Transaction the next time a modifying function is
+     * called.
+     */
+    void rollback();
+
+signals:
+    void committing();
+    void committed();
+    void rollingBack();
+    void rolledBack();
 
 private:
     class D;

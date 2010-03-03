@@ -71,12 +71,19 @@ public:
 
     const Network &getNetwork() const;
 
+signals:
+    void committed();
+
 public slots:
     void addToNetwork(QObject *);
     void removeFromNetwork(QObject *);
     void remap(QObject *); //!!! poor
     void unmap(QObject *); //!!! poor
     void commit();
+
+private slots:
+    void propertyChanged();
+    void objectDestroyed(QObject *);
 
 private:
     ObjectMapper(const ObjectMapper &);

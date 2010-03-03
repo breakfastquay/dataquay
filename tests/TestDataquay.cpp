@@ -39,6 +39,7 @@
 #include "../Connection.h"
 #include "../objectmapper/ObjectLoader.h"
 #include "../objectmapper/ObjectStorer.h"
+#include "../objectmapper/ObjectMapper.h"
 #include "../objectmapper/TypeMapping.h"
 #include "../objectmapper/ObjectBuilder.h"
 #include "../objectmapper/ContainerBuilder.h"
@@ -1472,6 +1473,12 @@ testObjectMapper()
     store.save("test-object-mapper-2.ttl");
 
     if (!testReloadability(store)) return false;
+
+    ObjectMapper mapper(&store);
+    mapper.addToNetwork(c);//!!!
+
+    strings << "Third string";
+    c->setStrings(strings);
 
     return true;
 

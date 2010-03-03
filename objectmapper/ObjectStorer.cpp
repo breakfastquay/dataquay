@@ -391,7 +391,12 @@ ObjectStorer::D::storeSingle(ObjectNodeMap &map, QObject *o, bool follow, bool b
 { //!!! crap api
     DEBUG << "storeSingle: blank = " << blank << endl;
 
-    if (map.contains(o) && map[o] != Node()) return map[o];
+    //!!! This doesn't seem right; if this function has been called
+    //!!! (externally) for an object, then the object is clearly
+    //!!! intended to be written again.  We should be simply not
+    //!!! calling the function in the first place if it is not to be
+    //!!! written
+//    if (map.contains(o) && map[o] != Node()) return map[o];
 
     QString className = o->metaObject()->className();
 
