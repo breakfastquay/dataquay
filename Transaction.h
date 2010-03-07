@@ -58,25 +58,6 @@ public:
      * object before beginning any other transaction.
      */
     virtual ~Transaction() { }
-
-    /**
-     * Return the ChangeSet applied so far by this transaction.  This
-     * returns all changes provisionally made during the transaction.
-     *
-     * (Once the transaction is committed and deleted, you can in
-     * principle revert it in its entirety by calling Store::revert()
-     * with this change set.)
-     *
-     * This is undefined if the transaction has been rolled back (it
-     * may return the changes prior to rollback, or an empty
-     * ChangeSet, or something else).
-     *
-     * !!! FIX -- TransactionalStore depends on getChanges returning
-     * the changes prior to rollback, in leaveTransactionContext --
-     * it's called after rollback if a transaction is being rolled
-     * back
-     */
-    virtual ChangeSet getChanges() const = 0;
  
    /**
      * Roll back this transaction.  All changes made during the
@@ -89,6 +70,32 @@ public:
      * be discarded rather than being committed.
      */
     virtual void rollback() = 0;
+
+    /**
+     * Return the ChangeSet applied so far by this transaction.  This
+     * returns all changes provisionally made during the transaction.
+     *
+     * (Once the transaction is committed and deleted, you can in
+     * principle revert it in its entirety by calling Store::revert()
+     * with this change set.)
+     *
+     * If the transaction has been rolled back, this will return the
+     * changes that were accumulated prior to the roll back, i.e. the
+     * changes that were then rolled back.  (This behaviour is
+     * required by some internal functions.)
+     */
+    ChangeSet getChanges() const {
+        return m_changes;
+    }
+
+protected:
+    Transaction() { }
+
+    ChangeSet m_changes;
+
+private:
+    Transaction(const Transaction &);
+    Transaction &operator=(const Transaction &);
 };
 
 extern Transaction *const NoTransaction;

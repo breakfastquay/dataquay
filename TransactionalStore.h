@@ -127,6 +127,22 @@ public:
     Uri expand(QString uri) const;
 
 signals:
+    /**
+     * Emitted after a transaction has been committed.  Note that the
+     * transaction lock on the store is unlocked before the signal is
+     * emitted, so that in a multi-threaded context it is possible
+     * that other users of the store may have carried out further
+     * transactions before this signal can be acted on.
+     */
+    void transactionCommitted(const ChangeSet &cs);
+
+    /**
+     * Emitted after a transaction has been committed.  Note that the
+     * transaction lock on the store is unlocked before the signal is
+     * emitted, so that in a multi-threaded context it is possible
+     * that other users of the store may have carried out further
+     * transactions before this signal can be acted on.
+     */
     void transactionCommitted();
 
 private:
@@ -151,13 +167,15 @@ private:
         Uri expand(QString uri) const;
 
         // Transaction interface
-        ChangeSet getChanges() const;
         void rollback();
 
         TSTransaction(TransactionalStore::D *td);
         virtual ~TSTransaction();
 
     private:
+        TSTransaction(const TSTransaction &);
+        TSTransaction &operator=(const TSTransaction &);
+        void addChange(const Change &);
         class D;
         D *m_d;
     };

@@ -88,6 +88,7 @@ public:
     }
 
     void commitTransaction(Transaction *tx) {
+        ChangeSet cs;
         {
             QMutexLocker locker(&m_mutex);
             DEBUG << "TransactionalStore::commitTransaction" << endl;
@@ -95,6 +96,7 @@ public:
                 throw RDFException("Transaction integrity error");
             }
             enterTransactionContext();
+            cs = m_currentTx->getChanges();
             // The store is now in transaction context, which means
             // its changes have been committed; resetting m_currentTx
             // now ensures they will remain committed.  Reset
@@ -103,6 +105,7 @@ public:
             m_currentTx = NoTransaction;
             m_context = NonTxContext;
         }
+        m_ts->transactionCommitted(cs);
         m_ts->transactionCommitted();
     }
 
@@ -288,6 +291,9 @@ private:
             m_context = NonTxContext;
             return;
         }
+        // N.B. This is the reason for Transaction::getChanges()
+        // returning the change set prior to rollback, rather than
+        // e.g. an empty change set, if called after a rollback
         ChangeSet cs = m_currentTx->getChanges();
         if (!cs.empty()) {
             try {
@@ -303,7 +309,7 @@ private:
 class TransactionalStore::TSTransaction::D
 {
 public:
-    D(Transaction *tx, TransactionalStore::D *td) :
+    D(TransactionalStore::TSTransaction *tx, TransactionalStore::D *td) :
         m_tx(tx), m_td(td), m_abandoned(false) {
     }
     ~D() {
@@ -329,7 +335,7 @@ public:
         check();
         try {
             if (m_td->add(m_tx, t)) {
-                m_changes.push_back(Change(AddTriple, t));
+                m_tx->addChange(Change(AddTriple, t));
                 return true;
             } else {
                 return false;
@@ -360,7 +366,7 @@ public:
             }
             for (int i = 0; i < tt.size(); ++i) {
                 if (m_td->remove(m_tx, tt[i])) {
-                    m_changes.push_back(Change(RemoveTriple, tt[i]));
+                    m_tx->addChange(Change(RemoveTriple, tt[i]));
                     return true;
                 } else if (wild) {
                     throw RDFException("Failed to remove matched statement in remove() with wildcards");
@@ -488,7 +494,7 @@ public:
     }
 
     ChangeSet getChanges() const {
-        return m_changes;
+        return m_tx->getChanges();
     }
 
     void rollback() {
@@ -498,9 +504,8 @@ public:
     }
         
 private:
-    Transaction *m_tx;
+    TransactionalStore::TSTransaction *m_tx;
     TransactionalStore::D *m_td;
-    ChangeSet m_changes;
     mutable bool m_abandoned;
 };
 
@@ -708,16 +713,16 @@ TransactionalStore::TSTransaction::expand(QString uri) const
     return m_d->expand(uri);
 }
 
-ChangeSet
-TransactionalStore::TSTransaction::getChanges() const
-{
-    return m_d->getChanges();
-}
-
 void
 TransactionalStore::TSTransaction::rollback()
 {
     m_d->rollback();
+}
+
+void
+TransactionalStore::TSTransaction::addChange(const Change &change)
+{
+    m_changes.push_back(change);
 }
 
 }

@@ -85,7 +85,8 @@ public:
 
     /**
      * Destroy the Connection, first committing any outstanding
-     * transaction.
+     * transaction.  If you do not want any outstanding transaction to
+     * be committed, call rollback() first.
      */
     ~Connection();
 
@@ -117,10 +118,11 @@ public slots:
     void rollback();
 
 signals:
-    void committing();
-    void committed();
-    void rollingBack();
-    void rolledBack();
+    /// Forwarded from TransactionalStore
+    void transactionCommitted(const ChangeSet &);
+
+    /// Forwarded from TransactionalStore
+    void transactionCommitted();
 
 private:
     class D;

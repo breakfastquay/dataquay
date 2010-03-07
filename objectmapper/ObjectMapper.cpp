@@ -38,6 +38,9 @@
 
 #include "TypeMapping.h"
 
+#include "TransactionalStore.h"
+#include "Connection.h"
+
 #include "../Debug.h"
 
 #include <QMetaProperty>
@@ -48,53 +51,32 @@
 namespace Dataquay {
 
 class
-ObjectMapper::Network::D
-{
-public:
-    ObjectLoader::NodeObjectMap nodeObjectMap;
-    ObjectStorer::ObjectNodeMap objectNodeMap;
-};
-
-ObjectMapper::Network::Network() :
-    m_d(new D())
-{
-}
-
-ObjectMapper::Network::Network(const Network &n) :
-    m_d(new D(*n.m_d))
-{
-}
-
-ObjectMapper::Network &
-ObjectMapper::Network::operator=(const Network &n)
-{
-    if (&n != this) {
-        delete m_d;
-        m_d = new D(*n.m_d);
-    }
-    return *this;
-}
-
-ObjectMapper::Network::~Network()
-{
-    delete m_d;
-}
-
-class
 ObjectMapper::D : public QObject
 {
-public:
-    D(ObjectMapper *m, Store *s) :
-        m_m(m),
-        m_s(s)
+    struct Network
     {
-        m_loader = new ObjectLoader(m_s);
-        m_storer = new ObjectStorer(m_s);
+        ObjectLoader::NodeObjectMap nodeObjectMap;
+        ObjectStorer::ObjectNodeMap objectNodeMap;
+    };
+
+public:
+    D(ObjectMapper *m, TransactionalStore *s) :
+        m_m(m),
+        m_s(s),
+        m_c(s)
+    {
+        m_loader = new ObjectLoader(&m_c);
+        m_storer = new ObjectStorer(&m_c);
+        connect(&m_c, SIGNAL(transactionCommitted(const ChangeSet &)),
+                m_m, SLOT(transactionCommitted(const ChangeSet &)));
     }
 
-    virtual ~D() { }
+    virtual ~D() {
+        delete m_storer;
+        delete m_loader;
+    }
     
-    Store *getStore() {
+    TransactionalStore *getStore() {
         return m_s;
     }
 
@@ -106,10 +88,6 @@ public:
 
     const TypeMapping &getTypeMapping() const {
         return m_tm;
-    }
-
-    const Network &getNetwork() const {
-        return m_n;
     }
 
     void addToNetwork(QObject *o) {
@@ -149,7 +127,7 @@ public:
                 .arg(property.notifySignal().signature());
             QByteArray ba = sig.toLocal8Bit();
 
-            if (!connect(o, ba.data(), m_m, SLOT(propertyChanged()))) {
+            if (!connect(o, ba.data(), m_m, SLOT(objectModified()))) {
                 std::cerr << "ObjectMapper::addToNetwork: Failed to connect notify signal" << std::endl;
             }
 
@@ -161,8 +139,8 @@ public:
     void removeFromNetwork(QObject *) { }
     void remap(QObject *) { } //!!! poor
     void unmap(QObject *) { } //!!! poor
-    void propertyChangedOn(QObject *o) {
-        std::cerr << "propertyChangedOn(" << o << ")" << std::endl;
+    void objectModified(QObject *o) {
+        std::cerr << "objectModified(" << o << ")" << std::endl;
         QMutexLocker locker(&m_mutex);
         m_changedObjects.insert(o);
     }
@@ -170,28 +148,46 @@ public:
         std::cerr << "objectDestroyed(" << o << ")" << std::endl;
         QMutexLocker locker(&m_mutex);
         m_changedObjects.remove(o);
+        if (m_n.objectNodeMap.contains(o)) {
+            m_deletedObjectNodes.insert(m_n.objectNodeMap[o]);
+        }
+    }
+    void transactionCommitted(const ChangeSet &cs) {
+        std::cerr << "transactionCommitted" << std::endl;
+        //!!! this might have come from our own commit() call! how do we handle that?
+
+        // n.b. we want to be able to use this to trigger object
+        // reloads, because we want it to be possible to e.g. manage
+        // undo using the store directly
+
     }
     void commit() { 
         QMutexLocker locker(&m_mutex);
-        foreach (QObject *o, m_changedObjects) {
-            m_storer->store(m_n.m_d->objectNodeMap, o);
+        foreach (Node n, m_deletedObjectNodes) {
+            m_storer->removeObject(n);
         }
+        foreach (QObject *o, m_changedObjects) {
+            m_storer->store(m_n.objectNodeMap, o);
+        }
+        m_c.commit();
     }
 
 private:
     ObjectMapper *m_m;
-    Store *m_s;
+    TransactionalStore *m_s;
+    Connection m_c;
     TypeMapping m_tm;
     Network m_n;
 
     QMutex m_mutex;
     QSet<QObject *> m_changedObjects;
+    QSet<Node> m_deletedObjectNodes;
 
     ObjectLoader *m_loader;
     ObjectStorer *m_storer;
 };
 
-ObjectMapper::ObjectMapper(Store *s) :
+ObjectMapper::ObjectMapper(TransactionalStore *s) :
     m_d(new D(this, s))
 {
 }
@@ -201,7 +197,7 @@ ObjectMapper::~ObjectMapper()
     delete m_d;
 }
 
-Store *
+TransactionalStore *
 ObjectMapper::getStore()
 {
     return m_d->getStore();
@@ -217,12 +213,6 @@ const TypeMapping &
 ObjectMapper::getTypeMapping() const
 {
     return m_d->getTypeMapping();
-}
-
-const ObjectMapper::Network &
-ObjectMapper::getNetwork() const
-{
-    return m_d->getNetwork();
 }
 
 void
@@ -256,15 +246,27 @@ ObjectMapper::commit()
 }
 
 void
-ObjectMapper::propertyChanged()
+ObjectMapper::objectModified()
 {
-    m_d->propertyChangedOn(sender());
+    m_d->objectModified(sender());
+}
+
+void
+ObjectMapper::objectModified(QObject *o)
+{
+    m_d->objectModified(o);
 }
 
 void
 ObjectMapper::objectDestroyed(QObject *o)
 {
     m_d->objectDestroyed(o);
+}
+
+void
+ObjectMapper::transactionCommitted(const ChangeSet &cs)
+{
+    m_d->transactionCommitted(cs);
 }
 
 }

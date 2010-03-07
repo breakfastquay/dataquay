@@ -36,10 +36,12 @@
 
 #include <QObject>
 
+#include "Store.h"
+
 namespace Dataquay
 {
 
-class Store;
+class TransactionalStore;
 class TypeMapping;
 
 class ObjectMapper : public QObject
@@ -47,43 +49,29 @@ class ObjectMapper : public QObject
     Q_OBJECT
 
 public:
-    class Network
-    {
-    public:
-        Network();
-        Network(const Network &);
-        Network &operator=(const Network &);
-        ~Network();
-
-    private:
-        friend class ObjectMapper;
-        class D;
-        D *m_d;
-    };
-        
-    ObjectMapper(Store *s);
+    ObjectMapper(TransactionalStore *ts);
     ~ObjectMapper();
 
-    Store *getStore();
+    TransactionalStore *getStore();
 
     void setTypeMapping(const TypeMapping &);
     const TypeMapping &getTypeMapping() const;
-
-    const Network &getNetwork() const;
 
 signals:
     void committed();
 
 public slots:
-    void addToNetwork(QObject *);
+    void addToNetwork(QObject *); // or "manage"?
     void removeFromNetwork(QObject *);
     void remap(QObject *); //!!! poor
     void unmap(QObject *); //!!! poor
     void commit();
 
 private slots:
-    void propertyChanged();
+    void objectModified(); // takes object from sender
+    void objectModified(QObject *);
     void objectDestroyed(QObject *);
+    void transactionCommitted(const ChangeSet &cs);
 
 private:
     ObjectMapper(const ObjectMapper &);

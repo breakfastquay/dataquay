@@ -1474,17 +1474,39 @@ testObjectMapper()
 
     if (!testReloadability(store)) return false;
 
-    ObjectMapper mapper(&store);
+
+    {
+
+    TransactionalStore ts(&store);
+
+    ObjectMapper mapper(&ts);
     mapper.addToNetwork(c);//!!!
 
     strings << "Third string";
     c->setStrings(strings);
+
+    store.save("test-mapper-auto-1.ttl");
+
+    mapper.commit();
+    
+    store.save("test-mapper-auto-2.ttl");
+
+    delete c;
+
+    store.save("test-mapper-auto-3.ttl");
+
+    mapper.commit();
+    
+    store.save("test-mapper-auto-4.ttl");
+
+    }
 
     return true;
 
         
     
 
+    std::cerr << "testObjectMapper done" << std::endl;
 }
 
 }

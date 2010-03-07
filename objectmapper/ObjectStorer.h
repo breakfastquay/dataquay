@@ -36,7 +36,7 @@
 
 #include "../Node.h"
 
-#include <QMap>
+#include <QHash>
 
 class QObject;
 
@@ -105,7 +105,13 @@ public:
     Uri storeObject(QObject *o);
     Uri storeObjectTree(QObject *root);
     void storeAllObjects(QObjectList);
-    //!!! want a method to store all objects (and pass back and forth object map?)
+    //!!! want a method to store all objects (and pass back and forth object map
+
+    void removeObject(Node node); // but not any objects it refers to?
+
+    //!!! really want separate I-want-you-to-store-this-again (because
+    //!!! it's changed) and store-only-if-it's-not-stored-already (but
+    //!!! return the corresponding Node either way)
     Node store(ObjectNodeMap &map, QObject *o);
 
     struct StoreCallback {

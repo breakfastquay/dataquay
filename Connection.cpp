@@ -191,6 +191,11 @@ Connection::D::expand(QString uri) const
 Connection::Connection(TransactionalStore *ts) :
     m_d(new D(ts))
 {
+    connect(ts, SIGNAL(transactionCommitted(const ChangeSet &)),
+            this, SIGNAL(transactionCommitted(const ChangeSet &)));
+
+    connect(ts, SIGNAL(transactionCommitted()),
+            this, SIGNAL(transactionCommitted()));
 }
 
 Connection::~Connection()
@@ -273,17 +278,13 @@ Connection::expand(QString uri) const
 void 
 Connection::commit()
 {
-    emit committing();
     m_d->commit();
-    emit committed();
 }
 
 void 
 Connection::rollback()
 {
-    emit rollingBack();
     m_d->rollback();
-    emit rolledBack();
 }
 
 }

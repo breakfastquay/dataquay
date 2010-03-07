@@ -127,6 +127,17 @@ public:
         }
     }
 
+    void removeObject(Node n) {
+        //!!! expunge every reference, forward and back?  what about
+        // propertyies that are blank nodes not referred to elsewhere,
+        // a la removeOldPropertyNodes?
+
+        //!!! also handle removing lists (rdf:first/rdf:rest/rdf:nil)
+
+        m_s->remove(Triple(n, Node(), Node()));
+        m_s->remove(Triple(Node(), Node(), n));
+    }
+
     Node store(ObjectNodeMap &map, QObject *o) {
         return storeSingle(map, o, true);
     }
@@ -396,7 +407,7 @@ ObjectStorer::D::storeSingle(ObjectNodeMap &map, QObject *o, bool follow, bool b
     //!!! intended to be written again.  We should be simply not
     //!!! calling the function in the first place if it is not to be
     //!!! written
-//    if (map.contains(o) && map[o] != Node()) return map[o];
+    if (map.contains(o) && map[o] != Node()) return map[o];
 
     QString className = o->metaObject()->className();
 
@@ -566,6 +577,12 @@ void
 ObjectStorer::storeAllObjects(QObjectList list)
 {
     m_d->storeAllObjects(list);
+}
+
+void
+ObjectStorer::removeObject(Node n)
+{
+    m_d->removeObject(n);
 }
 
 Node
