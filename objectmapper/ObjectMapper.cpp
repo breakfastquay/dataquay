@@ -63,7 +63,9 @@ public:
     D(ObjectMapper *m, TransactionalStore *s) :
         m_m(m),
         m_s(s),
-        m_c(s)
+        m_c(s),
+        m_mutex(QMutex::Recursive),
+        m_inCommit(false)
     {
         m_loader = new ObjectLoader(&m_c);
         m_storer = new ObjectStorer(&m_c);
@@ -154,12 +156,19 @@ public:
     }
     void transactionCommitted(const ChangeSet &cs) {
         std::cerr << "transactionCommitted" << std::endl;
-        //!!! this might have come from our own commit() call! how do we handle that?
-
-        // n.b. we want to be able to use this to trigger object
-        // reloads, because we want it to be possible to e.g. manage
-        // undo using the store directly
-
+        QMutexLocker locker(&m_mutex);
+        if (m_inCommit) {
+            // This signal must have been emitted by a commit invoked
+            // from our own commit method.  We only set m_inCommit
+            // true for a period in which our own mutex is held, so if
+            // it is set here, we must be in a recursive call from
+            // that mutex section (noting that m_mutex is a recursive
+            // mutex, otherwise we would have deadlocked).  And we
+            // don't want to update on the basis of our own commits,
+            // only on the basis of commits happening elsewhere.
+            return;
+        }
+        //!!! but now what?
     }
     void commit() { 
         QMutexLocker locker(&m_mutex);
@@ -169,7 +178,9 @@ public:
         foreach (QObject *o, m_changedObjects) {
             m_storer->store(m_n.objectNodeMap, o);
         }
+        m_inCommit = true;
         m_c.commit();
+        m_inCommit = false;
     }
 
 private:
@@ -182,6 +193,7 @@ private:
     QMutex m_mutex;
     QSet<QObject *> m_changedObjects;
     QSet<Node> m_deletedObjectNodes;
+    bool m_inCommit;
 
     ObjectLoader *m_loader;
     ObjectStorer *m_storer;
