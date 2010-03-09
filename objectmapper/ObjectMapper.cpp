@@ -144,11 +144,23 @@ public:
     void objectModified(QObject *o) {
         std::cerr << "objectModified(" << o << ")" << std::endl;
         QMutexLocker locker(&m_mutex);
+        if (m_inReload) {
+            // This signal must have been emitted by a modification
+            // caused by our own transactionCommitted method (see
+            // similar comment about m_inCommit in that method).
+            return;
+        }
         m_changedObjects.insert(o);
     }
     void objectDestroyed(QObject *o) {
         std::cerr << "objectDestroyed(" << o << ")" << std::endl;
         QMutexLocker locker(&m_mutex);
+        if (m_inReload) {
+            // This signal must have been emitted by a modification
+            // caused by our own transactionCommitted method (see
+            // similar comment about m_inCommit in that method).
+            return;
+        }
         m_changedObjects.remove(o);
         if (m_n.objectNodeMap.contains(o)) {
             m_deletedObjectNodes.insert(m_n.objectNodeMap[o]);
@@ -169,6 +181,9 @@ public:
             return;
         }
         //!!! but now what?
+        m_inReload = true;
+        //!!! reload objects
+        m_inReload = false;
     }
     void commit() { 
         QMutexLocker locker(&m_mutex);
@@ -193,7 +208,9 @@ private:
     QMutex m_mutex;
     QSet<QObject *> m_changedObjects;
     QSet<Node> m_deletedObjectNodes;
+
     bool m_inCommit;
+    bool m_inReload;
 
     ObjectLoader *m_loader;
     ObjectStorer *m_storer;
