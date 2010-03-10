@@ -63,7 +63,8 @@ public:
 
     void setTypeMapping(const TypeMapping &);
     const TypeMapping &getTypeMapping() const;
-        
+
+    //!!! this superficially appears to have an overlap with the StoreOption argument passed to store()
     enum PropertyStorePolicy {
         /** Store only properties that differ from default object */
         StoreIfChanged,
@@ -73,16 +74,6 @@ public:
 
     void setPropertyStorePolicy(PropertyStorePolicy policy);
     PropertyStorePolicy getPropertyStorePolicy() const;
-
-    enum ObjectStorePolicy {
-        /** Store only objects with non-empty "uri" properties */
-        StoreObjectsWithURIs,
-        /** Store all objects, giving them URIs as needed (default) */
-        StoreAllObjects
-    };
-
-    void setObjectStorePolicy(ObjectStorePolicy policy);
-    ObjectStorePolicy getObjectStorePolicy() const;
 
     enum BlankNodePolicy {
         /** Ensure every stored object has a URI */
@@ -100,21 +91,55 @@ public:
      * given object, as QObject property types associated with the
      * given object URI.
      */
-    void storeProperties(QObject *o, Uri uri);
+/*    void storeProperties(QObject *o, Uri uri);
 
     Uri storeObject(QObject *o);
     Uri storeObjectTree(QObject *root);
     void storeAllObjects(QObjectList);
     //!!! want a method to store all objects (and pass back and forth object map
+    */
 
+    //!!! do we want this here? maybe not
     void removeObject(Node node); // but not any objects it refers to?
 
     //!!! really want separate I-want-you-to-store-this-again (because
     //!!! it's changed) and store-only-if-it's-not-stored-already (but
     //!!! return the corresponding Node either way)
-    Node store(ObjectNodeMap &map, QObject *o);
+//    Node store(ObjectNodeMap &map, QObject *o);
+
+    enum FollowOption {
+        FollowNone             = 0,
+        FollowObjectProperties = 1,
+        FollowParent           = 2,
+        FollowSiblings         = 4,
+        FollowChildren         = 8,
+        FollowAll              = 255
+    };
+    typedef int FollowPolicy;
+
+    void setFollowPolicy(FollowPolicy policy);
+    FollowPolicy getFollowPolicy() const;
+    
+
+    //!!! what about things like following object properties, but only if they have not been stored in some measure before? (which is what happens at the moment)
+
+    //!!! want to set the follow policy (as above) "globally", then have StoreIfAbsent and StoreAlways option for store() defaulting to former
+/*
+    enum StoreOption { //!!! not a good name
+        StoreIfAbsent = 0, //!!! or force?
+        StoreAlways   = 1
+    };
+*/
+    //!!! do we _ever_ actually want StoreIfAbsent (except as an
+    //!!! internal optimisation)?  It might be useful if it stored if
+    //!!! the object was not in the store already, but what it
+    //!!! actually does is store if the object is not in the _map_
+    //!!! already
+    Uri store(QObject *o); //!!!, StoreOption option = StoreIfAbsent);
+    Uri store(QObject *o, ObjectNodeMap &map); //!!!, StoreOption option = StoreIfAbsent);
 
     struct StoreCallback {
+        //!!! pass store option?
         virtual void stored(ObjectStorer *, ObjectNodeMap &, QObject *, Node) = 0;
     };
 

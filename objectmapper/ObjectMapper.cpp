@@ -57,6 +57,17 @@ ObjectMapper::D : public QObject
     {
         ObjectLoader::NodeObjectMap nodeObjectMap;
         ObjectStorer::ObjectNodeMap objectNodeMap;
+        
+        Node getNodeForObject(QObject *o) {
+            ObjectStorer::ObjectNodeMap::const_iterator i = objectNodeMap.find(o);
+            if (i != objectNodeMap.end()) return i.value();
+            return Node();
+        }
+        QObject *getObjectByNode(Node n) {
+            ObjectLoader::NodeObjectMap::const_iterator i = nodeObjectMap.find(n);
+            if (i != nodeObjectMap.end()) return i.value();
+            return 0;
+        }
     };
 
 public:
@@ -92,7 +103,15 @@ public:
         return m_tm;
     }
 
-    void addToNetwork(QObject *o) {
+    Node getNodeForObject(QObject *o) {
+        return m_n.getNodeForObject(o);
+    }
+    
+    QObject *getObjectByNode(Node n) {
+        return m_n.getObjectByNode(n);
+    }
+
+    void manage(QObject *o) {
         //!!! is object new? do we want to write it to store now, or
         //!!! just manage it?
         
@@ -107,7 +126,7 @@ public:
             }
             
             if (!property.hasNotifySignal()) {
-                DEBUG << "ObjectMapper::addToNetwork: No notify signal for property " << property.name() << endl;
+                DEBUG << "ObjectMapper::manage: No notify signal for property " << property.name() << endl;
                 continue;
             }
 
@@ -130,15 +149,20 @@ public:
             QByteArray ba = sig.toLocal8Bit();
 
             if (!connect(o, ba.data(), m_m, SLOT(objectModified()))) {
-                std::cerr << "ObjectMapper::addToNetwork: Failed to connect notify signal" << std::endl;
+                std::cerr << "ObjectMapper::manage: Failed to connect notify signal" << std::endl;
             }
 
             connect(o, SIGNAL(destroyed(QObject *)),
                     m_m, SLOT(objectDestroyed(QObject *)));
         }
+
+        //!!! also manage objects that are properties? and manage any new settings of those that appear when we commit?
+
+        QMutexLocker locker(&m_mutex);
+        m_changedObjects.insert(o);
     }
 
-    void removeFromNetwork(QObject *) { }
+    void unmanage(QObject *) { } //!!!
     void remap(QObject *) { } //!!! poor
     void unmap(QObject *) { } //!!! poor
     void objectModified(QObject *o) {
@@ -183,6 +207,10 @@ public:
         //!!! but now what?
         m_inReload = true;
         //!!! reload objects
+        foreach (const Change &c, cs) {
+
+            //!!!
+        }            
         m_inReload = false;
     }
     void commit() { 
@@ -191,7 +219,8 @@ public:
             m_storer->removeObject(n);
         }
         foreach (QObject *o, m_changedObjects) {
-            m_storer->store(m_n.objectNodeMap, o);
+            //!!! storer's follow options?
+            m_storer->store(o, m_n.objectNodeMap);
         }
         m_inCommit = true;
         m_c.commit();
@@ -244,16 +273,28 @@ ObjectMapper::getTypeMapping() const
     return m_d->getTypeMapping();
 }
 
-void
-ObjectMapper::addToNetwork(QObject *o)
+Node
+ObjectMapper::getNodeForObject(QObject *o) const
 {
-    m_d->addToNetwork(o);
+    return m_d->getNodeForObject(o);
+}
+
+QObject *
+ObjectMapper::getObjectByNode(Node n) const
+{
+    return m_d->getObjectByNode(n);
 }
 
 void
-ObjectMapper::removeFromNetwork(QObject *o)
+ObjectMapper::manage(QObject *o)
 {
-    m_d->removeFromNetwork(o);
+    m_d->manage(o);
+}
+
+void
+ObjectMapper::unmanage(QObject *o)
+{
+    m_d->unmanage(o);
 }
 
 void

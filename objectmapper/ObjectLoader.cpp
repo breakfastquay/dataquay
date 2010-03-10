@@ -155,7 +155,7 @@ public:
         // we make them explicit (as we will do in a moment); they
         // just default to the one in the ctor
 
-	//!!! not very efficient
+	//!!! would be nice to be able to skip the parent and siblings if so told
 	
 	CacheingPropertyObject po(m_s, m_tm.getPropertyPrefix().toString(), node);
 

@@ -1254,12 +1254,12 @@ testReloadability(BasicStore &s0)
 
     BasicStore s1;
     ObjectStorer m1(&s1);
-    //!!! test these options (elsewhere) -- or lose them --
-    //!!! n.b. setting StoreObjectsWithURIs true here will prevent
-    //!!! anything useful being stored, because parent has no URI
-//    m1.setObjectStorePolicy(ObjectStorer::StoreObjectsWithURIs);
     //   m1.setPropertyStorePolicy(ObjectStorer::StoreIfChanged);
-    m1.storeObjectTree(parent);
+    m1.setFollowPolicy(ObjectStorer::FollowChildren |
+                       ObjectStorer::FollowSiblings |
+                       ObjectStorer::FollowParent |
+                       ObjectStorer::FollowObjectProperties);
+    m1.store(parent);
     s1.addPrefix("type", m1.getTypeMapping().getObjectTypePrefix());
     s1.addPrefix("property", m1.getTypeMapping().getPropertyPrefix());
     s1.addPrefix("rel", m1.getTypeMapping().getRelationshipPrefix());
@@ -1277,7 +1277,8 @@ testReloadability(BasicStore &s0)
 
     BasicStore s2;
     ObjectStorer m2(&s2);
-    m2.storeObjectTree(newParent);
+    m2.setFollowPolicy(m1.getFollowPolicy());
+    m2.store(newParent);
 
     s2.addPrefix("type", m2.getTypeMapping().getObjectTypePrefix());
     s2.addPrefix("property", m2.getTypeMapping().getPropertyPrefix());
@@ -1304,7 +1305,6 @@ testObjectMapper()
     BasicStore store;
     
     ObjectStorer storer(&store);
-    storer.setObjectStorePolicy(ObjectStorer::StoreAllObjects);
     storer.setPropertyStorePolicy(ObjectStorer::StoreIfChanged);
     store.addPrefix("type", storer.getTypeMapping().getObjectTypePrefix());
     store.addPrefix("property", storer.getTypeMapping().getPropertyPrefix());
@@ -1313,7 +1313,7 @@ testObjectMapper()
     QObject *o = new QObject;
     o->setObjectName("Test Object");
 
-    Uri uri = storer.storeObject(o);
+    Uri uri = storer.store(o);
     cerr << "Stored QObject as " << uri << endl;
 
     ObjectLoader loader(&store);
@@ -1335,7 +1335,7 @@ testObjectMapper()
     t->setSingleShot(true);
     t->setInterval(4);
 
-    Uri turi = storer.storeObject(t);
+    Uri turi = storer.store(t);
     cerr << "Stored QTimer as " << turi << endl;
 
     cerr << "Testing QTimer recall without registration..." << endl;
@@ -1396,7 +1396,7 @@ testObjectMapper()
 
     A *a = new A(o);
     a->setRef(t);
-    Uri auri = storer.storeObject(a);
+    Uri auri = storer.store(a);
     cerr << "Stored A-object as " << auri << endl;
 
     cerr << "Testing single custom object recall..." << endl;
@@ -1468,11 +1468,118 @@ testObjectMapper()
     c->setObjects(ol);
     a->setRef(c);
 
-    storer.storeObjectTree(o);
+    storer.setFollowPolicy(ObjectStorer::FollowObjectProperties |
+                           ObjectStorer::FollowChildren);
+    storer.store(o);
 
     store.save("test-object-mapper-2.ttl");
 
     if (!testReloadability(store)) return false;
+
+    // We should have:
+    // - one object with URI, one property, of type:QObject
+    // - one object with URI, two? three? properties, and parent, of type:QTimer
+    // - one object with URI, one property, follows, and parent, of type:A
+    // - one blank node of type:A
+    // - three blank nodes of type:C
+    // - four blank nodes of type:B
+    // Check existence (though not qualities) of all the above
+    Triples test = store.match(Triple(Node(), "a", store.expand("type:QObject")));
+    if (test.size() != 1) {
+        cerr << "Wrong number of QObject type nodes in store (found " << test.size() << ", expected 1)" << endl;
+        return false;
+    }
+    if (test[0].a.type != Node::URI) {
+        cerr << "QObject type node in store lacks URI (node is " << test[0].a << ")" << endl;
+        return false;
+    }
+
+    test = store.match(Triple(Node(), "a", store.expand("type:QTimer")));
+    if (test.size() != 1) {
+        cerr << "Wrong number of QTimer type nodes in store (found " << test.size() << ", expected 1)" << endl;
+        return false;
+    }
+    if (test[0].a.type != Node::URI) {
+        cerr << "QTimer type node in store lacks URI (node is " << test[0].a << ")" << endl;
+        return false;
+    }
+
+    test = store.match(Triple(test[0].a, "rel:parent", Node()));
+    if (test.size() != 1) {
+        cerr << "Wrong number of parents for QTimer in store (found " << test.size() << ", expected 1)" << endl;
+        return false;
+    }
+    if (test[0].c.type != Node::URI) {
+        cerr << "Parent of QTimer in store lacks URI (node is " << test[0].c << ")" << endl;
+        return false;
+    }
+    
+    test = store.match(Triple(Node(), "a", store.expand("type:A")));
+    if (test.size() != 2) {
+        cerr << "Wrong number of A-type nodes in store (found " << test.size() << ", expected 2)" << endl;
+        return false;
+    }
+    int blankCount = 0, uriCount = 0;
+    foreach (Triple t, test) {
+        if (t.a.type == Node::URI) uriCount++;
+        else if (t.a.type == Node::Blank) blankCount++;
+    }
+    if (blankCount != 1 || uriCount != 1) {
+        cerr << "Unexpected distribution of URI and blank A-type nodes in store (expected 1 and 1, got " << blankCount << " and " << uriCount << ")" << endl;
+        return false;
+    }
+
+    test = store.match(Triple(Node(), "a", store.expand("type:B")));
+    if (test.size() != 4) {
+        cerr << "Wrong number of B-type nodes in store (found " << test.size() << ", expected 4)" << endl;
+        return false;
+    }
+    foreach (Triple t, test) {
+        if (t.a.type != Node::Blank) {
+            cerr << "B-type node in store is not expected blank node" << endl;
+            return false;
+        }
+    }
+
+    test = store.match(Triple(Node(), "a", store.expand("type:C")));
+    if (test.size() != 3) {
+        cerr << "Wrong number of C-type nodes in store (found " << test.size() << ", expected 3)" << endl;
+        return false;
+    }
+    foreach (Triple t, test) {
+        if (t.a.type != Node::Blank) {
+            cerr << "C-type node in store is not expected blank node" << endl;
+            return false;
+        }
+    }
+
+    // We should be able to do a more sophisticated query to ensure
+    // the relationships are right:
+    ResultSet rs = store.query(
+        " SELECT ?bn ?pn WHERE { "
+        "   ?b a type:B ; "
+        "      property:objectName ?bn ; "
+        "      property:aref ?a . "
+        "   ?a a type:A ; "
+        "      rel:parent ?p . "
+        "   ?p property:objectName ?pn . "
+        " } "
+        );
+    if (rs.size() != 1) {
+        cerr << "Query on stored objects returns unexpected number of replies "
+             << rs.size() << " (expected 1)" << endl;
+        return false;
+    }
+    if (rs[0]["bn"].type != Node::Literal ||
+        rs[0]["bn"].value != "b0") {
+        cerr << "Name of B-type object from query on stored objects is incorrect (expected b0, got " << rs[0]["bn"].value << ")" << endl;
+        return false;
+    }
+    if (rs[0]["pn"].type != Node::Literal ||
+        rs[0]["pn"].value != "Test Object") {
+        cerr << "Name of parent object from query on stored objects is incorrect (expected Test Object, got " << rs[0]["pn"].value << ")" << endl;
+        return false;
+    }
 
 
     {
@@ -1480,7 +1587,81 @@ testObjectMapper()
     TransactionalStore ts(&store);
 
     ObjectMapper mapper(&ts);
-    mapper.addToNetwork(c);//!!!
+    mapper.manage(c);//!!!
+
+    Node n = mapper.getNodeForObject(c);
+    if (n != Node()) {
+        cerr << "ObjectMapper returns non-nil Node for managed object prior to commit" << endl;
+        return false;
+    }
+
+    mapper.commit();
+
+    n = mapper.getNodeForObject(c);
+    if (n == Node()) {
+        cerr << "ObjectMapper returns nil Node for managed object after commit" << endl;
+        return false;
+    }
+
+    c->setString("Lone string");
+
+    Triple t = ts.matchFirst(Triple(n, "property:string", Node()));
+    if (t.c != Node(Node::Literal, "")) {
+        cerr << "Unexpected node " << t.c << " in store for property that ObjectMapper should not have committed yet (expected empty string literal)" << endl;
+        return false;
+    }
+
+    mapper.commit();
+    
+    t = ts.matchFirst(Triple(n, "property:string", Node()));
+    if (t.c.value != "Lone string") {
+        cerr << "Incorrect node " << t.c << " in store for property that ObjectMapper should have committed" << endl;
+        return false;
+    }
+
+    c->setString("New lone string");
+    
+    t = ts.matchFirst(Triple(n, "property:string", Node()));
+    if (t.c.value != "Lone string") {
+        cerr << "Incorrect node " << t.c << " in store for property that ObjectMapper should not have re-committed" << endl;
+        return false;
+    }
+
+    mapper.commit();
+    
+    t = ts.matchFirst(Triple(n, "property:string", Node()));
+    if (t.c.value != "New lone string") {
+        cerr << "Incorrect node " << t.c << " in store for property that ObjectMapper should have re-committed" << endl;
+        return false;
+    }
+
+    Transaction *tx = ts.startTransaction();
+    if (!tx->remove(Triple(n, "property:string", Node()))) {
+        cerr << "Failed to remove property triple in transactional store!" << endl;
+        return false;
+    }
+    delete tx;
+
+    if (c->getString() != "") {
+        cerr << "Incorrect value " << c->getString() << " for property deleted in store that ObjectMapper should have reloaded" << endl;
+        return false;
+    }
+    
+    tx = ts.startTransaction();
+    if (!tx->add(Triple(n, "property:string",
+                        Node(Node::Literal, "Another lone string")))) {
+        cerr << "Failed to add property triple in transactional store!" << endl;
+        return false;
+    }
+    delete tx;
+
+    if (c->getString() != "Another lone string") {
+        cerr << "Incorrect value " << c->getString() << " for property added in store that ObjectMapper should have reloaded" << endl;
+        return false;
+    }
+    
+    
+
 
     strings << "Third string";
     c->setStrings(strings);

@@ -38,6 +38,7 @@
 
 #include <QList>
 #include <QHash>
+#include <QPair>
 
 namespace Dataquay
 {
@@ -54,7 +55,7 @@ typedef QList<Dictionary> ResultSet;
 enum ChangeType { AddTriple, RemoveTriple };
 
 /// An add or remove operation specified by add/remove token and triple.
-typedef std::pair<ChangeType, Triple> Change;
+typedef QPair<ChangeType, Triple> Change;
 
 /// A sequence of add/remove operations such as may be enacted by a transaction.
 typedef QList<Change> ChangeSet;

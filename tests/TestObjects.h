@@ -79,6 +79,7 @@ class C : public QObject
 {
     Q_OBJECT
 
+    Q_PROPERTY(QString string READ getString WRITE setString NOTIFY stringChanged STORED true)
     Q_PROPERTY(QStringList strings READ getStrings WRITE setStrings NOTIFY stringsChanged STORED true)
     Q_PROPERTY(QList<float> floats READ getFloats WRITE setFloats STORED true)
     Q_PROPERTY(QList<B *> bees READ getBees WRITE setBees STORED true)
@@ -87,6 +88,9 @@ class C : public QObject
 
 public:
     C(QObject *parent = 0) : QObject(parent) { }
+
+    QString getString() const { return m_string; }
+    void setString(QString s) { m_string = s; emit stringChanged(s); }
 
     QStringList getStrings() const { return m_strings; }
     void setStrings(QStringList sl) { m_strings = sl; emit stringsChanged(sl); }
@@ -104,9 +108,11 @@ public:
     void setObjects(QObjectList ol) { m_objects = ol; }
 
 signals:
+    void stringChanged(QString s);
     void stringsChanged(QStringList sl);
 
 private:
+    QString m_string;
     QStringList m_strings;
     QList<float> m_floats;
     QList<B *> m_bees;

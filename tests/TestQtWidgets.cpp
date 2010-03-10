@@ -115,12 +115,12 @@ struct LayoutStorer : public ObjectStorer::StoreCallback {
 
 	QLayout *layout = dynamic_cast<QLayout *>(o);
 	if (layout) {
-	    pod.setProperty(0, "layout_of", m->store(map, o->parent()));
+	    pod.setProperty(0, "layout_of", m->store(o->parent(), map));
 	}
 	QWidget *widget = dynamic_cast<QWidget *>(o);
 	if (widget) {
 	    if (widget->layout()) {
-		pod.setProperty(0, "layout", m->store(map, widget->layout()));
+		pod.setProperty(0, "layout", m->store(widget->layout(), map));
 	    }
 	}
     }
@@ -184,10 +184,10 @@ testQtWidgets(int argc, char **argv)
     ObjectStorer ostorer(&store2);
     ostorer.setTypeMapping(mapping);
     ostorer.setPropertyStorePolicy(ObjectStorer::StoreIfChanged);
-    ostorer.setObjectStorePolicy(ObjectStorer::StoreObjectsWithURIs);
     LayoutStorer storer;
     ostorer.addStoreCallback(&storer);
-    ostorer.storeObjectTree(parent);
+    ostorer.setFollowPolicy(ObjectStorer::FollowAll);
+    ostorer.store(parent);
     store2.save("test-qt-widgets-out.ttl");
 
     return app.exec();

@@ -57,12 +57,15 @@ public:
     void setTypeMapping(const TypeMapping &);
     const TypeMapping &getTypeMapping() const;
 
+    Node getNodeForObject(QObject *o) const;
+    QObject *getObjectByNode(Node n) const;
+
 signals:
     void committed();
 
 public slots:
-    void addToNetwork(QObject *); // or "manage"?
-    void removeFromNetwork(QObject *);
+    void manage(QObject *); // or "manage"?
+    void unmanage(QObject *);
     void remap(QObject *); //!!! poor
     void unmap(QObject *); //!!! poor
     void commit();
