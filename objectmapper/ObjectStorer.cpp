@@ -149,6 +149,7 @@ private:
     void callStoreCallbacks(ObjectNodeMap &map, QObject *o, Node node);
 
     void storeProperties(ObjectNodeMap &map, ObjectSet &examined, QObject *o, Node node);
+    void removeUnusedBlankNode(Node node);
     void removeOldPropertyNodes(Node node, Uri propertyUri);
     Nodes variantToPropertyNodeList(ObjectNodeMap &map, ObjectSet &examined, QVariant v);
     Node objectToPropertyNode(ObjectNodeMap &map, ObjectSet &examined, QObject *o);
@@ -188,19 +189,26 @@ ObjectStorer::D::storeProperties(ObjectNodeMap &map, ObjectSet &examined, QObjec
                           << node.value << " is changed from default value "
                           << c->property(pnba.data()) << ", writing" << endl;
                 }
+            } else {
+                DEBUG << "Can't check property " << pname << " of object "
+                      << node.value << " for change from default value: "
+                      << "object builder doesn't know type " << cname
+                      << " so cannot build default object" << endl;
             }
         }
 
-        DEBUG << "For object " << node.value << " writing property " << pname << " of type " << property.type() << endl;
-
-        Nodes pnodes = variantToPropertyNodeList(map, examined, value);
+        DEBUG << "For object " << node.value << " (" << o << ") writing property " << pname << " of type " << property.userType() << endl;
 
         Uri puri;
 	if (!m_tm.getPropertyUri(cname, pname, puri)) {
             puri = po.getPropertyUri(pname);
         }
 
+        //!!! at this point we are committed to removing any old properties, but we have not yet decided for sure whether to write the new ones -- is that right?  also, we do not remove lists yet?
+
         removeOldPropertyNodes(node, puri);
+
+        Nodes pnodes = variantToPropertyNodeList(map, examined, value);
 
         Triple t(node, puri, Node());
         for (int i = 0; i < pnodes.size(); ++i) {
@@ -209,32 +217,47 @@ ObjectStorer::D::storeProperties(ObjectNodeMap &map, ObjectSet &examined, QObjec
         }
     }
 }            
+
+void
+ObjectStorer::D::removeUnusedBlankNode(Node node)
+{
+    // The node is known to be a blank node.  If it is not referred to
+    // by anything else, then we want to remove everything it refers
+    // to.  If it happens to be a list node, then we also want to
+    // recurse to its tail.
+
+    if (m_s->matchFirst(Triple(Node(), Node(), node)) != Triple()) {
+        // The node is still a target of some predicate, leave it alone
+        return;
+    }
+
+    DEBUG << "removeUnusedBlankNode: Blank node " << node
+          << " is not target for any other predicate" << endl;
+
+    // check for a list tail (query first, but then delete our own
+    // triples first so that the existence of this rdf:rest
+    // relationship isn't seen as a reason not to delete the tail)
+    Triples tails(m_s->match(Triple(node, "rdf:rest", Node())));
+
+    DEBUG << "... removing everything with it as subject" << endl;
+    m_s->remove(Triple(node, Node(), Node()));
+
+    foreach (Triple t, tails) {
+        DEBUG << "... recursing to list tail" << endl;
+        removeUnusedBlankNode(t.c);
+    }
+}
             
 void
 ObjectStorer::D::removeOldPropertyNodes(Node node, Uri propertyUri) 
 {
-    //!!! make PropertyObject do this?
     Triple t(node, propertyUri, Node());
     Triples m(m_s->match(t));
     foreach (t, m) {
-        if (t.c.type == Node::Blank) {
-            Triple t1(Node(), Node(), t.c);
-            Triples m1(m_s->match(t1));
-            bool stillUsed = false;
-            foreach (t1, m1) {
-                if (t1.a != t.a) {
-                    stillUsed = true;
-                    break;
-                }
-            }
-            if (!stillUsed) {
-                DEBUG << "removeOldPropertyNodes: Former target node " << t.c << " is not target for any other predicate, removing everything with it as subject" << endl;
-                m_s->remove(Triple(t.c, Node(), Node()));
-            }
-        }
         m_s->remove(t);
-        //!!! also handle removing lists (rdf:first/rdf:rest/rdf:nil)
-        //!!! and write test case for this
+        if (t.c.type == Node::Blank && t.c != node) {
+            removeUnusedBlankNode(t.c);
+        }
     }
 }
 
@@ -268,6 +291,7 @@ ObjectStorer::D::variantToPropertyNodeList(ObjectNodeMap &map, ObjectSet &examin
         }
             
     } else if (m_ob->canExtract(typeName)) {
+
         QObject *obj = m_ob->extract(typeName, v);
         if (obj) {
             Node n = objectToPropertyNode(map, examined, obj);
@@ -278,6 +302,7 @@ ObjectStorer::D::variantToPropertyNodeList(ObjectNodeMap &map, ObjectSet &examin
             
     } else if (QString(typeName).contains("*") ||
                QString(typeName).endsWith("Star")) {
+
         // do not attempt to write binary pointers!
         return Nodes();
 
@@ -369,14 +394,14 @@ ObjectStorer::D::store(ObjectNodeMap &map, ObjectSet &examined, QObject *o)
 
     if (parent) {
         if (m_fp & FollowParent) {
-            DEBUG << "storeSingle: FollowParent is set, writing parent of " << node << endl;
+            DEBUG << "store: FollowParent is set, writing parent of " << node << endl;
             if (!examined.contains(parent)) {
                 store(map, examined, parent);
             }
         } else if (map.contains(parent) && map.value(parent) == Node()) {
             // parent is to be written at some point: bring it forward
             // so we have a uri to refer to now
-            DEBUG << "storeSingle: Parent of " << node << " has not been written yet, writing it" << endl;
+            DEBUG << "store: Parent of " << node << " has not been written yet, writing it" << endl;
             store(map, examined, parent);
         }
         Node pn = map.value(parent);
@@ -414,7 +439,7 @@ ObjectStorer::D::store(ObjectNodeMap &map, ObjectSet &examined, QObject *o)
             } else {
                 if (m_fp & FollowSiblings) {
                     if (!examined.contains(siblings[i])) {
-                        DEBUG << "storeSingle: FollowSiblings is set, writing sibling of " << node << endl;
+                        DEBUG << "store: FollowSiblings is set, writing sibling of " << node << endl;
                         store(map, examined, siblings[i]);
                     }
                 }
@@ -432,7 +457,7 @@ ObjectStorer::D::store(ObjectNodeMap &map, ObjectSet &examined, QObject *o)
                 if (map.contains(previous) && map.value(previous) == Node()) {
                     // previous is to be written at some point: bring it
                     // forward so we have a uri to refer to now
-                    DEBUG << "storeSingle: Previous sibling of " << node << " has not been written yet, writing it" << endl;
+                    DEBUG << "store: Previous sibling of " << node << " has not been written yet, writing it" << endl;
                     store(map, examined, previous);
                 }
             }
@@ -464,29 +489,44 @@ ObjectStorer::D::storeSingle(ObjectNodeMap &map, ObjectSet &examined, QObject *o
 
     Node node;
 
-    QVariant uriVar = o->property("uri");
+    if (map.contains(o) && map.value(o) != Node()) {
 
-    if (uriVar != QVariant()) {
-        if (Uri::isUri(uriVar)) {
-            node = uriVar.value<Uri>();
-        } else {
-            node = m_s->expand(uriVar.toString());
-        }
-    } else if (!map.contains(o) && m_bp == BlankNodesAsNeeded) { //!!! I don't much like that name
-
-        node = m_s->addBlankNode();
+        node = map.value(o);
 
     } else {
-        Uri prefix;
-        if (!m_tm.getUriPrefixForClass(className, prefix)) {
-            //!!! put this in TypeMapping?
-            QString tag = className.toLower() + "_";
-            tag.replace("::", "_");
-            prefix = m_s->expand(":" + tag);
+
+        QVariant uriVar = o->property("uri");
+
+        if (uriVar != QVariant()) {
+
+            if (Uri::isUri(uriVar)) {
+                node = uriVar.value<Uri>();
+            } else {
+                node = m_s->expand(uriVar.toString());
+            }
+
+        } else if (!map.contains(o) && m_bp == BlankNodesAsNeeded) { //!!! I don't much like that name
+
+            //!!! document the conditions under which blank nodes are
+            //!!! used, and the consequences (e.g. blank node id cannot be
+            //!!! recorded in the object property, so if you want the
+            //!!! object to have the same node when stored again, you will
+            //!!! need to preserve the objectNodeMap)
+
+            node = m_s->addBlankNode();
+
+        } else {
+            Uri prefix;
+            if (!m_tm.getUriPrefixForClass(className, prefix)) {
+                //!!! put this in TypeMapping?
+                QString tag = className.toLower() + "_";
+                tag.replace("::", "_");
+                prefix = m_s->expand(":" + tag);
+            }
+            Uri uri = m_s->getUniqueUri(prefix.toString());
+            o->setProperty("uri", QVariant::fromValue(uri)); //!!! document this
+            node = uri;
         }
-        Uri uri = m_s->getUniqueUri(prefix.toString());
-        o->setProperty("uri", QVariant::fromValue(uri)); //!!! document this
-        node = uri;
     }
 
     map[o] = node;

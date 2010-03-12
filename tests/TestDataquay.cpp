@@ -1470,21 +1470,51 @@ testObjectMapper()
 
     storer.setFollowPolicy(ObjectStorer::FollowObjectProperties |
                            ObjectStorer::FollowChildren);
-    storer.store(o);
+    ObjectStorer::ObjectNodeMap map;
+    storer.store(o, map);
 
     store.save("test-object-mapper-2.ttl");
 
-    if (!testReloadability(store)) return false;
-
     // We should have:
+    //
     // - one object with URI, one property, of type:QObject
     // - one object with URI, two? three? properties, and parent, of type:QTimer
     // - one object with URI, one property, follows, and parent, of type:A
     // - one blank node of type:A
     // - three blank nodes of type:C
-    // - four blank nodes of type:B
-    // Check existence (though not qualities) of all the above
-    Triples test = store.match(Triple(Node(), "a", store.expand("type:QObject")));
+    // - four blank nodes of type:B, one of which has parent
+    //
+    // We will check existence (though not qualities) of all the
+    // above.  First though we do a quick count of type triples, then
+    // store again using the same object-node map, then check the
+    // results match (in case the storer is generating new URIs or
+    // blank nodes for things that already have them in the map).
+
+    Triples test = store.match(Triple(Node(), "a", Node()));
+    if (test.size() != 11) {
+        cerr << "Wrong number of type triples in store (found " << test.size() << ", expected 11)" << endl;
+        return false;
+    }
+
+    cerr << "Note: object C (" << c << ") has " << c->getBees().size() << " Bs" << endl;
+
+    storer.store(o, map);
+
+    store.save("test-object-mapper-3.ttl");
+    
+    test = store.match(Triple(Node(), "a", Node()));
+    if (test.size() != 11) {
+        cerr << "Wrong number of type triples in store after re-store (found " << test.size() << ", expected 11)" << endl;
+        cerr << "Found:" << endl;
+        for (int i = 0; i < test.size(); ++i) {
+            cerr << test[i] << endl;
+        }
+        return false;
+    }
+
+    // Now the rest of the content tests
+
+    test = store.match(Triple(Node(), "a", store.expand("type:QObject")));
     if (test.size() != 1) {
         cerr << "Wrong number of QObject type nodes in store (found " << test.size() << ", expected 1)" << endl;
         return false;
@@ -1514,6 +1544,13 @@ testObjectMapper()
         return false;
     }
     
+    test = store.match(Triple(Node(), "rel:parent", test[0].c));
+    if (test.size() != 3) {
+        cerr << "Wrong number of children for parent object in store (found "
+             << test.size() << ", expected 3)" << endl;
+        return false;
+    }
+
     test = store.match(Triple(Node(), "a", store.expand("type:A")));
     if (test.size() != 2) {
         cerr << "Wrong number of A-type nodes in store (found " << test.size() << ", expected 2)" << endl;
@@ -1580,6 +1617,9 @@ testObjectMapper()
         cerr << "Name of parent object from query on stored objects is incorrect (expected Test Object, got " << rs[0]["pn"].value << ")" << endl;
         return false;
     }
+
+
+    if (!testReloadability(store)) return false;
 
 
     {
