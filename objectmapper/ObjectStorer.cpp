@@ -127,6 +127,19 @@ public:
         }
     }
 
+    void store(QObjectList ol, ObjectNodeMap &map) {
+        ObjectSet examined;
+        foreach (QObject *o, ol) {
+            if (!map.contains(o)) {
+                // ensure blank node not used for this object            
+                map[o] = Node();
+            }
+        }
+        foreach (QObject *o, ol) {
+            (void)store(map, examined, o);
+        }
+    }
+
     Node store(ObjectNodeMap &map, ObjectSet &examined, QObject *o);
 
     void addStoreCallback(StoreCallback *cb) {
@@ -652,6 +665,12 @@ Uri
 ObjectStorer::store(QObject *o, ObjectNodeMap &map)
 {
     return m_d->store(o, map);
+}
+
+void
+ObjectStorer::store(QObjectList o, ObjectNodeMap &map)
+{
+    m_d->store(o, map);
 }
 
 void

@@ -218,13 +218,14 @@ public:
         foreach (Node n, m_deletedObjectNodes) {
             m_storer->removeObject(n);
         }
-        foreach (QObject *o, m_changedObjects) {
-            //!!! storer's follow options?
-            m_storer->store(o, m_n.objectNodeMap);
-        }
+        QObjectList ol;
+        foreach (QObject *o, m_changedObjects) ol.push_back(o);
+        m_storer->store(ol, m_n.objectNodeMap);
         m_inCommit = true;
         m_c.commit();
         m_inCommit = false;
+        m_deletedObjectNodes.clear();
+        m_changedObjects.clear();
     }
 
 private:
