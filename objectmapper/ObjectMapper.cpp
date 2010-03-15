@@ -215,6 +215,9 @@ public:
     }
     void commit() { 
         QMutexLocker locker(&m_mutex);
+        //!!! if an object has been added as a new sibling of existing
+        //!!! objects, then we presumably may have to rewrite our
+        //!!! follows relationships
         foreach (Node n, m_deletedObjectNodes) {
             m_storer->removeObject(n);
         }

@@ -113,8 +113,8 @@ public:
     Uri store(QObject *o, ObjectNodeMap &map) {
         ObjectSet examined;
         if (!map.contains(o)) {
-            // ensure blank node not used for this object            
-            map[o] = Node();
+            // ensure blank node not used for this object       
+            map.insert(o, Node());
         }
         Node node = store(map, examined, o);
         if (node.type != Node::URI) {
@@ -128,16 +128,23 @@ public:
     }
 
     void store(QObjectList ol, ObjectNodeMap &map) {
+        std::cout << ol.size() << " objects to store" << std::endl;
         ObjectSet examined;
+        int n = ol.size(), i = 0;
         foreach (QObject *o, ol) {
             if (!map.contains(o)) {
                 // ensure blank node not used for this object            
-                map[o] = Node();
+                map.insert(o, Node());
             }
         }
+        std::cout << std::endl;
+        i = 0;
         foreach (QObject *o, ol) {
+            std::cerr << "\r" << i << "/" << n << "...";
             (void)store(map, examined, o);
+            ++i;
         }
+        std::cout << std::endl;
     }
 
     Node store(ObjectNodeMap &map, ObjectSet &examined, QObject *o);
@@ -298,7 +305,6 @@ ObjectStorer::D::variantToPropertyNodeList(ObjectNodeMap &map, ObjectSet &examin
                 
         } else if (k == ContainerBuilder::SetKind) {
             foreach (QVariant member, list) {
-                //!!! this doesn't "feel" right -- what about sets of sets, etc? I suppose sets of sequences might work?
                 nodes += variantToPropertyNodeList(map, examined, member);
             }
         }
@@ -344,10 +350,12 @@ ObjectStorer::D::objectToPropertyNode(ObjectNodeMap &map, ObjectSet &examined, Q
     // -> This seems sensible for properties too?
 
     if (m_fp & FollowObjectProperties) {
+        DEBUG << "objectToPropertyNode: FollowObjectProperties is set, writing object" << endl;
         if (!examined.contains(o)) {
             store(map, examined, o);
         }
     } else if (map.contains(o) && map.value(o) == Node()) {
+        DEBUG << "objectToPropertyNode: Object has not been written yet, writing it" << endl;
         store(map, examined, o);
     }
 
@@ -395,6 +403,8 @@ ObjectStorer::D::listToPropertyNode(ObjectNodeMap &map, ObjectSet &examined, QVa
 Node
 ObjectStorer::D::store(ObjectNodeMap &map, ObjectSet &examined, QObject *o)
 {
+    DEBUG << "store: Examining " << o << endl;
+
     if (m_fp != FollowNone) {
         examined.insert(o);
     }
@@ -403,12 +413,16 @@ ObjectStorer::D::store(ObjectNodeMap &map, ObjectSet &examined, QObject *o)
     
     QObject *parent = o->parent();
     Uri parentUri(m_tm.getRelationshipPrefix().toString() + "parent");
-    Uri followsUri(m_tm.getRelationshipPrefix().toString() + "follows");
 
-    if (parent) {
+    if (!parent) {
+
+        m_s->remove(Triple(node, parentUri, Node()));
+
+    } else {
+
         if (m_fp & FollowParent) {
-            DEBUG << "store: FollowParent is set, writing parent of " << node << endl;
             if (!examined.contains(parent)) {
+                DEBUG << "store: FollowParent is set, writing parent of " << node << endl;
                 store(map, examined, parent);
             }
         } else if (map.contains(parent) && map.value(parent) == Node()) {
@@ -417,75 +431,100 @@ ObjectStorer::D::store(ObjectNodeMap &map, ObjectSet &examined, QObject *o)
             DEBUG << "store: Parent of " << node << " has not been written yet, writing it" << endl;
             store(map, examined, parent);
         }
+
         Node pn = map.value(parent);
         if (pn != Node()) {
+
             m_s->remove(Triple(node, parentUri, Node()));
             m_s->add(Triple(node, parentUri, pn));
+
+            Uri followsUri(m_tm.getRelationshipPrefix().toString() + "follows");
+
+            // write (references to) siblings (they wouldn't be
+            // meaningful if the parent was absent)
+
+            QObjectList siblings = parent->children();
+
+            if (m_fp & FollowSiblings) {
+                ObjectSet unexamined;
+                foreach (QObject *o, siblings) {
+                    // Mark all of the siblings we are about to recurse to
+                    // as examined, so that they don't then attempt to
+                    // recurse to one another.  However, remember the set
+                    // of siblings that _were_ unexamined, because these
+                    // are the ones we will be recursing to.
+                    if (!examined.contains(o)) {
+                        unexamined.insert(o);
+                        examined.insert(o);
+                    }
+                }
+                foreach (QObject *o, unexamined) {
+                    DEBUG << "store: FollowSiblings is set, writing sibling of " << node << endl;
+                    store(map, examined, o);
+                }
+            }
+        
+            // find previous sibling
+
+            QObject *previous = 0;
+            for (int i = 0; i < siblings.size(); ++i) {
+                if (siblings[i] == o) {
+                    if (i > 0) {
+                        previous = siblings[i-1];
+                    }
+                    break;
+                }
+            }
+
+            if (previous) {
+                // we have to write a reference to the previous sibling, but
+                // we don't necessarily have to write the sibling itself -- if
+                // FollowSiblings is set, it will have been written in the
+                // all-siblings loop above
+
+                if (!(m_fp & FollowSiblings)) {
+                    if (map.contains(previous) && map.value(previous) == Node()) {
+                        // previous is to be written at some point: bring it
+                        // forward so we have a uri to refer to now
+                        DEBUG << "store: Previous sibling of " << node << " has not been written yet, writing it" << endl;
+                        store(map, examined, previous);
+                    }
+                }
+
+                Node sn = map.value(previous);
+                if (sn != Node()) {
+                    m_s->remove(Triple(node, followsUri, Node()));
+                    m_s->add(Triple(node, followsUri, sn));
+                }
+
+            } else {
+                // no previous sibling
+                m_s->remove(Triple(node, followsUri, Node()));
+            }
         }
-    } else {
-        // no parent
-        m_s->remove(Triple(node, parentUri, Node()));
     }
 
     if (m_fp & FollowChildren) {
-        foreach (QObject *c, o->children()) {
+        // If we are also following siblings, mark all of the children
+        // we are about to recurse to as examined, so that they don't
+        // then attempt to recurse to one another as siblings.
+        // However, remember the set that _were_ unexamined, because
+        // these are the ones we will be recursing to.
+        QObjectList children = o->children();
+        ObjectSet unexamined;
+        foreach (QObject *c, children) {
             if (!examined.contains(c)) {
-                store(map, examined, c);
+                unexamined.insert(c);
+                examined.insert(c);
             }
+        }
+        foreach (QObject *o, unexamined) {
+            DEBUG << "store: FollowChildren is set, writing child of " << node << endl;
+            store(map, examined, o);
         }
     }
 
-    if (parent) {
-
-        // write (references to) siblings
-
-        QObject *previous = 0;
-        QObjectList siblings = parent->children();
-        for (int i = 0; i < siblings.size(); ++i) {
-            if (siblings[i] == o) {
-                if (i > 0) {
-                    previous = siblings[i-1];
-                    if (!(m_fp & FollowSiblings)) {
-                        break;
-                    }
-                }
-            } else {
-                if (m_fp & FollowSiblings) {
-                    if (!examined.contains(siblings[i])) {
-                        DEBUG << "store: FollowSiblings is set, writing sibling of " << node << endl;
-                        store(map, examined, siblings[i]);
-                    }
-                }
-            }
-        }
-
-        if (previous) {
-
-            // we have to write a reference to the previous sibling, but
-            // we don't necessarily have to write the sibling itself -- if
-            // FollowSiblings is set, it will have been written in the
-            // all-siblings loop above
-
-            if (!(m_fp & FollowSiblings)) {
-                if (map.contains(previous) && map.value(previous) == Node()) {
-                    // previous is to be written at some point: bring it
-                    // forward so we have a uri to refer to now
-                    DEBUG << "store: Previous sibling of " << node << " has not been written yet, writing it" << endl;
-                    store(map, examined, previous);
-                }
-            }
-
-            Node sn = map.value(previous);
-            if (sn != Node()) {
-                m_s->remove(Triple(node, followsUri, Node()));
-                m_s->add(Triple(node, followsUri, sn));
-            }
-
-        } else {
-            // no previous sibling
-            m_s->remove(Triple(node, followsUri, Node()));
-        }
-    }
+    DEBUG << "store: Finished with " << o << endl;
 
     return node;
 }
@@ -665,6 +704,13 @@ Uri
 ObjectStorer::store(QObject *o, ObjectNodeMap &map)
 {
     return m_d->store(o, map);
+}
+
+void
+ObjectStorer::store(QObjectList o)
+{
+    ObjectNodeMap map;
+    m_d->store(o, map);
 }
 
 void

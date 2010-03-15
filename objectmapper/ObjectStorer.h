@@ -137,6 +137,8 @@ public:
     //!!! already
     Uri store(QObject *o); //!!!, StoreOption option = StoreIfAbsent);
     Uri store(QObject *o, ObjectNodeMap &map); //!!!, StoreOption option = StoreIfAbsent);
+
+    void store(QObjectList o);
     void store(QObjectList o, ObjectNodeMap &map);
 
     struct StoreCallback {
