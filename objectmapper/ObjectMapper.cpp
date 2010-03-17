@@ -81,6 +81,7 @@ public:
     {
         m_loader = new ObjectLoader(&m_c);
         m_storer = new ObjectStorer(&m_c);
+        m_loader->setAbsentPropertyPolicy(ObjectLoader::ResetAbsentProperties);
         connect(&m_c, SIGNAL(transactionCommitted(const ChangeSet &)),
                 m_m, SLOT(transactionCommitted(const ChangeSet &)));
     }
@@ -115,6 +116,8 @@ public:
     void manage(QObject *o) {
         //!!! is object new? do we want to write it to store now, or
         //!!! just manage it?
+
+        QMutexLocker locker(&m_mutex);
         
         for (int i = 0; i < o->metaObject()->propertyCount(); ++i) {
 
@@ -152,20 +155,20 @@ public:
             if (!connect(o, ba.data(), m_m, SLOT(objectModified()))) {
                 std::cerr << "ObjectMapper::manage: Failed to connect notify signal" << std::endl;
             }
-
-            connect(o, SIGNAL(destroyed(QObject *)),
-                    m_m, SLOT(objectDestroyed(QObject *)));
         }
+
+        connect(o, SIGNAL(destroyed(QObject *)),
+                m_m, SLOT(objectDestroyed(QObject *)));
 
         //!!! also manage objects that are properties? and manage any new settings of those that appear when we commit?
 
-        QMutexLocker locker(&m_mutex);
         m_changedObjects.insert(o);
     }
 
     void unmanage(QObject *) { } //!!!
     void remap(QObject *) { } //!!! poor
     void unmap(QObject *) { } //!!! poor
+
     void objectModified(QObject *o) {
         std::cerr << "objectModified(" << o << ")" << std::endl;
         QMutexLocker locker(&m_mutex);
@@ -179,6 +182,7 @@ public:
         m_changedObjects.insert(o);
         DEBUG << "ObjectMapper::objectModified done" << endl;
     }
+
     void objectDestroyed(QObject *o) {
         std::cerr << "objectDestroyed(" << o << ")" << std::endl;
         QMutexLocker locker(&m_mutex);
@@ -187,16 +191,35 @@ public:
             // caused by our own transactionCommitted method (see
             // similar comment about m_inCommit in that method).
             std::cerr << "(by us, ignoring it)" << std::endl;
-            // though we do still need to do this, for consistency!
-            m_n.objectNodeMap.remove(o);
+
+            //!!! oo-er -- what if user removed the triples for a
+            //!!! particular object from the store, thus causing us to
+            //!!! delete the object from transactionCommitted, but
+            //!!! that object was a parent of some other object(s) we
+            //!!! manage, which Qt will automatically destroy when the
+            //!!! parent is destroyed... so we will get our
+            //!!! objectDestroyed when those children are destroyed,
+            //!!! and unlike the parent's signal, we actually need to
+            //!!! take note of those...!
+
+            //!!! n.b. also that making a special case for children
+            //!!! won't solve the problem generally, as any external
+            //!!! code could be connected to an object's
+            //!!! objectDestroyed signal, deleting other objects on
+            //!!! receipt
+
+            // ^^^ write a unit test for this!
+
             return;
         }
         m_changedObjects.remove(o);
         if (m_n.objectNodeMap.contains(o)) {
             m_deletedObjectNodes.insert(m_n.objectNodeMap[o]);
+            m_n.objectNodeMap.remove(o);
         }
         DEBUG << "ObjectMapper::objectDestroyed done" << endl;
     }
+
     void transactionCommitted(const ChangeSet &cs) {
         std::cerr << "transactionCommitted" << std::endl;
         QMutexLocker locker(&m_mutex);
@@ -237,10 +260,18 @@ public:
             nodes.push_back(n);
         }
         m_loader->load(nodes, m_n.nodeObjectMap);
+
+        // The load call will have updated m_n.nodeObjectMap; sync the
+        // unchanged (since the last commit call) m_n.objectNodeMap
+        // from it
+        syncMap(m_n.objectNodeMap, m_n.nodeObjectMap);
+
         m_inReload = false;
         DEBUG << "ObjectMapper::transactionCommitted done" << endl;
     }
+
     void commit() { 
+
         QMutexLocker locker(&m_mutex);
         DEBUG << "ObjectMapper: Synchronising " << m_changedObjects.size()
               << " changed and " << m_deletedObjectNodes.size()
@@ -258,12 +289,20 @@ public:
         foreach (Node n, m_deletedObjectNodes) {
             m_storer->removeObject(n);
         }
+
         QObjectList ol;
         foreach (QObject *o, m_changedObjects) ol.push_back(o);
         m_storer->store(ol, m_n.objectNodeMap);
+
         m_inCommit = true;
         m_c.commit();
         m_inCommit = false;
+
+        // The store call will have updated m_n.objectNodeMap; sync
+        // the unchanged (since the last "external" transaction)
+        // m_n.nodeObjectMap from it
+        syncMap(m_n.nodeObjectMap, m_n.objectNodeMap);
+
         m_deletedObjectNodes.clear();
         m_changedObjects.clear();
         DEBUG << "ObjectMapper::commit done" << endl;
@@ -285,6 +324,65 @@ private:
 
     ObjectLoader *m_loader;
     ObjectStorer *m_storer;
+
+    class InternalMappingInconsistency : virtual public std::exception {
+    public:
+        InternalMappingInconsistency(QString a, QString b) throw() :
+            m_a(a), m_b(b) { }
+        virtual ~InternalMappingInconsistency() throw() { }
+        virtual const char *what() const throw() {
+            return QString("Internal inconsistency: internal map from %1 to %2 "
+                           "contains different %2 from that found in map from "
+                           "%2 to %1").arg(m_a).arg(m_b).toLocal8Bit().data();
+        }
+    protected:
+        QString m_a;
+        QString m_b;
+    };
+
+    template <typename A, typename B>
+    void syncMap(QHash<B,A> &to, QHash<A,B> &from) {
+
+        //!!! rather slow, I think this is not the best way to do this!
+
+        // are we in fact doing the same thing as copying all elements
+        // from "from" to a new reverse map and assigning that to
+        // "to", plus additional consistency check?  would that be
+        // quicker?  or would it be better to do the extra work to
+        // keep tabs on exactly what has changed?  perhaps we should
+        // wait until this function becomes a bottleneck and then
+        // compare methods
+
+        int updated = 0;
+        QSet<B> found;
+        for (QHash<A,B>::iterator i = from.begin(); i != from.end(); ++i) {
+            A a = i.key();
+            B b = i.value();
+            A otherA = to.value(b);
+            if (otherA != A()) {
+                if (otherA != a) {
+                    throw InternalMappingInconsistency(typeid(B).name(),
+                                                       typeid(A).name());
+                }
+            } else {
+                to.insert(b, a);
+                ++updated;
+            }
+            found.insert(b);
+        }
+        QSet<B> unfound;
+        for (QHash<B,A>::iterator i = to.begin(); i != to.end(); ++i) {
+            B b = i.key();
+            if (!found.contains(b)) {
+                unfound.insert(b);
+            }
+        }
+        for (QSet<B>::iterator i = unfound.begin(); i != unfound.end(); ++i) {
+            to.remove(*i);
+        }
+        std::cerr << "syncMap: Note: updated " << updated << " and removed "
+                  << unfound.size() << " element(s) from target map" << std::endl;
+    }
 };
 
 ObjectMapper::ObjectMapper(TransactionalStore *s) :

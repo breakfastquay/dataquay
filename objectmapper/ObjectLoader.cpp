@@ -58,7 +58,8 @@ public:
         m_ob(ObjectBuilder::getInstance()),
         m_cb(ContainerBuilder::getInstance()),
         m_s(s),
-        m_fp(FollowNone) {
+        m_fp(FollowNone),
+        m_ap(IgnoreAbsentProperties) {
     }
 
     Store *getStore() {
@@ -80,6 +81,15 @@ public:
     FollowPolicy getFollowPolicy() const {
         return m_fp;
     }
+
+    void setAbsentPropertyPolicy(AbsentPropertyPolicy ap) {
+        m_ap = ap;
+    }
+
+    AbsentPropertyPolicy getAbsentPropertyPolicy() const {
+        return m_ap;
+    }
+
 /*
     void loadProperties(QObject *o, Uri uri) {
         NodeObjectMap map;
@@ -202,11 +212,12 @@ public:
 */
     QObject *load(Node node) {
         NodeObjectMap map;
-        Nodes nodes;
-        nodes.push_back(node);
-        load(nodes, map);
-        //!!! leaks any other stuff in map!
-        return map.value(node);
+        NodeSet examined;
+        map.insert(node, 0);
+        QObject *o = load(map, examined, node);
+        // do not catch UnknownTypeException
+        //!!! leaks any other stuff in map! should not be following anything here!
+        return o;
     }
     
     void load(Nodes nodes, NodeObjectMap &map) {
@@ -222,9 +233,10 @@ public:
         foreach (Node n, nodes) {
             QObject *o = 0;
             try {
+                getClassNameForNode(n);
                 o = load(map, examined, n);
             } catch (UnknownTypeException) {
-                //!!!... not really an error here
+                o = 0;
             }
             if (!o) {
                 QObject *prior = map.value(n);
@@ -274,10 +286,14 @@ private:
     Store *m_s;
     TypeMapping m_tm;
     FollowPolicy m_fp;
+    AbsentPropertyPolicy m_ap;
     QList<LoadCallback *> m_loadCallbacks;
 
     QObject *load(NodeObjectMap &map, NodeSet &examined, const Node &n,
                   QString classHint = "");
+
+    QString getClassNameForNode(Node node, QString classHint = "",
+                                CacheingPropertyObject *po = 0);
 
     QObject *allocateObject(NodeObjectMap &map, Node node, QObject *parent,
                             QString classHint,
@@ -374,6 +390,8 @@ ObjectLoader::D::loadProperties(NodeObjectMap &map, NodeSet &examined, QObject *
         myPo = true;
     }
 
+    QObject *defaultObject = 0;
+
     for (int i = 0; i < o->metaObject()->propertyCount(); ++i) {
 
         QMetaProperty property = o->metaObject()->property(i);
@@ -386,30 +404,57 @@ ObjectLoader::D::loadProperties(NodeObjectMap &map, NodeSet &examined, QObject *
 
         QString pname = property.name(); // name to use when setting on QObject
         QString plookup(pname);          // name or URI for PropertyObject
-        Nodes pnodes;
 
 	Uri puri;
 	if (m_tm.getPropertyUri(cname, pname, puri)) {
 	    plookup = puri.toString();
 	}
 
-        //!!! if the property is absent, we want to set it to its
-        // default value... don't we?  How should we do that?
+        Nodes pnodes;
+        bool haveProperty = po->hasProperty(plookup);
+        if (haveProperty) {
+            pnodes = po->getPropertyNodeList(plookup);
+            if (pnodes.empty()) {
+                haveProperty = false;
+            }
+        }
 
-        if (!po->hasProperty(plookup)) continue;
-        pnodes = po->getPropertyNodeList(plookup);
-        if (pnodes.empty()) continue;
-        
-        QString typeName = property.typeName();
-        QVariant value = propertyNodeListToVariant(map, examined, typeName, pnodes);
+        if (!haveProperty && m_ap == IgnoreAbsentProperties) continue;
 
-        if (!value.isValid()) continue;
-
+        QVariant value;
         QByteArray pnba = pname.toLocal8Bit();
+
+        if (!haveProperty) {
+            if (!defaultObject) {
+                if (m_ob->knows(cname)) {
+                    defaultObject = m_ob->build(cname, 0);
+                } else {
+                    DEBUG << "Can't reset absent property " << pname
+                          << " of object " << node << ": object builder "
+                          << "doesn't know type " << cname << " so cannot "
+                          << "build default object" << endl;
+                }
+            }
+
+            if (defaultObject) {
+                value = defaultObject->property(pnba.data());
+            }
+
+        } else {
+            QString typeName = property.typeName();
+            value = propertyNodeListToVariant(map, examined, typeName, pnodes);
+        }
+
+        if (!value.isValid()) {
+            DEBUG << "Ignoring invalid variant for value of property "
+                  << pname << " of object " << node << endl;
+            continue;
+        }
+
         if (!o->setProperty(pnba.data(), value)) {
             DEBUG << "loadProperties: Property set failed "
                   << "for property " << pname << " of type "
-                  << typeName << " (" << property.userType()
+                  << property.typeName() << " (" << property.userType()
                   << ") to value of type " << value.type() 
                   << " and value " << value
                   << " from (first) node " << pnodes[0].value
@@ -419,13 +464,15 @@ ObjectLoader::D::loadProperties(NodeObjectMap &map, NodeSet &examined, QObject *
                   << "node-variant conversion"
                   << "(datatype is one of the standard set, "
                   << "or registered with Node::registerDatatype) and "
-                  << "[2] that the Q_PROPERTY type declaration " << property.typeName()
+                  << "[2] that the Q_PROPERTY type declaration "
+                  << property.typeName()
                   << " matches the name passed to qRegisterMetaType (including namespace)"
                   << endl;
             std::cerr << "ObjectLoader::loadProperties: Failed to set property on object, ignoring" << std::endl;
         }
     }
 
+    delete defaultObject;
     if (myPo) delete po;
 }
 
@@ -620,10 +667,46 @@ ObjectLoader::D::propertyNodeToList(NodeObjectMap &map, NodeSet &examined,
     return list;
 }
 
+QString
+ObjectLoader::D::getClassNameForNode(Node node, QString classHint,
+                                     CacheingPropertyObject *po)
+{
+    Uri typeUri;
+    if (po) typeUri = po->getObjectType();
+    else {
+        Triple t = m_s->matchFirst(Triple(node, "a", Node()));
+        if (t.c.type == Node::URI) typeUri = Uri(t.c.value);
+    }
+
+    QString className;
+    if (typeUri != Uri()) {
+        try {
+            className = m_tm.synthesiseClassForTypeUri(typeUri);
+        } catch (UnknownTypeException) {
+            DEBUG << "getClassNameForNode: Unknown type URI " << typeUri << endl;
+            if (classHint == "") throw;
+            DEBUG << "(falling back to object class hint " << classHint << ")" << endl;
+            className = classHint;
+        }
+    } else {
+        DEBUG << "getClassNameForNode: No type URI for " << node << endl;
+        if (classHint == "") throw UnknownTypeException("");
+        DEBUG << "(falling back to object class hint " << classHint << ")" << endl;
+        className = classHint;
+    }
+        
+    if (!m_ob->knows(className)) {
+        std::cerr << "ObjectLoader::getClassNameForNode: Unknown object class "
+                  << className.toStdString() << std::endl;
+        throw UnknownTypeException(className);
+    }
+
+    return className;
+}
+
 QObject *
 ObjectLoader::D::allocateObject(NodeObjectMap &map, Node node, QObject *parent,
-                                QString classHint,
-                                CacheingPropertyObject *po)
+                                QString classHint, CacheingPropertyObject *po)
 {
     if (map.contains(node) && map.value(node) != 0) {
         DEBUG << "allocateObject: " << node << " already allocated" << endl;
@@ -639,36 +722,7 @@ ObjectLoader::D::allocateObject(NodeObjectMap &map, Node node, QObject *parent,
     // we always use the RDF type if available, and refer to the
     // passed-in type only if that fails.
 
-    Uri typeUri;
-    QString className;
-
-    if (po) typeUri = po->getObjectType();
-    else {
-        Triple t = m_s->matchFirst(Triple(node, "a", Node()));
-        if (t.c.type == Node::URI) typeUri = Uri(t.c.value);
-    }
-
-    if (typeUri != Uri()) {
-        try {
-            className = m_tm.synthesiseClassForTypeUri(typeUri);
-        } catch (UnknownTypeException) {
-            DEBUG << "allocateObject: Unknown type URI " << typeUri << endl;
-            if (classHint == "") throw;
-            DEBUG << "(falling back to object class hint " << classHint << ")" << endl;
-            className = classHint;
-        }
-    } else {
-        DEBUG << "allocateObject: No type URI for " << node << endl;
-        if (classHint == "") throw UnknownTypeException("");
-        DEBUG << "(falling back to object class hint " << classHint << ")" << endl;
-        className = classHint;
-    }
-        
-    if (!m_ob->knows(className)) {
-        std::cerr << "ObjectLoader::allocateObject: Unknown object class "
-                  << className.toStdString() << std::endl;
-        throw UnknownTypeException(className);
-    }
+    QString className = getClassNameForNode(node, classHint, po);
     
     DEBUG << "Making object " << node.value << " of type "
           << className << " with parent " << parent << endl;
@@ -810,6 +864,18 @@ ObjectLoader::FollowPolicy
 ObjectLoader::getFollowPolicy() const
 {
     return m_d->getFollowPolicy();
+}
+
+void
+ObjectLoader::setAbsentPropertyPolicy(AbsentPropertyPolicy policy)
+{
+    m_d->setAbsentPropertyPolicy(policy);
+}
+
+ObjectLoader::AbsentPropertyPolicy
+ObjectLoader::getAbsentPropertyPolicy() const
+{
+    return m_d->getAbsentPropertyPolicy();
 }
 
 /*void

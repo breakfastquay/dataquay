@@ -6,7 +6,7 @@
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 :mainwindow
-	qtype:objectName "My Object Name" ;
+	qtype:objectName "My Main Window" ;
 	a qtype:QMainWindow .
 
 :menu

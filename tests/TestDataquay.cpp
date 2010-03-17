@@ -1654,7 +1654,17 @@ testObjectMapper()
     TransactionalStore ts(&store);
 
     ObjectMapper mapper(&ts);
-    mapper.manage(c);//!!!
+    mapper.manage(o);
+    mapper.manage(t);
+    mapper.manage(a);
+    mapper.manage(a1);
+    mapper.manage(b);
+    mapper.manage(b0);
+    mapper.manage(b1);
+    mapper.manage(b2);
+    mapper.manage(c);
+    mapper.manage(c1);
+    mapper.manage(c2);
 
     Node n = mapper.getNodeForObject(c);
     if (n != Node()) {
@@ -1726,9 +1736,6 @@ testObjectMapper()
         cerr << "Incorrect value " << c->getString() << " for property added in store that ObjectMapper should have reloaded" << endl;
         return false;
     }
-    
-    
-
 
     strings << "Third string";
     c->setStrings(strings);
@@ -1746,6 +1753,45 @@ testObjectMapper()
     mapper.commit();
     
     store.save("test-mapper-auto-4.ttl");
+
+    delete a;
+    delete a1;
+    delete b;
+    delete b0;
+    delete b1;
+    delete b2;
+    delete c1;
+    delete c2;
+
+    mapper.commit();
+  
+    store.save("test-mapper-auto-5.ttl");
+    
+    // This is a test for a very specific situation -- we cause to be
+    // deleted the parent of a managed object, by removing all
+    // references to the parent from the store so that the mapper
+    // deletes the parent when the transaction is committed.  This
+    // causes the child to be deleted by Qt; is the mapper clever
+    // enough to realise that this is a different deletion signal from
+    // that of the parent, and re-sync the child accordingly?
+
+    tx = ts.startTransaction();
+    // recall that uri is the uri of the original test object o, which
+    // is the parent of the timer object t
+    tx->remove(Triple(uri, Node(), Node()));
+    delete tx;
+
+    store.save("test-mapper-auto-5.ttl");
+    
+    // and turi is the uri of the timer object
+    
+    test = ts.match(Triple(turi, Node(), Node()));
+    if (test.size() > 0) {
+        cerr << "Incorrectly found " << test.size() << " triples with " << turi
+             << " as subject in store after erasing all triples for the parent "
+             << "object " << uri << " and having mapper resync" << endl;
+        return false;
+    }
 
     }
 
@@ -1779,7 +1825,7 @@ main(int argc, char **argv)
     if (!Dataquay::Test::testConnection()) return 1;
     if (!Dataquay::Test::testObjectMapper()) return 1;
 
-    if (!Dataquay::Test::testQtWidgets(argc, argv)) return 1;
+//    if (!Dataquay::Test::testQtWidgets(argc, argv)) return 1;
 
     std::cerr << "testDataquay successfully completed" << std::endl;
     return 0;

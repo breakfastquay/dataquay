@@ -99,6 +99,14 @@ public:
     void setFollowPolicy(FollowPolicy policy);
     FollowPolicy getFollowPolicy() const;
 
+    enum AbsentPropertyPolicy {
+        IgnoreAbsentProperties,
+        ResetAbsentProperties
+    };
+
+    void setAbsentPropertyPolicy(AbsentPropertyPolicy policy);
+    AbsentPropertyPolicy getAbsentPropertyPolicy() const;
+
     QObject *load(Node node); //!!! n.b. could be very expensive if follow options are set! might load lots & lots of stuff and then leak it! ... also, want to specify parent as in old loadObject, and to have uri arg... old method was better here
     
     //!!! new method... do we want to distinguish between load-create

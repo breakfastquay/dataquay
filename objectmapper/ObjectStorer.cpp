@@ -100,13 +100,12 @@ public:
     }
 
     void removeObject(Node n) {
-        //!!! expunge every reference, forward and back?  what about
-        // propertyies that are blank nodes not referred to elsewhere,
-        // a la removeOldPropertyNodes?
-
-        //!!! also handle removing lists (rdf:first/rdf:rest/rdf:nil)
-
-        m_s->remove(Triple(n, Node(), Node()));
+        Triples triples = m_s->match(Triple(n, Node(), Node()));
+        foreach (Triple t, triples) {
+            if (t.b.type == Node::URI) {
+                removeOldPropertyNodes(n, Uri(t.b.value));
+            }
+        }
         m_s->remove(Triple(Node(), Node(), n));
     }
 
@@ -202,12 +201,12 @@ ObjectStorer::D::storeProperties(ObjectNodeMap &map, ObjectSet &examined, QObjec
                     continue;
                 } else {
                     DEBUG << "Property " << pname << " of object "
-                          << node.value << " is changed from default value "
+                          << node << " is changed from default value "
                           << c->property(pnba.data()) << ", writing" << endl;
                 }
             } else {
                 DEBUG << "Can't check property " << pname << " of object "
-                      << node.value << " for change from default value: "
+                      << node << " for change from default value: "
                       << "object builder doesn't know type " << cname
                       << " so cannot build default object" << endl;
             }
