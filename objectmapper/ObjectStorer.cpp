@@ -164,6 +164,7 @@ private:
     FollowPolicy m_fp;
     QList<StoreCallback *> m_storeCallbacks;
 
+    Node allocateNode(ObjectNodeMap &map, QObject *o);
     Node storeSingle(ObjectNodeMap &map, ObjectSet &examined, QObject *o);
 
     void callStoreCallbacks(ObjectNodeMap &map, QObject *o, Node node);
@@ -446,21 +447,26 @@ ObjectStorer::D::store(ObjectNodeMap &map, ObjectSet &examined, QObject *o)
             QObjectList siblings = parent->children();
 
             if (m_fp & FollowSiblings) {
-                ObjectSet unexamined;
-                foreach (QObject *o, siblings) {
-                    // Mark all of the siblings we are about to recurse to
-                    // as examined, so that they don't then attempt to
-                    // recurse to one another.  However, remember the set
-                    // of siblings that _were_ unexamined, because these
-                    // are the ones we will be recursing to.
-                    if (!examined.contains(o)) {
-                        unexamined.insert(o);
-                        examined.insert(o);
+                // Mark the siblings we are about to recurse to as
+                // examined, so that they don't then attempt to
+                // recurse to one another (which could run us out of
+                // stack).  Also allocate nodes for them now in case
+                // they need to be referred to before we get around to
+                // storing them (e.g. if a later sibling is required
+                // as a parent of a property of an earlier one).
+                // Store in toFollow the ones we will need to recurse
+                // to.
+                QObjectList toFollow; // list, not set: order matters
+                foreach (QObject *s, siblings) {
+                    if (!examined.contains(s)) {
+                        toFollow.push_back(s);
+                        allocateNode(map, s);
+                        examined.insert(s);
                     }
                 }
-                foreach (QObject *o, unexamined) {
+                foreach (QObject *s, toFollow) {
                     DEBUG << "store: FollowSiblings is set, writing sibling of " << node << endl;
-                    store(map, examined, o);
+                    store(map, examined, s);
                 }
             }
         
@@ -495,32 +501,45 @@ ObjectStorer::D::store(ObjectNodeMap &map, ObjectSet &examined, QObject *o)
                 if (sn != Node()) {
                     m_s->remove(Triple(node, followsUri, Node()));
                     m_s->add(Triple(node, followsUri, sn));
+                } else {
+                    if (m_fp & FollowSiblings) {
+                        std::cerr << "Internal error: FollowSiblings set, but previous sibling has not been written" << std::endl;
+                    }
                 }
 
             } else {
                 // no previous sibling
                 m_s->remove(Triple(node, followsUri, Node()));
             }
+        } else {
+            // no parent node
+            if (m_fp & FollowParent) {
+                std::cerr << "Internal error: FollowParent set, but parent has not been written" << std::endl;
+            }
         }
     }
 
     if (m_fp & FollowChildren) {
-        // If we are also following siblings, mark all of the children
-        // we are about to recurse to as examined, so that they don't
-        // then attempt to recurse to one another as siblings.
-        // However, remember the set that _were_ unexamined, because
-        // these are the ones we will be recursing to.
+        // Mark the children we are about to recurse to as examined,
+        // so that they don't then attempt to recurse to one another
+        // as siblings (which could run us out of stack).  Also
+        // allocate nodes for them now in case they need to be
+        // referred to before we get around to storing them (e.g. if a
+        // later child is required as a parent of a property of an
+        // earlier one).  Store in toFollow the ones we will need to
+        // recurse to.
         QObjectList children = o->children();
-        ObjectSet unexamined;
+        QObjectList toFollow; // list, not set: order matters
         foreach (QObject *c, children) {
             if (!examined.contains(c)) {
-                unexamined.insert(c);
+                toFollow.push_back(c);
+                allocateNode(map, c);
                 examined.insert(c);
             }
         }
-        foreach (QObject *o, unexamined) {
+        foreach (QObject *c, toFollow) {
             DEBUG << "store: FollowChildren is set, writing child of " << node << endl;
-            store(map, examined, o);
+            store(map, examined, c);
         }
     }
 
@@ -530,15 +549,8 @@ ObjectStorer::D::store(ObjectNodeMap &map, ObjectSet &examined, QObject *o)
 }
 
 Node
-ObjectStorer::D::storeSingle(ObjectNodeMap &map, ObjectSet &examined, QObject *o)
+ObjectStorer::D::allocateNode(ObjectNodeMap &map, QObject *o)
 {
-    // This function should only be called when we know we want to
-    // store an object -- all conditions have been satisfied.  After
-    // this has been called, there is guaranteed to be something
-    // meaningful in the store and the ObjectNodeMap for this object
-
-    QString className = o->metaObject()->className();
-
     Node node;
 
     if (map.contains(o) && map.value(o) != Node()) {
@@ -568,6 +580,7 @@ ObjectStorer::D::storeSingle(ObjectNodeMap &map, ObjectSet &examined, QObject *o
             node = m_s->addBlankNode();
 
         } else {
+            QString className = o->metaObject()->className();
             Uri prefix;
             if (!m_tm.getUriPrefixForClass(className, prefix)) {
                 //!!! put this in TypeMapping?
@@ -579,10 +592,28 @@ ObjectStorer::D::storeSingle(ObjectNodeMap &map, ObjectSet &examined, QObject *o
             o->setProperty("uri", QVariant::fromValue(uri)); //!!! document this
             node = uri;
         }
+
+        map.insert(o, node);
     }
 
-    map[o] = node;
+    return node;
+}
 
+Node
+ObjectStorer::D::storeSingle(ObjectNodeMap &map, ObjectSet &examined, QObject *o)
+{
+    Node node;
+    
+    // This function should only be called when we know we want to
+    // store an object -- all conditions have been satisfied.
+
+    if (!map.contains(o) || map.value(o) == Node()) {
+        node = allocateNode(map, o);
+    } else {
+        node = map.value(o);
+    }
+
+    QString className = o->metaObject()->className();
     m_s->add(Triple(node, "a", m_tm.synthesiseTypeUriForClass(className)));
 
     storeProperties(map, examined, o, node);
@@ -662,31 +693,7 @@ ObjectStorer::getFollowPolicy() const
 {
     return m_d->getFollowPolicy();
 }
-/*
-void
-ObjectStorer::storeProperties(QObject *o, Uri uri)
-{
-    m_d->storeProperties(o, uri);
-}
 
-Uri
-ObjectStorer::storeObject(QObject *o)
-{
-    return m_d->storeObject(o);
-}
-
-Uri
-ObjectStorer::storeObjectTree(QObject *root)
-{
-    return m_d->storeObjectTree(root);
-}
-
-void
-ObjectStorer::storeAllObjects(QObjectList list)
-{
-    m_d->storeAllObjects(list);
-}
-*/
 void
 ObjectStorer::removeObject(Node n)
 {

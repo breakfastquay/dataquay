@@ -50,6 +50,13 @@ class ObjectStorer
 {
 public:
     /// Map from object to RDF node
+
+    //!!! NB. Want to stress the fact that these maps can't be
+    //!!! "persistent" unless you manage object deletion/creation
+    //!!! elsewhere -- since they just use a pointer to the QObject
+    //!!! (not any actual sort of identity), the QObject could change,
+    //!!! be deleted etc while leaving the pointer unchanged
+
     typedef QHash<QObject *, Node> ObjectNodeMap;
 
     /**

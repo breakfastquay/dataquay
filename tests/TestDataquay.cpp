@@ -1268,6 +1268,18 @@ testReloadability(BasicStore &s0)
     ObjectLoader o1(&s1);
     QObject *newParent = o1.loadAllObjects(0);
 
+    {
+        Triples t;
+        t = s0.match(Triple());
+        cerr << "(Note: original store has " << t.size() << " triples of which ";
+        t = s0.match(Triple(Node(), "a", Node()));
+        cerr << t.size() << " are type nodes;" << endl;
+        t = s1.match(Triple());
+        cerr << "saved store has " << t.size() << " triples of which ";
+        t = s1.match(Triple(Node(), "a", Node()));
+        cerr << t.size() << " are type nodes)" << endl;
+    }
+
     if (newParent->children().size() != parent->children().size()) {
         cerr << "Reloaded object parent has " << newParent->children().size()
              << " children, expected " << parent->children().size()
@@ -1327,7 +1339,11 @@ testObjectMapper()
         return false;
     }
 
-    if (!testReloadability(store)) return false;
+    if (!testReloadability(store)) {
+        cerr << "Reloadability test for simple QObject store and recall failed" 
+             << endl;
+        return false;
+    }
 
     cerr << "Testing QTimer store..." << endl;
 
@@ -1370,7 +1386,11 @@ testObjectMapper()
         return false;
     }
 
-    if (!testReloadability(store)) return false;
+    if (!testReloadability(store)) {
+        cerr << "Reloadability test for QObject and QTimer store and recall failed" 
+             << endl;
+        return false;
+    }
 
     cerr << "Testing custom object store and recall..." << endl;
 
@@ -1619,7 +1639,11 @@ testObjectMapper()
     }
 
 
-    if (!testReloadability(store)) return false;
+    if (!testReloadability(store)) {
+        cerr << "Reloadability test for custom object network store and recall failed" 
+             << endl;
+        return false;
+    }
 
 
     {
