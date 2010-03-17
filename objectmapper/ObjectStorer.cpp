@@ -128,7 +128,6 @@ public:
     }
 
     void store(QObjectList ol, ObjectNodeMap &map) {
-        std::cout << ol.size() << " objects to store" << std::endl;
         ObjectSet examined;
         int n = ol.size(), i = 0;
         foreach (QObject *o, ol) {
@@ -137,14 +136,11 @@ public:
                 map.insert(o, Node());
             }
         }
-        std::cout << std::endl;
         i = 0;
         foreach (QObject *o, ol) {
-            std::cerr << "\r" << i << "/" << n << "...";
             (void)store(map, examined, o);
             ++i;
         }
-        std::cout << std::endl;
     }
 
     Node store(ObjectNodeMap &map, ObjectSet &examined, QObject *o);
@@ -232,8 +228,8 @@ ObjectStorer::D::storeProperties(ObjectNodeMap &map, ObjectSet &examined, QObjec
         Nodes pnodes = variantToPropertyNodeList(map, examined, value);
 
         Triple t(node, puri, Node());
-        for (int i = 0; i < pnodes.size(); ++i) {
-            t.c = pnodes[i];
+        for (int j = 0; j < pnodes.size(); ++j) {
+            t.c = pnodes[j];
             m_s->add(t);
         }
     }
@@ -375,10 +371,10 @@ ObjectStorer::D::listToPropertyNode(ObjectNodeMap &map, ObjectSet &examined, QVa
 
         Nodes pnodes = variantToPropertyNodeList(map, examined, v);
         if (pnodes.empty()) {
-            DEBUG << "listToPropertyNode: Obtained nil Node in list, skipping!" << endl;
+            std::cerr << "WARNING: ObjectStorer::listToPropertyNode: Obtained nil Node in list! -- skipping it" << std::endl;
             continue;
         } else if (pnodes.size() > 1) {
-            std::cerr << "ObjectStorer::listToPropertyNode: Found set within sequence, can't handle this, using first element only" << std::endl; //!!!???
+            std::cerr << "WARNING: ObjectStorer::listToPropertyNode: Found set within sequence, can't handle this, using first element only" << std::endl;
         }
 
         Node pnode = pnodes[0];

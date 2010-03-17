@@ -93,26 +93,8 @@ public:
     void setBlankNodePolicy(BlankNodePolicy policy);
     BlankNodePolicy getBlankNodePolicy() const;
 
-    /**
-     * Save to the object mapper's RDF store all properties for the
-     * given object, as QObject property types associated with the
-     * given object URI.
-     */
-/*    void storeProperties(QObject *o, Uri uri);
-
-    Uri storeObject(QObject *o);
-    Uri storeObjectTree(QObject *root);
-    void storeAllObjects(QObjectList);
-    //!!! want a method to store all objects (and pass back and forth object map
-    */
-
     //!!! do we want this here? maybe not
     void removeObject(Node node); // but not any objects it refers to?
-
-    //!!! really want separate I-want-you-to-store-this-again (because
-    //!!! it's changed) and store-only-if-it's-not-stored-already (but
-    //!!! return the corresponding Node either way)
-//    Node store(ObjectNodeMap &map, QObject *o);
 
     enum FollowOption {
         FollowNone             = 0,
@@ -127,29 +109,13 @@ public:
     void setFollowPolicy(FollowPolicy policy);
     FollowPolicy getFollowPolicy() const;
     
-
-    //!!! what about things like following object properties, but only if they have not been stored in some measure before? (which is what happens at the moment)
-
-    //!!! want to set the follow policy (as above) "globally", then have StoreIfAbsent and StoreAlways option for store() defaulting to former
-/*
-    enum StoreOption { //!!! not a good name
-        StoreIfAbsent = 0, //!!! or force?
-        StoreAlways   = 1
-    };
-*/
-    //!!! do we _ever_ actually want StoreIfAbsent (except as an
-    //!!! internal optimisation)?  It might be useful if it stored if
-    //!!! the object was not in the store already, but what it
-    //!!! actually does is store if the object is not in the _map_
-    //!!! already
-    Uri store(QObject *o); //!!!, StoreOption option = StoreIfAbsent);
-    Uri store(QObject *o, ObjectNodeMap &map); //!!!, StoreOption option = StoreIfAbsent);
+    Uri store(QObject *o);
+    Uri store(QObject *o, ObjectNodeMap &map);
 
     void store(QObjectList o);
     void store(QObjectList o, ObjectNodeMap &map);
 
     struct StoreCallback {
-        //!!! pass store option?
         virtual void stored(ObjectStorer *, ObjectNodeMap &, QObject *, Node) = 0;
     };
 

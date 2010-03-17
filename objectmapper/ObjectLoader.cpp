@@ -187,6 +187,68 @@ public:
         QObject *o = loadSingle(map, node, parent, classHint, true, &po);
         return o;
     }
+
+    void reload(Nodes nodes, NodeObjectMap &map) {
+
+        QString parentProp = m_tm.getRelationshipPrefix().toString() + "parent";
+
+        foreach (Node n, nodes) {
+            if (!map.contains(n)) {
+                map.insert(n, 0);
+            }
+        }
+
+        foreach (Node n, nodes) {
+
+            Triple t = m_s->matchFirst(Triple(n, "a", Node()));
+
+            if (t.c == Node() || t.c.type != Node::URI) {
+                DEBUG << "reload: No type for node " << n << ", deleting object"
+                      << endl;
+
+                QObject *o = map.value(n);
+                delete o;
+                map.remove(n);
+                
+            } else {
+                
+                Uri typeUri(t.c.value);
+
+                QString className;
+
+                try {
+                    className = m_tm.synthesiseClassForTypeUri(typeUri);
+                } catch (UnknownTypeException) {
+                    continue;
+                }
+
+                if (!m_ob->knows(className)) {
+                    DEBUG << "reload: Can't construct type " << typeUri
+                          << " for node " << n << ", leaving it alone" << endl;
+                    continue;
+                }
+                
+                //!!! not good
+                QObject *parent = 0;
+                Triple pt = m_s->matchFirst(Triple(n, parentProp, Node()));
+                if (pt.c != Node()) {
+                    try {
+                        parent = loadFrom(map, pt.c);
+                    } catch (UnknownTypeException) {
+                        parent = 0;
+                    }
+                }
+
+                QObject *o = loadSingle(map, n, parent, "", false, 0);
+                map[n] = o;
+            }
+	}
+
+
+        //!!! this is a bit of an anomaly, probably shouldn't be in this class at all (but in callback implementation)
+//            loadConnections(map);
+
+    }
     
     void addLoadCallback(LoadCallback *cb) {
         m_loadCallbacks.push_back(cb);
@@ -664,6 +726,12 @@ QObject *
 ObjectLoader::loadFrom(NodeObjectMap &map, Node source)
 {
     return m_d->loadFrom(map, source);
+}
+
+void
+ObjectLoader::reload(Nodes nodes, NodeObjectMap &map)
+{
+    m_d->reload(nodes, map);
 }
 
 void

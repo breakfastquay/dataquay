@@ -83,6 +83,12 @@ public:
     QObject *loadAllObjects(QObject *parent); // may throw ConstructionFailedException
 
     QObject *loadFrom(NodeObjectMap &map, Node sourceNode);
+
+    //!!! new method... do we want to distinguish between load-create
+    //!!! and reload?
+    // NB this will also delete objects if they are no longer referred
+    // to in store
+    void reload(Nodes nodes, NodeObjectMap &map);
     
     struct LoadCallback {
         virtual void loaded(ObjectLoader *, NodeObjectMap &, Node, QObject *) = 0;

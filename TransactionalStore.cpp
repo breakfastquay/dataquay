@@ -570,48 +570,42 @@ bool
 TransactionalStore::contains(Triple t) const
 {
     D::NonTransactionalAccess ntxa(m_d);
-    bool result = m_d->getStore()->contains(t);
-    return result;
+    return m_d->getStore()->contains(t);
 }
     
 Triples
 TransactionalStore::match(Triple t) const
 {
     D::NonTransactionalAccess ntxa(m_d);
-    Triples result = m_d->getStore()->match(t);
-    return result;
+    return m_d->getStore()->match(t);
 }
 
 ResultSet
 TransactionalStore::query(QString s) const
 {
     D::NonTransactionalAccess ntxa(m_d);
-    ResultSet result = m_d->getStore()->query(s);
-    return result;
+    return m_d->getStore()->query(s);
 }
 
 Triple
 TransactionalStore::matchFirst(Triple t) const
 {
     D::NonTransactionalAccess ntxa(m_d);
-    Triple result = m_d->getStore()->matchFirst(t);
-    return result;
+    return m_d->getStore()->matchFirst(t);
 }
 
 Node
 TransactionalStore::queryFirst(QString s, QString b) const
 {
     D::NonTransactionalAccess ntxa(m_d);
-    Node result = m_d->getStore()->queryFirst(s, b);
-    return result;
+    return m_d->getStore()->queryFirst(s, b);
 }
 
 Uri
 TransactionalStore::getUniqueUri(QString prefix) const
 {
     D::NonTransactionalAccess ntxa(m_d);
-    Uri result = m_d->getStore()->getUniqueUri(prefix);
-    return result;
+    return m_d->getStore()->getUniqueUri(prefix);
 }
 
 Node

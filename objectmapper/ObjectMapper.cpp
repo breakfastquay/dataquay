@@ -76,7 +76,8 @@ public:
         m_s(s),
         m_c(s),
         m_mutex(QMutex::Recursive),
-        m_inCommit(false)
+        m_inCommit(false),
+        m_inReload(false)
     {
         m_loader = new ObjectLoader(&m_c);
         m_storer = new ObjectStorer(&m_c);
@@ -172,9 +173,11 @@ public:
             // This signal must have been emitted by a modification
             // caused by our own transactionCommitted method (see
             // similar comment about m_inCommit in that method).
+            std::cerr << "(by us, ignoring it)" << std::endl;
             return;
         }
         m_changedObjects.insert(o);
+        DEBUG << "ObjectMapper::objectModified done" << endl;
     }
     void objectDestroyed(QObject *o) {
         std::cerr << "objectDestroyed(" << o << ")" << std::endl;
@@ -183,12 +186,16 @@ public:
             // This signal must have been emitted by a modification
             // caused by our own transactionCommitted method (see
             // similar comment about m_inCommit in that method).
+            std::cerr << "(by us, ignoring it)" << std::endl;
+            // though we do still need to do this, for consistency!
+            m_n.objectNodeMap.remove(o);
             return;
         }
         m_changedObjects.remove(o);
         if (m_n.objectNodeMap.contains(o)) {
             m_deletedObjectNodes.insert(m_n.objectNodeMap[o]);
         }
+        DEBUG << "ObjectMapper::objectDestroyed done" << endl;
     }
     void transactionCommitted(const ChangeSet &cs) {
         std::cerr << "transactionCommitted" << std::endl;
@@ -202,22 +209,52 @@ public:
             // mutex, otherwise we would have deadlocked).  And we
             // don't want to update on the basis of our own commits,
             // only on the basis of commits happening elsewhere.
+            std::cerr << "(by us, ignoring it)" << std::endl;
             return;
         }
         //!!! but now what?
         m_inReload = true;
+        DEBUG << "ObjectMapper: Synchronising from " << cs.size()
+              << " change(s) in transaction" << endl;
         //!!! reload objects
-        foreach (const Change &c, cs) {
 
-            //!!!
-        }            
+        //!!! if an object has been effectively deleted from the
+        //!!! store, we can't know that without querying the store to
+        //!!! discover whether any triples remain -- so we should let
+        //!!! something like ObjectLoader::reload() handle deleting
+        //!!! objects that have been removed from store
+
+        // If an object's node appears as the "subject" of a
+        // predicate, then we should reload that object.  What if it
+        // appears as the "object"?  Do we ever need to reload then?
+        // I don't think so...
+        QSet<Node> toReload;
+        foreach (const Change &c, cs) {
+            toReload.insert(c.second.a);
+        }
+        Nodes nodes;
+        foreach (const Node &n, toReload) {
+            nodes.push_back(n);
+        }
+        m_loader->reload(nodes, m_n.nodeObjectMap);
         m_inReload = false;
+        DEBUG << "ObjectMapper::transactionCommitted done" << endl;
     }
     void commit() { 
         QMutexLocker locker(&m_mutex);
+        DEBUG << "ObjectMapper: Synchronising " << m_changedObjects.size()
+              << " changed and " << m_deletedObjectNodes.size()
+              << " deleted object(s)" << endl;
         //!!! if an object has been added as a new sibling of existing
         //!!! objects, then we presumably may have to rewrite our
-        //!!! follows relationships
+        //!!! follows relationships?
+
+        // What other objects can be affected by the addition or
+        // modification of an object?
+
+        // - Adding a new child -> affects nothing directly, as child
+        // goes at end
+
         foreach (Node n, m_deletedObjectNodes) {
             m_storer->removeObject(n);
         }
@@ -229,6 +266,7 @@ public:
         m_inCommit = false;
         m_deletedObjectNodes.clear();
         m_changedObjects.clear();
+        DEBUG << "ObjectMapper::commit done" << endl;
     }
 
 private:
