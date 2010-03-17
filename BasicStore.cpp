@@ -315,6 +315,8 @@ public:
         QMutexLocker wlocker(&m_librdfLock);
         QMutexLocker plocker(&m_prefixLock);
 
+        DEBUG << "BasicStore::save(" << filename << ")" << endl;
+
         librdf_uri *base_uri = uriToLrdfUri(m_baseUri);
         QByteArray b = filename.toLocal8Bit();
         const char *lname = b.data();

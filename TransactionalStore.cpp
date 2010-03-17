@@ -364,15 +364,16 @@ public:
             } else {
                 tt.push_back(t);
             }
+            bool found = false;
             for (int i = 0; i < tt.size(); ++i) {
                 if (m_td->remove(m_tx, tt[i])) {
                     m_tx->addChange(Change(RemoveTriple, tt[i]));
-                    return true;
+                    found = true;
                 } else if (wild) {
                     throw RDFException("Failed to remove matched statement in remove() with wildcards");
                 }
             }
-            return false;
+            return found;
         } catch (RDFException) {
             abandon();
             throw;
