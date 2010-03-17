@@ -42,6 +42,7 @@
 #include "ObjectMapperExceptions.h"
 
 #include <QMetaProperty>
+#include <QSet>
 
 #include "Debug.h"
 
@@ -49,12 +50,15 @@ namespace Dataquay {
 
 class ObjectLoader::D
 {
+    typedef QSet<Node> NodeSet;
+
 public:
     D(ObjectLoader *m, Store *s) :
         m_m(m),
         m_ob(ObjectBuilder::getInstance()),
         m_cb(ContainerBuilder::getInstance()),
-        m_s(s) {
+        m_s(s),
+        m_fp(FollowNone) {
     }
 
     Store *getStore() {
@@ -69,6 +73,14 @@ public:
 	return m_tm;
     }
 
+    void setFollowPolicy(FollowPolicy fp) {
+        m_fp = fp; 
+    }
+
+    FollowPolicy getFollowPolicy() const {
+        return m_fp;
+    }
+/*
     void loadProperties(QObject *o, Uri uri) {
         NodeObjectMap map;
         loadProperties(map, o, uri, false, 0);
@@ -187,10 +199,19 @@ public:
         QObject *o = loadSingle(map, node, parent, classHint, true, &po);
         return o;
     }
-
-    void reload(Nodes nodes, NodeObjectMap &map) {
-
-        QString parentProp = m_tm.getRelationshipPrefix().toString() + "parent";
+*/
+    QObject *load(Node node) {
+        NodeObjectMap map;
+        Nodes nodes;
+        nodes.push_back(node);
+        load(nodes, map);
+        //!!! leaks any other stuff in map!
+        return map.value(node);
+    }
+    
+    void load(Nodes nodes, NodeObjectMap &map) {
+        
+        NodeSet examined;
 
         foreach (Node n, nodes) {
             if (!map.contains(n)) {
@@ -199,55 +220,47 @@ public:
         }
 
         foreach (Node n, nodes) {
-
-            Triple t = m_s->matchFirst(Triple(n, "a", Node()));
-
-            if (t.c == Node() || t.c.type != Node::URI) {
-                DEBUG << "reload: No type for node " << n << ", deleting object"
-                      << endl;
-
-                QObject *o = map.value(n);
-                delete o;
-                map.remove(n);
-                
-            } else {
-                
-                Uri typeUri(t.c.value);
-
-                QString className;
-
-                try {
-                    className = m_tm.synthesiseClassForTypeUri(typeUri);
-                } catch (UnknownTypeException) {
-                    continue;
-                }
-
-                if (!m_ob->knows(className)) {
-                    DEBUG << "reload: Can't construct type " << typeUri
-                          << " for node " << n << ", leaving it alone" << endl;
-                    continue;
-                }
-                
-                //!!! not good
-                QObject *parent = 0;
-                Triple pt = m_s->matchFirst(Triple(n, parentProp, Node()));
-                if (pt.c != Node()) {
-                    try {
-                        parent = loadFrom(map, pt.c);
-                    } catch (UnknownTypeException) {
-                        parent = 0;
-                    }
-                }
-
-                QObject *o = loadSingle(map, n, parent, "", false, 0);
-                map[n] = o;
+            QObject *o = 0;
+            try {
+                o = load(map, examined, n);
+            } catch (UnknownTypeException) {
+                //!!!... not really an error here
             }
-	}
+            if (!o) {
+                QObject *prior = map.value(n);
+                if (prior) {
+                    DEBUG << "load: Node " << n
+                          << " no longer loadable, deleting object" << endl;
+                    delete prior;
+                }
+                map.remove(n);
+            }
+        }
+    }
 
+    QObjectList loadAll() {
+        NodeObjectMap map;
+        return loadAll(map);
+    }
 
-        //!!! this is a bit of an anomaly, probably shouldn't be in this class at all (but in callback implementation)
-//            loadConnections(map);
+    QObjectList loadAll(NodeObjectMap &map) {
 
+        Nodes nodes;
+        
+        Triples candidates = m_s->match(Triple(Node(), "a", Node()));
+        foreach (Triple t, candidates) {
+            if (t.c.type != Node::URI) continue;
+            nodes.push_back(t.a);
+        }
+
+        load(nodes, map);
+
+        QObjectList objects;
+        foreach (Node n, nodes) {
+            QObject *o = map.value(n);
+            if (o) objects.push_back(o);
+        }
+        return objects;
     }
     
     void addLoadCallback(LoadCallback *cb) {
@@ -260,32 +273,98 @@ private:
     ContainerBuilder *m_cb;
     Store *m_s;
     TypeMapping m_tm;
+    FollowPolicy m_fp;
     QList<LoadCallback *> m_loadCallbacks;
 
-    QObject *loadTree(NodeObjectMap &map, Node node, QObject *parent);
-    QObject *loadSingle(NodeObjectMap &map, Node node, QObject *parent,
-                        QString classHint, bool follow,
-                        CacheingPropertyObject *po);
+    QObject *load(NodeObjectMap &map, NodeSet &examined, const Node &n,
+                  QString classHint = "");
+
+    QObject *allocateObject(NodeObjectMap &map, Node node, QObject *parent,
+                            QString classHint,
+                            CacheingPropertyObject *po);
+
+//    QObject *loadTree(NodeObjectMap &map, Node node, QObject *parent);
+    QObject *loadSingle(NodeObjectMap &map, NodeSet &examined, Node node, QObject *parent,
+                        QString classHint, CacheingPropertyObject *po);
 
     void callLoadCallbacks(NodeObjectMap &map, Node node, QObject *o);
 
-    void loadConnections(NodeObjectMap &map);
+//    void loadConnections(NodeObjectMap &map);
 
-    void loadProperties(NodeObjectMap &map, QObject *o, Node node, bool follow,
+    void loadProperties(NodeObjectMap &map, NodeSet &examined, QObject *o, Node node,
                         CacheingPropertyObject *po);
-    QVariant propertyNodeListToVariant(NodeObjectMap &map, QString typeName,
-                                       Nodes pnodes, bool follow);
-    QObject *propertyNodeToObject(NodeObjectMap &map, QString typeName,
+    QVariant propertyNodeListToVariant(NodeObjectMap &map, NodeSet &examined, QString typeName,
+                                       Nodes pnodes);
+    QObject *propertyNodeToObject(NodeObjectMap &map, NodeSet &examined, QString typeName,
                                   Node pnode);
-    QVariant propertyNodeToVariant(NodeObjectMap &map, QString typeName,
+    QVariant propertyNodeToVariant(NodeObjectMap &map, NodeSet &examined, QString typeName,
                                    Node pnode);
-    QVariantList propertyNodeToList(NodeObjectMap &map, QString typeName,
-                                    Node pnode, bool follow);
+    QVariantList propertyNodeToList(NodeObjectMap &map, NodeSet &examined, QString typeName,
+                                    Node pnode);
 };
 
+QObject *
+ObjectLoader::D::load(NodeObjectMap &map, NodeSet &examined, const Node &n,
+                      QString classHint)
+{
+    DEBUG << "load: Examining " << n << endl;
+
+    if (m_fp != FollowNone) {
+        examined.insert(n);
+    }
+
+    CacheingPropertyObject po(m_s, m_tm.getPropertyPrefix().toString(), n);
+
+    if (m_fp & FollowSiblings) {
+        //!!! actually, wouldn't this mean query all siblings and follow all of those? as on store? but do we _ever_ actually want this behaviour?
+        QString followsProp = m_tm.getRelationshipPrefix().toString() + "follows";
+        if (po.hasProperty(followsProp)) {
+            Node fn = po.getPropertyNode(followsProp);
+            //!!! highly inefficient if we are last of many siblings
+            if (!examined.contains(fn)) {
+                try {
+                    load(map, examined, fn);
+                } catch (UnknownTypeException) {
+                    //!!!
+                }
+            }
+        }
+    }
+
+    QObject *parent = 0;
+    QString parentProp = m_tm.getRelationshipPrefix().toString() + "parent";
+    if (po.hasProperty(parentProp)) {
+        Node pn = po.getPropertyNode(parentProp);
+        try {
+            if (m_fp & FollowParent) {
+                if (!examined.contains(pn)) {
+                    DEBUG << "load: FollowParent is set, loading parent of " << n << endl;
+                    load(map, examined, pn);
+                }
+            } else if (map.contains(pn) && map.value(pn) == 0) {
+                DEBUG << "load: Parent of node " << n << " has not been loaded yet, loading it" << endl;
+                load(map, examined, pn);
+            }
+        } catch (UnknownTypeException) {
+            //!!!
+        }
+        parent = map.value(pn);
+    }
+
+    //!!! and FollowChildren... (cf loadTree)
+
+    //!!! NB. as this stands, if the RDF is "wrong" containing the
+    //!!! wrong type for a property of this, we will fail the whole
+    //!!! thing with an UnknownTypeException -- is that the right
+    //!!! thing to do? consider
+
+    QObject *o = loadSingle(map, examined, n, parent, classHint, &po);
+    return o;
+}
+
 void
-ObjectLoader::D::loadProperties(NodeObjectMap &map, QObject *o, Node node,
-                                bool follow, CacheingPropertyObject *po)
+ObjectLoader::D::loadProperties(NodeObjectMap &map, NodeSet &examined, QObject *o, Node node,
+                                CacheingPropertyObject *po)
 {
     QString cname = o->metaObject()->className();
 
@@ -314,13 +393,15 @@ ObjectLoader::D::loadProperties(NodeObjectMap &map, QObject *o, Node node,
 	    plookup = puri.toString();
 	}
 
+        //!!! if the property is absent, we want to set it to its
+        // default value... don't we?  How should we do that?
+
         if (!po->hasProperty(plookup)) continue;
         pnodes = po->getPropertyNodeList(plookup);
         if (pnodes.empty()) continue;
         
         QString typeName = property.typeName();
-        QVariant value = propertyNodeListToVariant
-            (map, typeName, pnodes, follow);
+        QVariant value = propertyNodeListToVariant(map, examined, typeName, pnodes);
 
         if (!value.isValid()) continue;
 
@@ -349,9 +430,8 @@ ObjectLoader::D::loadProperties(NodeObjectMap &map, QObject *o, Node node,
 }
 
 QVariant
-ObjectLoader::D::propertyNodeListToVariant(NodeObjectMap &map, 
-                                           QString typeName, Nodes pnodes,
-                                           bool follow)
+ObjectLoader::D::propertyNodeListToVariant(NodeObjectMap &map, NodeSet &examined, 
+                                           QString typeName, Nodes pnodes)
 {
     if (pnodes.empty()) return QVariant();
 
@@ -370,7 +450,7 @@ ObjectLoader::D::propertyNodeListToVariant(NodeObjectMap &map,
 
         if (k == ContainerBuilder::SequenceKind) {
             QVariantList list =
-                propertyNodeToList(map, inContainerType, firstNode, follow);
+                propertyNodeToList(map, examined, inContainerType, firstNode);
             return m_cb->injectContainer(typeName, list);
 
         } else if (k == ContainerBuilder::SetKind) {
@@ -378,8 +458,7 @@ ObjectLoader::D::propertyNodeListToVariant(NodeObjectMap &map,
             foreach (Node pnode, pnodes) {
                 Nodes sublist;
                 sublist << pnode;
-                list << propertyNodeListToVariant(map, inContainerType, sublist,
-                                                  follow);
+                list << propertyNodeListToVariant(map, examined, inContainerType, sublist);
             }
             return m_cb->injectContainer(typeName, list);
 
@@ -389,8 +468,8 @@ ObjectLoader::D::propertyNodeListToVariant(NodeObjectMap &map,
 
     } else if (m_ob->canInject(typeName)) {
 
-        if (follow) {
-            QObject *obj = propertyNodeToObject(map, typeName, firstNode);
+        if (m_fp & FollowObjectProperties) {
+            QObject *obj = propertyNodeToObject(map, examined, typeName, firstNode);
             QVariant v;
             if (obj) {
                 v = m_ob->inject(typeName, obj);
@@ -406,6 +485,7 @@ ObjectLoader::D::propertyNodeListToVariant(NodeObjectMap &map,
             }
             return v;
         } else {
+            //!!! still want to look up in map! just not create...what is analogue of whatever we do in store?
             return QVariant();
         }
 
@@ -416,13 +496,13 @@ ObjectLoader::D::propertyNodeListToVariant(NodeObjectMap &map,
 
     } else {
 
-        return propertyNodeToVariant(map, typeName, firstNode);
+        return propertyNodeToVariant(map, examined, typeName, firstNode);
     }
 }
 
 
 QVariant
-ObjectLoader::D::propertyNodeToVariant(NodeObjectMap &map, 
+ObjectLoader::D::propertyNodeToVariant(NodeObjectMap &map, NodeSet &examined, 
                                        QString typeName, Node pnode)
 {
     // Usually we can take the default conversion from node to
@@ -479,7 +559,8 @@ ObjectLoader::D::propertyNodeToVariant(NodeObjectMap &map,
 }
 
 QObject *
-ObjectLoader::D::propertyNodeToObject(NodeObjectMap &map, QString typeName, Node pnode)
+ObjectLoader::D::propertyNodeToObject(NodeObjectMap &map, NodeSet &examined,
+                                      QString typeName, Node pnode)
 {
     QString classHint;
     if (typeName != "") {
@@ -487,17 +568,24 @@ ObjectLoader::D::propertyNodeToObject(NodeObjectMap &map, QString typeName, Node
         DEBUG << "typeName " << typeName << " -> classHint " << classHint << endl;
     }
 
+    QObject *o = 0;
     if (pnode.type == Node::URI || pnode.type == Node::Blank) {
-        return loadFrom(map, pnode, classHint);
+        if (m_fp & FollowObjectProperties) {
+            if (!examined.contains(pnode)) {
+                load(map, examined, pnode, classHint);
+            }
+        } else if (map.contains(pnode) && map.value(pnode) == 0) {
+            load(map, examined, pnode, classHint);
+        }
+        o = map.value(pnode);
     }
 
     return 0;
 }
 
 QVariantList
-ObjectLoader::D::propertyNodeToList(NodeObjectMap &map, 
-                                    QString typeName, Node pnode,
-                                    bool follow)
+ObjectLoader::D::propertyNodeToList(NodeObjectMap &map, NodeSet &examined, 
+                                    QString typeName, Node pnode)
 {
     QVariantList list;
     Triple t;
@@ -508,12 +596,11 @@ ObjectLoader::D::propertyNodeToList(NodeObjectMap &map,
         Node fnode = t.c;
 
         DEBUG << "propertyNodeToList: pnode " << pnode << ", fnode "
-              << fnode << ", follow " << follow <<  endl;
+              << fnode << endl;
 
         Nodes fnodes;
         fnodes << fnode;
-        QVariant value = propertyNodeListToVariant
-            (map, typeName, fnodes, follow);
+        QVariant value = propertyNodeListToVariant(map, examined, typeName, fnodes);
 
         if (value.isValid()) {
             DEBUG << "Found value: " << value << endl;
@@ -533,17 +620,14 @@ ObjectLoader::D::propertyNodeToList(NodeObjectMap &map,
     return list;
 }
 
-
 QObject *
-ObjectLoader::D::loadSingle(NodeObjectMap &map, Node node, QObject *parent,
-                            QString classHint, bool follow,
-                            CacheingPropertyObject *po)
+ObjectLoader::D::allocateObject(NodeObjectMap &map, Node node, QObject *parent,
+                                QString classHint,
+                                CacheingPropertyObject *po)
 {
-    DEBUG << "loadSingle: " << node << endl;
-
-    if (map.contains(node)) {
-        DEBUG << "loadSingle: " << node << " already loaded" << endl;
-        return map[node];
+    if (map.contains(node) && map.value(node) != 0) {
+        DEBUG << "allocateObject: " << node << " already allocated" << endl;
+        return map.value(node);
     }
 
     // The RDF may contain a more precise type specification than
@@ -568,20 +652,20 @@ ObjectLoader::D::loadSingle(NodeObjectMap &map, Node node, QObject *parent,
         try {
             className = m_tm.synthesiseClassForTypeUri(typeUri);
         } catch (UnknownTypeException) {
-            DEBUG << "loadSingle: Unknown type URI " << typeUri << endl;
+            DEBUG << "allocateObject: Unknown type URI " << typeUri << endl;
             if (classHint == "") throw;
             DEBUG << "(falling back to object class hint " << classHint << ")" << endl;
             className = classHint;
         }
     } else {
-        DEBUG << "loadSingle: No type URI for " << node << endl;
+        DEBUG << "allocateObject: No type URI for " << node << endl;
         if (classHint == "") throw UnknownTypeException("");
         DEBUG << "(falling back to object class hint " << classHint << ")" << endl;
         className = classHint;
     }
         
     if (!m_ob->knows(className)) {
-        std::cerr << "ObjectLoader::loadSingle: Unknown object class "
+        std::cerr << "ObjectLoader::allocateObject: Unknown object class "
                   << className.toStdString() << std::endl;
         throw UnknownTypeException(className);
     }
@@ -595,9 +679,27 @@ ObjectLoader::D::loadSingle(NodeObjectMap &map, Node node, QObject *parent,
     if (node.type == Node::URI) {
         o->setProperty("uri", QVariant::fromValue(m_s->expand(node.value)));
     }
-    map[node] = o;
 
-    loadProperties(map, o, node, follow, po);
+    map.insert(node, o);
+    return o;
+}
+
+QObject *
+ObjectLoader::D::loadSingle(NodeObjectMap &map, NodeSet &examined,
+                            Node node, QObject *parent,
+                            QString classHint, CacheingPropertyObject *po)
+{
+    DEBUG << "loadSingle: " << node << endl;
+
+    QObject *o;
+
+    if (!map.contains(node) || map.value(node) == 0) {
+        o = allocateObject(map, node, parent, classHint, po);
+    } else {
+        o = map.value(node);
+    }
+
+    loadProperties(map, examined, o, node, po);
 
     callLoadCallbacks(map, node, o);
 
@@ -613,7 +715,7 @@ ObjectLoader::D::callLoadCallbacks(NodeObjectMap &map, Node node, QObject *o)
         cb->loaded(m_m, map, node, o);
     }
 }
-
+/*
 void
 ObjectLoader::D::loadConnections(NodeObjectMap &map)
 {
@@ -670,7 +772,7 @@ ObjectLoader::D::loadTree(NodeObjectMap &map, Node node, QObject *parent)
 
     return o;
 }
-
+*/
 ObjectLoader::ObjectLoader(Store *s) :
     m_d(new D(this, s))
 { }
@@ -699,6 +801,18 @@ ObjectLoader::getTypeMapping() const
 }
 
 void
+ObjectLoader::setFollowPolicy(FollowPolicy policy)
+{
+    m_d->setFollowPolicy(policy);
+}
+
+ObjectLoader::FollowPolicy
+ObjectLoader::getFollowPolicy() const
+{
+    return m_d->getFollowPolicy();
+}
+
+/*void
 ObjectLoader::loadProperties(QObject *o, Uri uri)
 {
     m_d->loadProperties(o, uri);
@@ -727,11 +841,30 @@ ObjectLoader::loadFrom(NodeObjectMap &map, Node source)
 {
     return m_d->loadFrom(map, source);
 }
+*/
+
+QObject *
+ObjectLoader::load(Node node)
+{
+    return m_d->load(node);
+}
 
 void
-ObjectLoader::reload(Nodes nodes, NodeObjectMap &map)
+ObjectLoader::load(Nodes nodes, NodeObjectMap &map)
 {
-    m_d->reload(nodes, map);
+    m_d->load(nodes, map);
+}
+
+QObjectList
+ObjectLoader::loadAll()
+{
+    return m_d->loadAll();
+}
+
+QObjectList
+ObjectLoader::loadAll(NodeObjectMap &map)
+{
+    return m_d->loadAll(map);
 }
 
 void

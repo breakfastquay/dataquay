@@ -118,6 +118,7 @@ public:
         }
         Node node = store(map, examined, o);
         if (node.type != Node::URI) {
+            // This shouldn't happen (see above)
             DEBUG << "ObjectStorer::store: Stored object node "
                   << node << " is not a URI node" << endl;
             std::cerr << "WARNING: ObjectStorer::store: No URI for stored object!" << std::endl;
@@ -136,10 +137,8 @@ public:
                 map.insert(o, Node());
             }
         }
-        i = 0;
         foreach (QObject *o, ol) {
-            (void)store(map, examined, o);
-            ++i;
+            store(map, examined, o);
         }
     }
 
@@ -371,7 +370,7 @@ ObjectStorer::D::listToPropertyNode(ObjectNodeMap &map, ObjectSet &examined, QVa
 
         Nodes pnodes = variantToPropertyNodeList(map, examined, v);
         if (pnodes.empty()) {
-            std::cerr << "WARNING: ObjectStorer::listToPropertyNode: Obtained nil Node in list! -- skipping it" << std::endl;
+            std::cerr << "WARNING: ObjectStorer::listToPropertyNode: Obtained nil Node in list" << std::endl;
             continue;
         } else if (pnodes.size() > 1) {
             std::cerr << "WARNING: ObjectStorer::listToPropertyNode: Found set within sequence, can't handle this, using first element only" << std::endl;

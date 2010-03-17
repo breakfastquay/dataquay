@@ -68,6 +68,7 @@ struct LayoutLoader : public ObjectLoader::LoadCallback {
 	QObject *layoutOf = 0;
 	QObject *centralOf = 0;
 
+/*!!! FIXME!!!
 	if (pod.hasProperty("layout")) {
 	    layout = m->loadFrom(map, Uri(pod.getProperty("layout").value<Uri>()));
 	}
@@ -77,6 +78,7 @@ struct LayoutLoader : public ObjectLoader::LoadCallback {
 	if (pod.hasProperty("central_widget_of")) {
 	    centralOf = m->loadFrom(map, Uri(pod.getProperty("central_widget_of").value<Uri>()));
 	}
+*/
 
 	if (centralOf) {
 	    QMainWindow *m = dynamic_cast<QMainWindow *>(centralOf);
@@ -159,11 +161,14 @@ testQtWidgets(int argc, char **argv)
     LayoutLoader loader;
     oloader.addLoadCallback(&loader);
 
-    QObject *parent = oloader.loadAllObjects(0);
+    QObjectList objects = oloader.loadAll();
+    
+    //!!! damn, now we need to _find_ the parent object
 
-    QMainWindow *mw = qobject_cast<QMainWindow *>(parent);
+//!!!FIXME    QMainWindow *mw = qobject_cast<QMainWindow *>(parent);
+    QMainWindow *mw = 0;
     if (!mw) {
-	foreach (QObject *o, parent->children()) {
+	foreach (QObject *o, objects) {
 	    std::cerr << "child: " << o->metaObject()->className() << std::endl;
 	    QMainWindow *hmw = qobject_cast<QMainWindow *>(o);
 	    if (hmw) {
@@ -186,8 +191,11 @@ testQtWidgets(int argc, char **argv)
     ostorer.setPropertyStorePolicy(ObjectStorer::StoreIfChanged);
     LayoutStorer storer;
     ostorer.addStoreCallback(&storer);
-    ostorer.setFollowPolicy(ObjectStorer::FollowAll);
-    ostorer.store(parent);
+    ostorer.setFollowPolicy(ObjectStorer::FollowObjectProperties |
+			    ObjectStorer::FollowSiblings |
+			    ObjectStorer::FollowParent |
+			    ObjectStorer::FollowChildren);
+    ostorer.store(objects);
     store2.save("test-qt-widgets-out.ttl");
 
     return app.exec();

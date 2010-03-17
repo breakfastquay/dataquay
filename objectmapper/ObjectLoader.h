@@ -68,8 +68,9 @@ public:
      * Load to the given object all QObject properties defined in this
      * object mapper's store for the given object URI.
      */
+/*
     void loadProperties(QObject *o, Uri uri);
-
+*/
     //!!! want loadObject, loadTree, loadGraph, loadAllGraphs (loadGraph equivalent to loadFrom) -- and then loader callback gets passed an enum value identifying load type
     
     /**
@@ -78,17 +79,37 @@ public:
      * will be determined by the rdf:type for the URI.
      *!!!??? type prefix? how these map to class names?
      */
+/*
     QObject *loadObject(Uri uri, QObject *parent); // may throw ConstructionFailedException, UnknownTypeException
     QObject *loadObjectTree(Uri rootUri, QObject *parent); // may throw ConstructionFailedException
     QObject *loadAllObjects(QObject *parent); // may throw ConstructionFailedException
 
     QObject *loadFrom(NodeObjectMap &map, Node sourceNode);
+*/
+    enum FollowOption {
+        FollowNone             = 0, // the default
+        FollowObjectProperties = 1,
+        FollowParent           = 2,
+        FollowSiblings         = 4,
+        FollowChildren         = 8
+        // there is no FollowAll; it generally isn't a good idea
+    };
+    typedef int FollowPolicy;
 
+    void setFollowPolicy(FollowPolicy policy);
+    FollowPolicy getFollowPolicy() const;
+
+    QObject *load(Node node); //!!! n.b. could be very expensive if follow options are set! might load lots & lots of stuff and then leak it! ... also, want to specify parent as in old loadObject, and to have uri arg... old method was better here
+    
     //!!! new method... do we want to distinguish between load-create
     //!!! and reload?
     // NB this will also delete objects if they are no longer referred
     // to in store
-    void reload(Nodes nodes, NodeObjectMap &map);
+    void load(Nodes nodes, NodeObjectMap &map);
+
+    //!!! currently this loads all objects in store -- that is not the same thing as reloading all objects whose nodes are in the map
+    QObjectList loadAll();
+    QObjectList loadAll(NodeObjectMap &map);
     
     struct LoadCallback {
         virtual void loaded(ObjectLoader *, NodeObjectMap &, Node, QObject *) = 0;

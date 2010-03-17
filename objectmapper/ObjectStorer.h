@@ -97,12 +97,12 @@ public:
     void removeObject(Node node); // but not any objects it refers to?
 
     enum FollowOption {
-        FollowNone             = 0,
+        FollowNone             = 0, // the default
         FollowObjectProperties = 1,
         FollowParent           = 2,
         FollowSiblings         = 4,
-        FollowChildren         = 8,
-        FollowAll              = 255
+        FollowChildren         = 8
+        // there is no FollowAll; it generally isn't a good idea
     };
     typedef int FollowPolicy;
 

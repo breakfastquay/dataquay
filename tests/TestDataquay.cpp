@@ -1250,7 +1250,8 @@ testReloadability(BasicStore &s0)
     s0.save("test-reloadability-prior.ttl");
 
     ObjectLoader m0(&s0);
-    QObject *parent = m0.loadAllObjects(0);
+//    QObject *parent = m0.loadAllObjects(0);
+    QObjectList objects = m0.loadAll();
 
     BasicStore s1;
     ObjectStorer m1(&s1);
@@ -1259,14 +1260,16 @@ testReloadability(BasicStore &s0)
                        ObjectStorer::FollowSiblings |
                        ObjectStorer::FollowParent |
                        ObjectStorer::FollowObjectProperties);
-    m1.store(parent);
+    m1.store(objects);
     s1.addPrefix("type", m1.getTypeMapping().getObjectTypePrefix());
     s1.addPrefix("property", m1.getTypeMapping().getPropertyPrefix());
     s1.addPrefix("rel", m1.getTypeMapping().getRelationshipPrefix());
     s1.save("test-reloadability-a.ttl");
 
     ObjectLoader o1(&s1);
-    QObject *newParent = o1.loadAllObjects(0);
+    o1.setFollowPolicy(ObjectLoader::FollowSiblings); //!!! doesn't mean what we think it should -- c.f. ObjectLoader::D::load()
+//    QObject *newParent = o1.loadAllObjects(0);
+    QObjectList newObjects = o1.loadAll();
 
     {
         Triples t;
@@ -1280,9 +1283,9 @@ testReloadability(BasicStore &s0)
         cerr << t.size() << " are type nodes)" << endl;
     }
 
-    if (newParent->children().size() != parent->children().size()) {
-        cerr << "Reloaded object parent has " << newParent->children().size()
-             << " children, expected " << parent->children().size()
+    if (newObjects.size() != objects.size()) {
+        cerr << "Reloaded object list has " << newObjects.size()
+             << " children, expected " << objects.size()
              << " to match prior copy" << endl;
         return false;
     }
@@ -1290,7 +1293,7 @@ testReloadability(BasicStore &s0)
     BasicStore s2;
     ObjectStorer m2(&s2);
     m2.setFollowPolicy(m1.getFollowPolicy());
-    m2.store(newParent);
+    m2.store(newObjects);
 
     s2.addPrefix("type", m2.getTypeMapping().getObjectTypePrefix());
     s2.addPrefix("property", m2.getTypeMapping().getPropertyPrefix());
@@ -1329,7 +1332,7 @@ testObjectMapper()
     cerr << "Stored QObject as " << uri << endl;
 
     ObjectLoader loader(&store);
-    QObject *recalled = loader.loadObject(uri, 0);
+    QObject *recalled = loader.load(uri);
     if (!recalled) {
         cerr << "Failed to recall object" << endl;
         return false;
@@ -1358,7 +1361,7 @@ testObjectMapper()
 
     bool caught = false;
     try {
-        recalled = loader.loadObject(turi, 0);
+        recalled = loader.load(turi);
     } catch (UnknownTypeException) {
         cerr << "Correctly caught UnknownTypeException when trying to recall unregistered object" << endl;
         caught = true;
@@ -1372,7 +1375,7 @@ testObjectMapper()
 
     ObjectBuilder::getInstance()->registerClass<QTimer, QObject>();
 
-    recalled = loader.loadObject(turi, 0);
+    recalled = loader.load(turi);
     if (!recalled) {
         cerr << "Failed to recall object" << endl;
         return false;
@@ -1421,7 +1424,7 @@ testObjectMapper()
 
     cerr << "Testing single custom object recall..." << endl;
 
-    recalled = loader.loadObject(auri, 0);
+    recalled = loader.load(auri);
     if (!recalled) {
         cerr << "Failed to recall A-object" << endl;
         return false;

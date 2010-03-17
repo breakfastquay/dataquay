@@ -236,7 +236,7 @@ public:
         foreach (const Node &n, toReload) {
             nodes.push_back(n);
         }
-        m_loader->reload(nodes, m_n.nodeObjectMap);
+        m_loader->load(nodes, m_n.nodeObjectMap);
         m_inReload = false;
         DEBUG << "ObjectMapper::transactionCommitted done" << endl;
     }
