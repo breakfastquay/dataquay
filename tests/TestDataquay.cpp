@@ -1657,14 +1657,29 @@ testObjectMapper()
     mapper.manage(o);
     mapper.manage(t);
     mapper.manage(a);
-    mapper.manage(a1);
-    mapper.manage(b);
-    mapper.manage(b0);
-    mapper.manage(b1);
-    mapper.manage(b2);
-    mapper.manage(c);
-    mapper.manage(c1);
-    mapper.manage(c2);
+    
+    caught = false;
+    try {
+        mapper.manage(a1);
+    } catch (NoUriException) {
+        // This is expected; a1 has no URI (it should have been
+        // written as a blank node, because only referred to as an
+        // object property) so cannot be managed without being added
+        cerr << "Correctly caught NoUriException when trying to manage object written as blank node" << endl;
+        caught = true;
+    }
+    if (!caught) {
+        cerr << "Expected NoUriException when trying to manage object written as blank node did not materialise" << endl;
+        return false;
+    }
+    mapper.add(a1);
+    mapper.add(b);
+    mapper.add(b0);
+    mapper.add(b1);
+    mapper.add(b2);
+    mapper.add(c);
+    mapper.add(c1);
+    mapper.add(c2);
 
     Node n = mapper.getNodeForObject(c);
     if (n != Node()) {
@@ -1680,11 +1695,17 @@ testObjectMapper()
         return false;
     }
 
+    Triple t = ts.matchFirst(Triple(n, "property:string", Node()));
+    if (t.c != Node() && t.c != Node(Node::Literal, "")) {
+        cerr << "Unexpected node " << t.c << " in store for property that we have not even set yet (expected nil or empty string literal)" << endl;
+        return false;
+    }
+
     c->setString("Lone string");
 
-    Triple t = ts.matchFirst(Triple(n, "property:string", Node()));
-    if (t.c != Node(Node::Literal, "")) {
-        cerr << "Unexpected node " << t.c << " in store for property that ObjectMapper should not have committed yet (expected empty string literal)" << endl;
+    t = ts.matchFirst(Triple(n, "property:string", Node()));
+    if (t.c != Node() && t.c != Node(Node::Literal, "")) {
+        cerr << "Unexpected node " << t.c << " in store for property that ObjectMapper should not have committed yet (expected nil or empty string literal)" << endl;
         return false;
     }
 
@@ -1794,13 +1815,10 @@ testObjectMapper()
     }
 
     }
-
-    return true;
-
-        
     
 
     std::cerr << "testObjectMapper done" << std::endl;
+    return true;
 }
 
 }

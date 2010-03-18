@@ -307,8 +307,10 @@ private:
         virtual QObject *extract(const QVariant &v) {
             return v.value<Pointer>();
         }
-        virtual QVariant inject(QObject *p) {
-            return QVariant::fromValue<Pointer>(qobject_cast<Pointer>(p));
+        virtual QVariant inject(QObject *o) {
+            Pointer p = qobject_cast<Pointer>(o);
+            if (p) return QVariant::fromValue<Pointer>(p);
+            else return QVariant();
         }
     };
 

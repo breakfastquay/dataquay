@@ -545,13 +545,9 @@ ObjectStorer::D::store(ObjectNodeMap &map, ObjectSet &examined, QObject *o)
 Node
 ObjectStorer::D::allocateNode(ObjectNodeMap &map, QObject *o)
 {
-    Node node;
+    Node node = map.value(o);
 
-    if (map.contains(o) && map.value(o) != Node()) {
-
-        node = map.value(o);
-
-    } else {
+    if (node == Node()) {
 
         QVariant uriVar = o->property("uri");
 
@@ -596,15 +592,12 @@ ObjectStorer::D::allocateNode(ObjectNodeMap &map, QObject *o)
 Node
 ObjectStorer::D::storeSingle(ObjectNodeMap &map, ObjectSet &examined, QObject *o)
 {
-    Node node;
-    
     // This function should only be called when we know we want to
     // store an object -- all conditions have been satisfied.
 
-    if (!map.contains(o) || map.value(o) == Node()) {
+    Node node = map.value(o);
+    if (node == Node()) {
         node = allocateNode(map, o);
-    } else {
-        node = map.value(o);
     }
 
     QString className = o->metaObject()->className();

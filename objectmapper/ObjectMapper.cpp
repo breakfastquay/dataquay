@@ -33,6 +33,8 @@
 
 #include "ObjectMapper.h"
 
+#include "ObjectMapperExceptions.h"
+#include "ObjectMapperForwarder.h"
 #include "ObjectLoader.h"
 #include "ObjectStorer.h"
 
@@ -43,13 +45,16 @@
 
 #include "../Debug.h"
 
+#include <typeinfo>
+
 #include <QMetaProperty>
 #include <QMutex>
 #include <QMutexLocker>
 #include <QSet>
+#include <QHash>
 
 namespace Dataquay {
-
+    
 class
 ObjectMapper::D : public QObject
 {
@@ -80,8 +85,10 @@ public:
         m_inReload(false)
     {
         m_loader = new ObjectLoader(&m_c);
-        m_storer = new ObjectStorer(&m_c);
         m_loader->setAbsentPropertyPolicy(ObjectLoader::ResetAbsentProperties);
+        m_storer = new ObjectStorer(&m_c);
+        m_storer->setPropertyStorePolicy(ObjectStorer::StoreIfChanged);
+        m_storer->setBlankNodePolicy(ObjectStorer::NoBlankNodes); //!!!???
         connect(&m_c, SIGNAL(transactionCommitted(const ChangeSet &)),
                 m_m, SLOT(transactionCommitted(const ChangeSet &)));
     }
@@ -113,61 +120,69 @@ public:
         return m_n.getObjectByNode(n);
     }
 
+    void add(QObject *o) {
+        try {
+            manage(o);
+        } catch (NoUriException) {
+            // doesn't matter; it will be assigned one when mapped,
+            // which will happen on the next commit because we are
+            // adding it to the changed object map
+        }
+        m_changedObjects.insert(o);
+    }
+
+    void add(QObjectList ol) {
+        foreach (QObject *o, ol) {
+            add(o);
+        }
+    }
+
     void manage(QObject *o) {
         //!!! is object new? do we want to write it to store now, or
         //!!! just manage it?
 
         QMutexLocker locker(&m_mutex);
         
-        for (int i = 0; i < o->metaObject()->propertyCount(); ++i) {
-
-            QMetaProperty property = o->metaObject()->property(i);
-
-            if (!property.isStored() ||
-                !property.isReadable() ||
-                !property.isWritable()) {
-                continue;
-            }
-            
-            if (!property.hasNotifySignal()) {
-                DEBUG << "ObjectMapper::manage: No notify signal for property " << property.name() << endl;
-                continue;
-            }
-
-            // Signals can be connected to slots with fewer arguments,
-            // so long as the arguments they do have match.  So we
-            // connect the property notify signal to our universal
-            // property-changed slot, and use the sender() of that to
-            // discover which object's property has changed.
-            // Unfortunately, we don't then know which property it was
-            // that changed, as the identity of the signal that
-            // activated the slot is not available to us.  The
-            // annoying part of this is that Qt does actually store
-            // the identity of the signal in the same structure as
-            // used for the sender() object data; it just doesn't (at
-            // least as of Qt 4.5) make it available through the
-            // public API.
-
-            QString sig = QString("%1%2").arg(QSIGNAL_CODE)
-                .arg(property.notifySignal().signature());
-            QByteArray ba = sig.toLocal8Bit();
-
-            if (!connect(o, ba.data(), m_m, SLOT(objectModified()))) {
-                std::cerr << "ObjectMapper::manage: Failed to connect notify signal" << std::endl;
-            }
+        if (m_n.objectNodeMap.contains(o)) {
+            DEBUG << "ObjectMapper::manage: Object is already managed" << endl;
+            return;
         }
 
-        connect(o, SIGNAL(destroyed(QObject *)),
-                m_m, SLOT(objectDestroyed(QObject *)));
+        // The forwarder avoids us trying to connect potentially many,
+        // many signals to the same mapper object -- which is slow.
+        // Note the forwarder is a child of the ObjectMapper, so we
+        // don't need to explicitly destroy it in dtor
+        ObjectMapperForwarder *f = new ObjectMapperForwarder(m_m, o);
+        m_forwarders.insert(o, f);
+
+        Uri uri = o->property("uri").value<Uri>();
+        if (uri == Uri()) {
+            //!!! document this -- generally, document conditions for manage() to be used rather than add()
+            throw NoUriException(o->objectName(), o->metaObject()->className());
+        } else {
+            m_n.objectNodeMap.insert(o, Node(uri));
+            m_n.nodeObjectMap.insert(Node(uri), o);
+        }
 
         //!!! also manage objects that are properties? and manage any new settings of those that appear when we commit?
+    }
 
-        m_changedObjects.insert(o);
+    void manage(QObjectList ol) {
+        foreach (QObject *o, ol) {
+            manage(o);
+        }
     }
 
     void unmanage(QObject *) { } //!!!
-    void remap(QObject *) { } //!!! poor
-    void unmap(QObject *) { } //!!! poor
+
+    void unmanage(QObjectList ol) {
+        foreach (QObject *o, ol) {
+            unmanage(o);
+        }
+    }
+
+//    void remap(QObject *) { } //!!! poor
+//    void unmap(QObject *) { } //!!! poor
 
     void objectModified(QObject *o) {
         std::cerr << "objectModified(" << o << ")" << std::endl;
@@ -179,6 +194,9 @@ public:
             std::cerr << "(by us, ignoring it)" << std::endl;
             return;
         }
+
+        //!!! what if the thing that changed about the object was its URL???!!!
+
         m_changedObjects.insert(o);
         DEBUG << "ObjectMapper::objectModified done" << endl;
     }
@@ -216,6 +234,10 @@ public:
         if (m_n.objectNodeMap.contains(o)) {
             m_deletedObjectNodes.insert(m_n.objectNodeMap[o]);
             m_n.objectNodeMap.remove(o);
+        }
+        if (m_forwarders.contains(o)) {
+            delete m_forwarders.value(o);
+            m_forwarders.remove(o);
         }
         DEBUG << "ObjectMapper::objectDestroyed done" << endl;
     }
@@ -273,9 +295,9 @@ public:
     void commit() { 
 
         QMutexLocker locker(&m_mutex);
-        DEBUG << "ObjectMapper: Synchronising " << m_changedObjects.size()
-              << " changed and " << m_deletedObjectNodes.size()
-              << " deleted object(s)" << endl;
+        std::cerr << "ObjectMapper: Synchronising " << m_changedObjects.size()
+                  << " changed and " << m_deletedObjectNodes.size()
+                  << " deleted object(s)" << std::endl;
         //!!! if an object has been added as a new sibling of existing
         //!!! objects, then we presumably may have to rewrite our
         //!!! follows relationships?
@@ -316,6 +338,7 @@ private:
     Network m_n;
 
     QMutex m_mutex;
+    QHash<QObject *, ObjectMapperForwarder *> m_forwarders;
     QSet<QObject *> m_changedObjects;
     QSet<Node> m_deletedObjectNodes;
 
@@ -355,7 +378,8 @@ private:
 
         int updated = 0;
         QSet<B> found;
-        for (QHash<A,B>::iterator i = from.begin(); i != from.end(); ++i) {
+        for (typename QHash<A,B>::iterator i = from.begin();
+             i != from.end(); ++i) {
             A a = i.key();
             B b = i.value();
             A otherA = to.value(b);
@@ -371,13 +395,15 @@ private:
             found.insert(b);
         }
         QSet<B> unfound;
-        for (QHash<B,A>::iterator i = to.begin(); i != to.end(); ++i) {
+        for (typename QHash<B,A>::iterator i = to.begin();
+             i != to.end(); ++i) {
             B b = i.key();
             if (!found.contains(b)) {
                 unfound.insert(b);
             }
         }
-        for (QSet<B>::iterator i = unfound.begin(); i != unfound.end(); ++i) {
+        for (typename QSet<B>::iterator i = unfound.begin();
+             i != unfound.end(); ++i) {
             to.remove(*i);
         }
         std::cerr << "syncMap: Note: updated " << updated << " and removed "
@@ -426,9 +452,27 @@ ObjectMapper::getObjectByNode(Node n) const
 }
 
 void
+ObjectMapper::add(QObject *o)
+{
+    m_d->add(o);
+}
+
+void
+ObjectMapper::add(QObjectList ol)
+{
+    m_d->add(ol);
+}
+
+void
 ObjectMapper::manage(QObject *o)
 {
     m_d->manage(o);
+}
+
+void
+ObjectMapper::manage(QObjectList ol)
+{
+    m_d->manage(ol);
 }
 
 void
@@ -437,6 +481,12 @@ ObjectMapper::unmanage(QObject *o)
     m_d->unmanage(o);
 }
 
+void
+ObjectMapper::unmanage(QObjectList ol)
+{
+    m_d->unmanage(ol);
+}
+/*
 void
 ObjectMapper::remap(QObject *o)
 {
@@ -448,17 +498,11 @@ ObjectMapper::unmap(QObject *o)
 {
     m_d->unmap(o);
 }
-
+*/
 void
 ObjectMapper::commit()
 {
     m_d->commit();
-}
-
-void
-ObjectMapper::objectModified()
-{
-    m_d->objectModified(sender());
 }
 
 void

@@ -63,6 +63,19 @@ protected:
     QString m_type;
 };
 
+class NoUriException : virtual public std::exception {
+public:
+    NoUriException(QString oname, QString cname) throw() : m_oname(oname), m_cname(cname) { }
+    virtual ~NoUriException() throw() { }
+    virtual const char *what() const throw() {
+        return QString("Object of name \"%1\" and class %2 lacks URI")
+            .arg(m_oname).arg(m_cname).toLocal8Bit().data();
+    }
+protected:
+    QString m_oname;
+    QString m_cname;
+};
+
 }
 
 #endif

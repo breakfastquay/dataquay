@@ -232,18 +232,30 @@ public:
 
         foreach (Node n, nodes) {
             QObject *o = 0;
+            QObject *existing = map.value(n);
             try {
-                getClassNameForNode(n);
+                if (existing) {
+                    // If there is something in the map for this node
+                    // already, we may want to delete it (if the
+                    // corresponding data has gone from the store).
+                    // But we won't be able to tell if that happens
+                    // unless we explicitly test for the node class
+                    // type now, because that test (which normally
+                    // happens in allocateObject) is circumvented if
+                    // there is an object already available in the
+                    // map.  So call this here, purely so we can catch
+                    // any UnknownTypeException that occurs
+                    getClassNameForNode(n);
+                }
                 o = load(map, examined, n);
             } catch (UnknownTypeException) {
                 o = 0;
             }
             if (!o) {
-                QObject *prior = map.value(n);
-                if (prior) {
+                if (existing) {
                     DEBUG << "load: Node " << n
                           << " no longer loadable, deleting object" << endl;
-                    delete prior;
+                    delete existing;
                 }
                 map.remove(n);
             }
@@ -515,26 +527,27 @@ ObjectLoader::D::propertyNodeListToVariant(NodeObjectMap &map, NodeSet &examined
 
     } else if (m_ob->canInject(typeName)) {
 
-        if (m_fp & FollowObjectProperties) {
-            QObject *obj = propertyNodeToObject(map, examined, typeName, firstNode);
-            QVariant v;
-            if (obj) {
-                v = m_ob->inject(typeName, obj);
-                if (v == QVariant()) {
-                    DEBUG << "propertyNodeListToVariant: "
-                          << "Type of node " << firstNode
-                          << " is incompatible with expected "
-                          << typeName << endl;
-                    std::cerr << "ObjectLoader::propertyNodeListToVariant: "
-                              << "Incompatible node type, ignoring" << std::endl;
-                    delete obj;
-                }
+        QObject *obj = propertyNodeToObject(map, examined, typeName, firstNode);
+        DEBUG << "Obtained object " << obj << " from propertyNodeToObject for node " << firstNode << " of type " << typeName << endl;
+        DEBUG << "Object has name " << obj->objectName() << endl;
+        DEBUG << "Object has meta-object " << obj->metaObject() << endl;
+        DEBUG << "... and class " << obj->metaObject()->className() << endl;
+        QVariant v;
+        if (obj) {
+            v = m_ob->inject(typeName, obj);
+            if (v == QVariant()) {
+                DEBUG << "propertyNodeListToVariant: "
+                      << "Type of node " << firstNode
+                      << " is incompatible with expected "
+                      << typeName << endl;
+                std::cerr << "ObjectLoader::propertyNodeListToVariant: "
+                          << "Incompatible node type, ignoring" << std::endl;
+                //!!! don't delete the object without removing it from the map!
+                // but which to do -- remove it, or leave it?
+//                delete obj;
             }
-            return v;
-        } else {
-            //!!! still want to look up in map! just not create...what is analogue of whatever we do in store?
-            return QVariant();
         }
+        return v;
 
     } else if (QString(typeName).contains("*") ||
                QString(typeName).endsWith("Star")) {
@@ -609,25 +622,45 @@ QObject *
 ObjectLoader::D::propertyNodeToObject(NodeObjectMap &map, NodeSet &examined,
                                       QString typeName, Node pnode)
 {
-    QString classHint;
-    if (typeName != "") {
-        classHint = m_ob->getClassNameForPointerName(typeName);
-        DEBUG << "typeName " << typeName << " -> classHint " << classHint << endl;
+    QObject *o = map.value(pnode);
+    if (o) {
+        DEBUG << "propertyNodeToObject: found object in map for node "
+              << pnode << endl;
+
+        //!!! document the implications of this -- e.g. that if
+        //!!! multiple objects have properties with the same node in
+        //!!! the RDF, they will be given the same object instance --
+        //!!! so it is generally a good idea to have "ownership" and
+        //!!! lifetime of these objects managed by something other
+        //!!! than the objects that have the properties
+
+        return o;
     }
 
-    QObject *o = 0;
+    DEBUG << "propertyNodeToObject: object for node "
+          << pnode << " is not (yet) in map" << endl;
+
     if (pnode.type == Node::URI || pnode.type == Node::Blank) {
+        bool shouldLoad = false;
         if (m_fp & FollowObjectProperties) {
             if (!examined.contains(pnode)) {
-                load(map, examined, pnode, classHint);
+                shouldLoad = true;
             }
-        } else if (map.contains(pnode) && map.value(pnode) == 0) {
-            load(map, examined, pnode, classHint);
+        } else if (map.contains(pnode)) { // we know map.value(pnode) == 0
+            shouldLoad = true;
         }
-        o = map.value(pnode);
+        if (shouldLoad) {
+            QString classHint;
+            if (typeName != "") {
+                classHint = m_ob->getClassNameForPointerName(typeName);
+                DEBUG << "typeName " << typeName << " -> classHint " << classHint << endl;
+            }
+            load(map, examined, pnode, classHint);
+            o = map.value(pnode);
+        }
     }
 
-    return 0;
+    return o;
 }
 
 QVariantList
@@ -696,8 +729,8 @@ ObjectLoader::D::getClassNameForNode(Node node, QString classHint,
     }
         
     if (!m_ob->knows(className)) {
-        std::cerr << "ObjectLoader::getClassNameForNode: Unknown object class "
-                  << className.toStdString() << std::endl;
+        DEBUG << "ObjectLoader::getClassNameForNode: Unknown object class "
+              << className << endl;
         throw UnknownTypeException(className);
     }
 
@@ -708,9 +741,10 @@ QObject *
 ObjectLoader::D::allocateObject(NodeObjectMap &map, Node node, QObject *parent,
                                 QString classHint, CacheingPropertyObject *po)
 {
-    if (map.contains(node) && map.value(node) != 0) {
+    QObject *o = map.value(node);
+    if (o) {
         DEBUG << "allocateObject: " << node << " already allocated" << endl;
-        return map.value(node);
+        return o;
     }
 
     // The RDF may contain a more precise type specification than
@@ -727,7 +761,7 @@ ObjectLoader::D::allocateObject(NodeObjectMap &map, Node node, QObject *parent,
     DEBUG << "Making object " << node.value << " of type "
           << className << " with parent " << parent << endl;
 
-    QObject *o = m_ob->build(className, parent);
+    o = m_ob->build(className, parent);
     if (!o) throw ConstructionFailedException(className);
 	
     if (node.type == Node::URI) {
@@ -745,12 +779,9 @@ ObjectLoader::D::loadSingle(NodeObjectMap &map, NodeSet &examined,
 {
     DEBUG << "loadSingle: " << node << endl;
 
-    QObject *o;
-
-    if (!map.contains(node) || map.value(node) == 0) {
+    QObject *o = map.value(node);
+    if (!o) {
         o = allocateObject(map, node, parent, classHint, po);
-    } else {
-        o = map.value(node);
     }
 
     loadProperties(map, examined, o, node, po);

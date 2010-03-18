@@ -31,63 +31,29 @@
     authorization.
 */
 
-#ifndef _DATAQUAY_OBJECT_MAPPER_H_
-#define _DATAQUAY_OBJECT_MAPPER_H_
+#ifndef _DATAQUAY_OBJECT_MAPPER_FORWARDER_H_
+#define _DATAQUAY_OBJECT_MAPPER_FORWARDER_H_
 
 #include <QObject>
 
-#include "../Node.h"
-#include "../Store.h"
+namespace Dataquay {
 
-namespace Dataquay
-{
+class ObjectMapper;
 
-class TransactionalStore;
-class TypeMapping;
-
-class ObjectMapper : public QObject
+class ObjectMapperForwarder : public QObject
 {
     Q_OBJECT
-
+    
 public:
-    ObjectMapper(TransactionalStore *ts);
-    ~ObjectMapper();
-
-    TransactionalStore *getStore();
-
-    void setTypeMapping(const TypeMapping &);
-    const TypeMapping &getTypeMapping() const;
-
-    Node getNodeForObject(QObject *o) const;
-    QObject *getObjectByNode(Node n) const;
-
-signals:
-    void committed();
-
-public slots:
-    void add(QObject *);
-    void add(QObjectList);
-
-    void manage(QObject *);
-    void manage(QObjectList);
-
-    void unmanage(QObject *);
-    void unmanage(QObjectList);
-
-    void commit();
-
-    void objectModified(QObject *);
-    void objectDestroyed(QObject *);
+    ObjectMapperForwarder(ObjectMapper *mapper, QObject *o);
 
 private slots:
-    void transactionCommitted(const ChangeSet &cs);
+    void objectModified();
+    void objectDestroyed();
 
 private:
-    ObjectMapper(const ObjectMapper &);
-    ObjectMapper &operator=(const ObjectMapper &);
-
-    class D;
-    D *m_d;
+    ObjectMapper *m_mapper;
+    QObject *m_source;
 };
 
 }
