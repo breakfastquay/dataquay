@@ -528,10 +528,6 @@ ObjectLoader::D::propertyNodeListToVariant(NodeObjectMap &map, NodeSet &examined
     } else if (m_ob->canInject(typeName)) {
 
         QObject *obj = propertyNodeToObject(map, examined, typeName, firstNode);
-        DEBUG << "Obtained object " << obj << " from propertyNodeToObject for node " << firstNode << " of type " << typeName << endl;
-        DEBUG << "Object has name " << obj->objectName() << endl;
-        DEBUG << "Object has meta-object " << obj->metaObject() << endl;
-        DEBUG << "... and class " << obj->metaObject()->className() << endl;
         QVariant v;
         if (obj) {
             v = m_ob->inject(typeName, obj);
