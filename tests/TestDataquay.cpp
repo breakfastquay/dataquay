@@ -1802,7 +1802,9 @@ testObjectMapper()
     tx->remove(Triple(uri, Node(), Node()));
     delete tx;
 
-    store.save("test-mapper-auto-5.ttl");
+    mapper.commit();
+
+    store.save("test-mapper-auto-6.ttl");
     
     // and turi is the uri of the timer object
     

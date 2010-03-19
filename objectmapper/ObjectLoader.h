@@ -118,6 +118,10 @@ public:
     //!!! currently this loads all objects in store -- that is not the same thing as reloading all objects whose nodes are in the map
     QObjectList loadAll();
     QObjectList loadAll(NodeObjectMap &map);
+
+    //!!! we could usefully add: loadType() -- load all objects of a
+    //!!! given RDF type; loadByQuery() -- load all objects identified
+    //!!! by first binding of a SPARQL query
     
     struct LoadCallback {
         virtual void loaded(ObjectLoader *, NodeObjectMap &, Node, QObject *) = 0;

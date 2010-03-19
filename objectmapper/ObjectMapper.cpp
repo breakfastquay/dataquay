@@ -204,41 +204,37 @@ public:
     void objectDestroyed(QObject *o) {
         std::cerr << "objectDestroyed(" << o << ")" << std::endl;
         QMutexLocker locker(&m_mutex);
-        if (m_inReload) {
-            // This signal must have been emitted by a modification
-            // caused by our own transactionCommitted method (see
-            // similar comment about m_inCommit in that method).
-            std::cerr << "(by us, ignoring it)" << std::endl;
-
-            //!!! oo-er -- what if user removed the triples for a
-            //!!! particular object from the store, thus causing us to
-            //!!! delete the object from transactionCommitted, but
-            //!!! that object was a parent of some other object(s) we
-            //!!! manage, which Qt will automatically destroy when the
-            //!!! parent is destroyed... so we will get our
-            //!!! objectDestroyed when those children are destroyed,
-            //!!! and unlike the parent's signal, we actually need to
-            //!!! take note of those...!
-
-            //!!! n.b. also that making a special case for children
-            //!!! won't solve the problem generally, as any external
-            //!!! code could be connected to an object's
-            //!!! objectDestroyed signal, deleting other objects on
-            //!!! receipt
-
-            // ^^^ write a unit test for this!
-
-            return;
-        }
         m_changedObjects.remove(o);
-        if (m_n.objectNodeMap.contains(o)) {
-            m_deletedObjectNodes.insert(m_n.objectNodeMap[o]);
-            m_n.objectNodeMap.remove(o);
-        }
         if (m_forwarders.contains(o)) {
             delete m_forwarders.value(o);
             m_forwarders.remove(o);
         }
+        Node node = m_n.objectNodeMap.value(o);
+        if (node == Node()) {
+            std::cerr << "(have no node for this)" << std::endl;
+            return;
+        }
+        m_n.objectNodeMap.remove(o);
+        if (m_inReload) {
+            // This signal must have been emitted by a modification
+            // caused by our own transactionCommitted method (see
+            // similar comment about m_inCommit in that method).
+            // However, we can't indiscriminately ignore it --
+            // consider for example if user removed the triples for an
+            // object from the store, causing us to delete the object
+            // in our reload, but that object was the parent of
+            // another managed object -- then we will end up here
+            // because Qt deleted the child when the parent was
+            // deleted, and we should take note of that.  We only want
+            // to ignore events for objects we know we are
+            // synchronising already.
+            if (m_reloading.contains(node)) {
+                std::cerr << "(by us, ignoring it)" << std::endl;
+                return;
+            }
+            // ^^^ write a unit test for this!
+        }
+        m_deletedObjectNodes.insert(node);
         DEBUG << "ObjectMapper::objectDestroyed done" << endl;
     }
 
@@ -273,15 +269,15 @@ public:
         // predicate, then we should reload that object.  What if it
         // appears as the "object"?  Do we ever need to reload then?
         // I don't think so...
-        QSet<Node> toReload;
         foreach (const Change &c, cs) {
-            toReload.insert(c.second.a);
+            m_reloading.insert(c.second.a);
         }
         Nodes nodes;
-        foreach (const Node &n, toReload) {
+        foreach (const Node &n, m_reloading) {
             nodes.push_back(n);
         }
         m_loader->load(nodes, m_n.nodeObjectMap);
+        m_reloading.clear();
 
         // The load call will have updated m_n.nodeObjectMap; sync the
         // unchanged (since the last commit call) m_n.objectNodeMap
@@ -344,6 +340,7 @@ private:
 
     bool m_inCommit;
     bool m_inReload;
+    QSet<Node> m_reloading;
 
     ObjectLoader *m_loader;
     ObjectStorer *m_storer;
