@@ -86,6 +86,7 @@ public:
     {
         m_loader = new ObjectLoader(&m_c);
         m_loader->setAbsentPropertyPolicy(ObjectLoader::ResetAbsentProperties);
+        m_loader->setFollowPolicy(ObjectLoader::FollowObjectProperties);
         m_storer = new ObjectStorer(&m_c);
         m_storer->setPropertyStorePolicy(ObjectStorer::StoreIfChanged);
         m_storer->setBlankNodePolicy(ObjectStorer::NoBlankNodes); //!!!???
