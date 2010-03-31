@@ -40,6 +40,7 @@
 #include <QMutex>
 #include <QMutexLocker>
 #include <QHash>
+#include <QFile>
 #include <QCryptographicHash>
 #include <QReadWriteLock>
 
@@ -318,9 +319,6 @@ public:
         DEBUG << "BasicStore::save(" << filename << ")" << endl;
 
         librdf_uri *base_uri = uriToLrdfUri(m_baseUri);
-        QByteArray b = filename.toLocal8Bit();
-        const char *lname = b.data();
-
         librdf_serializer *s = librdf_new_serializer(m_w.getWorld(), "turtle", 0, 0);
         if (!s) throw RDFException("Failed to construct RDF serializer");
 
@@ -330,12 +328,39 @@ public:
             librdf_serializer_set_namespace(s, uriToLrdfUri(i.value()), b.data());
         }
         librdf_serializer_set_namespace(s, uriToLrdfUri(m_baseUri), "");
+
+        QFile f(filename);
+        if (!f.exists()) {
+            if (!f.open(QFile::WriteOnly)) {
+                throw RDFException("Failed to open file for writing", filename);
+            }
+            f.close();
+        }
+
+        QString tmpFilename = QString("%1.part").arg(filename);
+        QByteArray b = QFile::encodeName(tmpFilename);
+        const char *lname = b.data();
         
         if (librdf_serializer_serialize_model_to_file(s, lname, base_uri, m_model)) {
             librdf_free_serializer(s);
-            throw RDFException("Failed to export RDF model to file", filename);
-        } else {
-            librdf_free_serializer(s);
+            QFile::remove(tmpFilename);
+            throw RDFException("Failed to export RDF model to temporary file",
+                               tmpFilename);
+        }
+
+        librdf_free_serializer(s);
+
+        // New file is now completed; the following is scruffy, but
+        // that shouldn't really matter now
+
+        if (!QFile::remove(filename)) {
+            // Not necessarily fatal
+            DEBUG << "BasicStore::save: Failed to remove former save file "
+                  << filename << endl;
+        }
+        if (!QFile::rename(tmpFilename, filename)) {
+            throw RDFException("Failed to rename temporary file to save file",
+                               filename);
         }
     }
 
