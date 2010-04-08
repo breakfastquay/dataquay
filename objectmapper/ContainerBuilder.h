@@ -42,7 +42,7 @@
 namespace Dataquay {
 
 /**
- * \class ContainerBuilder ContainerBuilder.h <dataquay/ContainerBuilder.h>
+ * \class ContainerBuilder ContainerBuilder.h <dataquay/objectmapper/ContainerBuilder.h>
  *
  * ContainerBuilder is a utility class which assists with storage of
  * arbitrary container objects into variant objects and subsequently

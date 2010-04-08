@@ -43,7 +43,7 @@
 namespace Dataquay {
 
 /**
- * \class ObjectBuilder ObjectBuilder.h <dataquay/ObjectBuilder.h>
+ * \class ObjectBuilder ObjectBuilder.h <dataquay/objectmapper/ObjectBuilder.h>
  *
  * Singleton object factory capable of constructing new objects of
  * classes that are subclassed from QObject, given the class name as a
@@ -71,17 +71,31 @@ public:
 
     /**
      * Register type T, a subclass of QObject, as a class that can be
+     * constructed by calling a zero-argument constructor.
+     *
+     * For example, registerClass<QAction>() declares that QAction is
+     * a subclass of QObject that may be built by calling
+     * QAction::QAction().
+     * 
+     * A subsequent call to ObjectBuilder::build("QAction") would
+     * return a new QAction built with that constructor (since
+     * "QAction" is the class name of QAction returned by its meta
+     * object).
+     */
+    template <typename T>
+    void registerClass() {
+        m_builders[T::staticMetaObject.className()] = new Builder0<T>();
+    }
+
+    /**
+     * Register type T, a subclass of QObject, as a class that can be
      * constructed by calling a single-argument constructor whose
      * argument is of pointer-to-Parent type, where Parent is also a
-     * subclass of QObject.  Also declare pointerName to be the meta
-     * type name for pointers to type T, such that QVariant can be
-     * used to store such pointers.
+     * subclass of QObject.
      *
-     * For example, registerClass<QWidget, QWidget>("QWidget*")
-     * declares that QWidget is a subclass of QObject that may be
-     * built by calling QWidget::QWidget(QWidget *parent), and that
-     * "QWidget*" has been registered (using qRegisterMetaType) as the
-     * meta type name for pointer-to-QWidget.
+     * For example, registerClass<QWidget, QWidget>() declares that
+     * QWidget is a subclass of QObject that may be built by calling
+     * QWidget::QWidget(QWidget *parent).
      * 
      * A subsequent call to ObjectBuilder::build("QWidget", parent)
      * would return a new QWidget built with that constructor (since
@@ -89,12 +103,8 @@ public:
      * object).
      */
     template <typename T, typename Parent>
-    void registerClass(QString pointerName) {
-        QString className = T::staticMetaObject.className();
-        m_cpmap[className] = pointerName;
-        m_pcmap[pointerName] = className;
-        m_builders[className] = new Builder1<T, Parent>();
-        registerExtractor<T>(pointerName);
+    void registerClass() {
+        m_builders[T::staticMetaObject.className()] = new Builder1<T, Parent>();
     }
 
     /**
@@ -127,11 +137,15 @@ public:
      * Register type T, a subclass of QObject, as a class that can be
      * constructed by calling a single-argument constructor whose
      * argument is of pointer-to-Parent type, where Parent is also a
-     * subclass of QObject.
+     * subclass of QObject.  Also declare pointerName to be the meta
+     * type name for pointers to type T, such that QVariant can be
+     * used to store such pointers.
      *
-     * For example, registerClass<QWidget, QWidget>() declares that
-     * QWidget is a subclass of QObject that may be built by calling
-     * QWidget::QWidget(QWidget *parent).
+     * For example, registerClass<QWidget, QWidget>("QWidget*")
+     * declares that QWidget is a subclass of QObject that may be
+     * built by calling QWidget::QWidget(QWidget *parent), and that
+     * "QWidget*" has been registered (using qRegisterMetaType) as the
+     * meta type name for pointer-to-QWidget.
      * 
      * A subsequent call to ObjectBuilder::build("QWidget", parent)
      * would return a new QWidget built with that constructor (since
@@ -139,26 +153,12 @@ public:
      * object).
      */
     template <typename T, typename Parent>
-    void registerClass() {
-        m_builders[T::staticMetaObject.className()] = new Builder1<T, Parent>();
-    }
-
-    /**
-     * Register type T, a subclass of QObject, as a class that can be
-     * constructed by calling a zero-argument constructor.
-     *
-     * For example, registerClass<QAction>() declares that QAction is
-     * a subclass of QObject that may be built by calling
-     * QAction::QAction().
-     * 
-     * A subsequent call to ObjectBuilder::build("QAction") would
-     * return a new QAction built with that constructor (since
-     * "QAction" is the class name of QAction returned by its meta
-     * object).
-     */
-    template <typename T>
-    void registerClass() {
-        m_builders[T::staticMetaObject.className()] = new Builder0<T>();
+    void registerClass(QString pointerName) {
+        QString className = T::staticMetaObject.className();
+        m_cpmap[className] = pointerName;
+        m_pcmap[pointerName] = className;
+        m_builders[className] = new Builder1<T, Parent>();
+        registerExtractor<T>(pointerName);
     }
 
     /**

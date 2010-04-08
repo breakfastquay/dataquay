@@ -46,32 +46,101 @@ namespace Dataquay
 class Store;
 class TypeMapping;
 
+/**
+ * \class ObjectStorer ObjectStorer.h <dataquay/objectmapper/ObjectStorer.h>
+ *
+ * Storage handler capable of turning objects derived from QObject
+ * into RDF statements in a datastore, such that under the right
+ * conditions the original objects can be recreated from the store by
+ * ObjectLoader.
+ *
+ * See also ObjectMapper, for a class which manages a set of objects
+ * and uses ObjectStorer and ObjectLoader to map changes
+ * bidirectionally between object hierarchy and datastore.
+ *
+ * ObjectStorer typically creates a new URI for each object it stores,
+ * based on the object's class name with a unique suffix.  (In some
+ * cases -- where an object only exists as the value of a property of
+ * another object and is not referred to elsewhere in the hierarchy --
+ * it will by default be given a blank node instead of a URI.)  The
+ * URI created for an object will be stored in that object as a user
+ * property named "uri" of type Dataquay::Uri.  If that property
+ * already exists, ObjectStorer will use its value instead of creating
+ * a new URI; you can exploit this if you wish to override the
+ * generated URI.  Note that ObjectStorer cannot handle objects having
+ * a uri property of any type other than Dataquay::Uri.
+ *
+ * For each object, ObjectStorer will write an rdf:type; an RDF
+ * property for each of the QObject properties of the object that have
+ * STORED set to true; and RDF properties identifying the parent and
+ * sibling objects if the object is part of a QObject hierarchy.  The
+ * URIs used for the type and these properties can be controlled using
+ * a TypeMapping object.
+ *
+ * ObjectStorer uses Node::fromVariant to convert QObject property
+ * values to RDF literals: see Node::registerDatatype for the means to
+ * add new datatypes.  Properties with subclass-of-QObject-pointer
+ * values can be written recursively (see setFollowPolicy); the
+ * default is to write them only if the "value" QObject already has a
+ * URI.  ObjectStorer can write properties which have set and sequence
+ * container types (converting sets to multiple RDF properties with
+ * the same subject URI, and sequences to RDF lists) if those types
+ * have been registered with ContainerBuilder.
+ *
+ * Finally, you can register callbacks (using addStoreCallback) to be
+ * called after each object is stored, in case you wish to associate
+ * more information with an object.
+ *
+ * ObjectStorer is primarily intended to provide a simple, open and
+ * extensible storage format for small networks of
+ * application-specific objects.  With TypeMapping there is some
+ * flexibility to assist with creating object structures from
+ * arbitrary RDF graphs, and the mechanism has been tested and
+ * optimised to some degree for some millions of triples, but that way
+ * could lie madness.
+ */
+
 class ObjectStorer
 {
 public:
-    /// Map from object to RDF node
-
-    //!!! NB. Want to stress the fact that these maps can't be
-    //!!! "persistent" unless you manage object deletion/creation
-    //!!! elsewhere -- since they just use a pointer to the QObject
-    //!!! (not any actual sort of identity), the QObject could change,
-    //!!! be deleted etc while leaving the pointer unchanged
-
+    /**
+     * ObjectNodeMap contains a record of the RDF node used for each
+     * object.  This can be filled in a call to store() and passed to
+     * subsequent calls in order to hasten lookup and avoid
+     * unnecessary repeated stores.
+     * 
+     * Note that, although ObjectStorer places the URI of each object
+     * in its uri property, certain objects may be written using blank
+     * nodes -- those nodes can only be retrieved through this map.
+     */
     typedef QHash<QObject *, Node> ObjectNodeMap;
 
     /**
-     * Create an ObjectStorer ready to store objects to the given RDF
-     * store.
+     * Create an ObjectStorer ready to store objects to the given
+     * datastore.
      */
     ObjectStorer(Store *s);
     ~ObjectStorer();
 
+    /**
+     * Retrieve the store object that was passed to the constructor.
+     */
     Store *getStore();
 
+    /**
+     * Provide a TypeMapping object, which controls the URIs chosen by
+     * ObjectStorer to represent object types and properties.
+     * Generally if you are using ObjectStorer and ObjectLoader
+     * together, you will want to use the same TypeMapping object with
+     * both.
+     */
     void setTypeMapping(const TypeMapping &);
+
+    /**
+     * Retrieve the current TypeMapping object.
+     */
     const TypeMapping &getTypeMapping() const;
 
-    //!!! this superficially appears to have an overlap with the StoreOption argument passed to store()
     enum PropertyStorePolicy {
         /** Store only properties that differ from default object */
         StoreIfChanged,
@@ -79,7 +148,28 @@ public:
         StoreAlways
     };
 
+    /**
+     * Set the policy used to determine whether to store a property.
+     *
+     * If StoreIfChanged, properties will only be written if they
+     * differ in value from those retrieved from a newly-constructed
+     * instance of the object.  If StoreAlways, all suitable
+     * properties will be written.  The default is StoreAlways.
+     *
+     * StoreIfChanged only works for objects that have been registered
+     * with ObjectBuilder so that a default object can be constructed.
+     * Any other objects will have all suitable properties written.
+     *
+     * In either case, only properties whose QObject property
+     * definitions have all of READ, WRITE, and STORED set to true
+     * will be considered suitable and stored.
+     */
     void setPropertyStorePolicy(PropertyStorePolicy policy);
+
+    /**
+     * Retrieve the current policy used to determine whether to store
+     * a property.
+     */
     PropertyStorePolicy getPropertyStorePolicy() const;
 
     enum BlankNodePolicy {
@@ -90,11 +180,43 @@ public:
         BlankNodesAsNeeded
     };
 
+    /**
+     * Set the policy used to determine whether to give an object a
+     * URI or use a blank node for it.
+     *
+     * If NoBlankNodes, all objects written will be given URIs.  These
+     * will be drawn from the object's uri property if it exists and
+     * is of Dataquay::Uri type, or else invented uniquely based on
+     * the object's class name.
+     *
+     * If BlankNodesAsNeeded, objects will be given blank nodes if it
+     * appears to ObjectStorer that they do not need URIs.  In
+     * practice this means that objects which are referred to because
+     * they are properties of other objects and which do not appear
+     * elsewhere in the list of objects being stored, do not have an
+     * existing uri property, and do not have a URI node allocated in
+     * an ObjectNodeMap passed to the store method, will be assigned
+     * blank nodes.
+     * 
+     * If you would prefer ObjectStorer not to use a blank node for a
+     * specific object, you can assign a URI in advance by setting a
+     * Dataquay::Uri to its "uri" property (either a declared property
+     * or a user property).
+     *
+     * Note that if a blank node is used for an object, there will be
+     * no way to retrieve that node through the object (no equivalent
+     * of the "uri" property).  If you want to refer to the node
+     * subsequently you will need to ensure you provide an
+     * ObjectNodeMap to the store method to retrieve the node that was
+     * generated.
+     */
     void setBlankNodePolicy(BlankNodePolicy policy);
-    BlankNodePolicy getBlankNodePolicy() const;
 
-    //!!! do we want this here? maybe not
-    void removeObject(Node node); // but not any objects it refers to?
+    /**
+     * Retrieve the current policy used to determine whether to give
+     * an object a URI or use a blank node for it.
+     */
+    BlankNodePolicy getBlankNodePolicy() const;
 
     enum FollowOption {
         FollowNone             = 0, // the default
@@ -106,19 +228,103 @@ public:
     };
     typedef int FollowPolicy;
 
+    /**
+     * Set the policy used to determine which objects to store, based
+     * on their relationship to an object whose storage is being
+     * explicitly requested.
+     *
+     * If the policy is FollowNone, only the objects explicitly
+     * requested for storage by being passed as arguments to a store()
+     * method call will be stored.
+     *
+     * If the policy has FollowObjectProperties set, then where an
+     * object has a property that is suitable for storing (see
+     * setPropertyStorePolicy) and whose type is a pointer-to-object
+     * class for some subclass of QObject, the object referred to by
+     * that property will be stored.  Otherwise, such properties will
+     * only be written where their objects have URIs available already
+     * (either because they exist in the object-node map or because
+     * they have a QObject property of name uri and Dataquay::Uri
+     * type).
+     *
+     * If the policy has FollowParent set, then where an object has a
+     * QObject parent, that parent will also be written.
+     *
+     * If the policy has FollowSiblings set, then where an object has
+     * QObject siblings (i.e. the object and those other objects share
+     * a parent), those siblings will also be written.
+     *
+     * If the policy has FollowChildren set, then where an object has
+     * QObject children, those children will also be written.
+     *
+     * Note that it is not generally a good idea to set both
+     * FollowChildren and FollowSiblings if you have FollowParent set,
+     * as this gives multiple paths to related objects.  (For this
+     * reason, there is no "FollowAll" flag.)
+     */
     void setFollowPolicy(FollowPolicy policy);
     FollowPolicy getFollowPolicy() const;
-    
+
+    /**
+     * Store the given object and return its URI in the datastore.
+     * Other objects may also be stored, depending on the FollowPolicy
+     * setting.
+     *
+     * The object will be stored even if it already exists in the
+     * store.  No other data will be changed; for example, if other
+     * triples already exist with this object's URI as subject, they
+     * will be left alone.  See setBlankNodePolicy for details of the
+     * assignment of nodes to objects.
+     */
     Uri store(QObject *o);
+
+    /**
+     * Store the given object; add the object and its node to the
+     * ObjectNodeMap, and return its URI in the datastore.  Other
+     * objects may also be stored, depending on the FollowPolicy
+     * setting, and will be recorded in the ObjectNodeMap as well.
+     *
+     * The object will be stored even if it already exists in the
+     * store.  No other data will be changed; for example, if other
+     * triples already exist with this object's URI as subject, they
+     * will be left alone.  See setBlankNodePolicy for details of the
+     * assignment of nodes to objects.
+     */
     Uri store(QObject *o, ObjectNodeMap &map);
 
+    /**
+     * Store the given objects.  Other objects may also be stored,
+     * depending on the FollowPolicy setting.
+     */
     void store(QObjectList o);
+
+    /**
+     * Store the given objects, and add them and their nodes to the
+     * ObjectNodeMap.  Other objects may also be stored, depending on
+     * the FollowPolicy setting.
+     */
     void store(QObjectList o, ObjectNodeMap &map);
+
+    /**
+     * Remove an object from the store, given its node. This removes
+     * all triples with the node as subject.  If any such triple
+     * references a blank node that is not referred to elsewhere in
+     * the store, all triples with that node as subject will be
+     * removed as well.  If such a blank node is also the head of an
+     * RDF list, the rest of the RDF list will also be removed
+     * provided it fulfils the same criteria.
+     */
+    void removeObject(Node node);
 
     struct StoreCallback {
         virtual void stored(ObjectStorer *, ObjectNodeMap &, QObject *, Node) = 0;
     };
 
+    /**
+     * Register the given callback (a subclass of the abstract
+     * StoreCallback class) as providing a "stored" callback method
+     * which will be called after each object is stored.
+     */
     void addStoreCallback(StoreCallback *callback);
 
 private:
