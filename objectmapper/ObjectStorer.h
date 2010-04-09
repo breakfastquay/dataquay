@@ -317,6 +317,13 @@ public:
     void removeObject(Node node);
 
     struct StoreCallback {
+        /**
+         * An object has been stored by the given ObjectStorer,
+         * resulting in the given RDF node.  The object and node will
+         * also be found in the ObjectNodeMap, which additionally
+         * references any other objects that have been stored during
+         * this storage sequence.
+         */
         virtual void stored(ObjectStorer *, ObjectNodeMap &, QObject *, Node) = 0;
     };
 

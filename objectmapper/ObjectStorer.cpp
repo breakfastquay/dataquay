@@ -561,12 +561,6 @@ ObjectStorer::D::allocateNode(ObjectNodeMap &map, QObject *o)
 
         } else if (!map.contains(o) && m_bp == BlankNodesAsNeeded) { //!!! I don't much like that name
 
-            //!!! document the conditions under which blank nodes are
-            //!!! used, and the consequences (e.g. blank node id cannot be
-            //!!! recorded in the object property, so if you want the
-            //!!! object to have the same node when stored again, you will
-            //!!! need to preserve the objectNodeMap)
-
             node = m_s->addBlankNode();
 
         } else {
@@ -579,7 +573,7 @@ ObjectStorer::D::allocateNode(ObjectNodeMap &map, QObject *o)
                 prefix = m_s->expand(":" + tag);
             }
             Uri uri = m_s->getUniqueUri(prefix.toString());
-            o->setProperty("uri", QVariant::fromValue(uri)); //!!! document this
+            o->setProperty("uri", QVariant::fromValue(uri));
             node = uri;
         }
 
