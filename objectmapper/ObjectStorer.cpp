@@ -158,6 +158,9 @@ private:
     FollowPolicy m_fp;
     QList<StoreCallback *> m_storeCallbacks;
 
+    bool isStarType(const char *) const;
+    bool variantsEqual(const QVariant &, const QVariant &) const;
+
     Node allocateNode(ObjectNodeMap &map, QObject *o);
     Node storeSingle(ObjectNodeMap &map, ObjectSet &examined, QObject *o);
 
@@ -170,6 +173,53 @@ private:
     Node objectToPropertyNode(ObjectNodeMap &map, ObjectSet &examined, QObject *o);
     Node listToPropertyNode(ObjectNodeMap &map, ObjectSet &examined, QVariantList list);
 };
+
+bool
+ObjectStorer::D::isStarType(const char *typeName) const
+{
+    // equivalent of: 
+    //     QString(typeName).contains("*") ||
+    //     QString(typeName).endsWith("Star")
+
+    int i;
+    for (i = 0; typeName[i]; ++i) {
+        if (typeName[i] == '*') return true;
+    }
+    // i is now equal to length of typeName
+    if (i >= 4 && !strcmp(typeName + i - 4, "Star")) return true;
+    return false;
+}
+
+bool
+ObjectStorer::D::variantsEqual(const QVariant &v1, const QVariant &v2) const
+{
+    if (v1 == v2) return true;
+    if (v1.userType() != v2.userType()) return false;
+    
+    // "In the case of custom types, their equalness operators are not
+    // called. Instead the values' addresses are compared."  This is
+    // acceptable for objects, but not sufficient to establish
+    // equality for our purposes for those things that can in fact be
+    // converted to Node.
+
+    const char *typeName = QMetaType::typeName(v1.userType());
+    if (!typeName ||
+        isStarType(typeName) ||
+        m_cb->canExtractContainer(typeName) ||
+        m_ob->canExtract(typeName)) {
+        // Objects, containers, weird unknown types: give up on these.
+        // An occasional false negative is OK for us -- we claim that
+        // the variants are equal if we return true, not that they
+        // differ if we return false -- we are already doing better
+        // than QVariant::operator== anyway
+        return false;
+    }
+
+    Node n1 = Node::fromVariant(v1);
+    Node n2 = Node::fromVariant(v2);
+    DEBUG << "variantsEqual: comparing " << n1 << " and " << n2 << endl;
+    return (n1 == n2);
+}
 
 void
 ObjectStorer::D::storeProperties(ObjectNodeMap &map, ObjectSet &examined, QObject *o, Node node)
@@ -194,11 +244,14 @@ ObjectStorer::D::storeProperties(ObjectNodeMap &map, ObjectSet &examined, QObjec
 
         QVariant value = o->property(pnba.data());
 
+        bool store = true;
+
         if (m_psp == StoreIfChanged) {
             if (m_ob->knows(cname)) {
                 std::auto_ptr<QObject> c(m_ob->build(cname, 0));
-                if (value == c->property(pnba.data())) {
-                    continue;
+                QVariant deftValue = c->property(pnba.data());
+                if (variantsEqual(value, deftValue)) {
+                    store = false;
                 } else {
                     DEBUG << "Property " << pname << " of object "
                           << node << " is changed from default value "
@@ -219,16 +272,16 @@ ObjectStorer::D::storeProperties(ObjectNodeMap &map, ObjectSet &examined, QObjec
             puri = po.getPropertyUri(pname);
         }
 
-        //!!! at this point we are committed to removing any old properties, but we have not yet decided for sure whether to write the new ones -- is that right?  also, we do not remove lists yet?
-
         removeOldPropertyNodes(node, puri);
 
-        Nodes pnodes = variantToPropertyNodeList(map, examined, value);
+        if (store) {
+            Nodes pnodes = variantToPropertyNodeList(map, examined, value);
 
-        Triple t(node, puri, Node());
-        for (int j = 0; j < pnodes.size(); ++j) {
-            t.c = pnodes[j];
-            m_s->add(t);
+            Triple t(node, puri, Node());
+            for (int j = 0; j < pnodes.size(); ++j) {
+                t.c = pnodes[j];
+                m_s->add(t);
+            }
         }
     }
 }            
@@ -314,8 +367,7 @@ ObjectStorer::D::variantToPropertyNodeList(ObjectNodeMap &map, ObjectSet &examin
             DEBUG << "variantToPropertyNodeList: Note: obtained NULL object from variant" << endl;
         }
             
-    } else if (QString(typeName).contains("*") ||
-               QString(typeName).endsWith("Star")) {
+    } else if (isStarType(typeName)) {
 
         // do not attempt to write binary pointers!
         return Nodes();
