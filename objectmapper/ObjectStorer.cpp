@@ -404,6 +404,19 @@ ObjectStorer::D::objectToPropertyNode(ObjectNodeMap &map, ObjectSet &examined, Q
     } else if (map.contains(o) && map.value(o) == Node()) {
         DEBUG << "objectToPropertyNode: Object has not been written yet, writing it" << endl;
         store(map, examined, o);
+    } else {
+        // if the object is not intended to be stored, but it has a
+        // URI, we should nonetheless write a reference to that -- but
+        // not put it in the map
+        QVariant uriVar = o->property("uri");
+        if (uriVar != QVariant()) {
+            if (Uri::isUri(uriVar)) {
+                pnode = uriVar.value<Uri>();
+            } else {
+                pnode = m_s->expand(uriVar.toString());
+            }
+            return pnode;
+        }
     }
 
     pnode = map.value(o);
