@@ -2,17 +2,17 @@
 TEMPLATE = lib
 CONFIG += warn_on staticlib
 QT -= gui
+
 TARGET = dataquay
 
-load(../platform.prf)
-TEMPLATE += platform
+exists(platform.prf) {
+	load(platform.prf)
+	TEMPLATE += platform
+}
 
-INCLUDEPATH += \
-	   ../ext/librdf/raptor-1.4.18/src \
-	   ../ext/librdf/rasqal-0.9.16/src \
-	   ../ext/librdf/redland-1.0.9/src
+## Path to librdf includes here!
+#INCLUDEPATH += /usr/local/include /usr/local/include/rasqal
 
-# Input
 HEADERS += BasicStore.h \
            Connection.h \
            Node.h \
