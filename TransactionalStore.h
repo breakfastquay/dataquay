@@ -102,6 +102,11 @@ public:
      */
     TransactionalStore(Store *store, DirectWriteBehaviour dwb = NoAutoTransaction);
     
+    /**
+     * Delete the TransactionalStore.  This does _not_ delete the
+     * underlying Store that is being wrapped (the one that was passed
+     * to the constructor).
+     */
     ~TransactionalStore();
 
     /**
