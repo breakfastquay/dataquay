@@ -5,9 +5,8 @@ QT -= gui
 
 TARGET = dataquay
 
-exists(platform.prf) {
-	load(platform.prf)
-	TEMPLATE += platform
+exists(platform.pri) {
+	include(./platform.pri)
 }
 
 ## Path to librdf includes here!
