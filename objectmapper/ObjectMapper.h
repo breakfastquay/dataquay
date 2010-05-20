@@ -45,6 +45,50 @@ namespace Dataquay
 class TransactionalStore;
 class TypeMapping;
 
+/**
+ * \class ObjectMapper ObjectMapper.h <dataquay/objectmapper/ObjectMapper.h>
+ *
+ * ObjectMapper manages a set of objects to maintain a consistent
+ * record of their state in an RDF store.  It uses ObjectStorer to map
+ * objects (derived from QObject) to the store, and then watches both
+ * the objects and the store for changes, applying to the store any
+ * changes in the objects and using ObjectLoader to bring the objects
+ * up to date with any changes in the store.
+ *
+ * See ObjectStorer for details of how objects are mapped to the RDF
+ * store, and ObjectLoader for details of how changes in the RDF store
+ * are mapped back to the objects.
+ *
+ * ObjectMapper watches QObject properties' notify signals to
+ * determine when a property has changed, and uses QObject::destroyed
+ * to determine when an object has been deleted.  You can also advise
+ * it of changes using the objectModified slot directly (for example
+ * where a property has no notify signal).
+ *
+ * ObjectMapper requires a TransactionalStore as its backing RDF
+ * store, and uses the TransactionalStore's transactionCommitted
+ * signal to tell it when a change has been made to the store which
+ * should be mapped back to the object structure.
+ *  
+ * You must call the commit() method to cause any changes to be
+ * written to the store.  This also commits the underlying
+ * transaction.
+ *
+ * Call add() to add a new object to the store (managing it, and also
+ * marking it to be stored on the next commit).  ObjectMapper does not
+ * have any other way to find out about new objects, even if they are
+ * properties or children of existing managed objects.
+ *
+ * Call manage() to manage an object without marking it as needing to
+ * be written -- implying that the object is known to be up-to-date
+ * with the store already.  ObjectMapper will refuse to manage any
+ * object that lacks a uri property, as any objects that have not
+ * previously been mapped will normally need to be add()ed rather than
+ * manage()d.  Call unmanage() to tell ObjectMapper to stop watching
+ * an object.
+ *
+ * ObjectMapper is thread-safe.
+ */
 class ObjectMapper : public QObject
 {
     Q_OBJECT

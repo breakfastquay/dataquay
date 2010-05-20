@@ -42,7 +42,7 @@ namespace Dataquay
 /**
  * \class Triple Triple.h <dataquay/Triple.h>
  *
- * A triple made up of three Node objects.
+ * Triple represents an RDF statement made up of three Node objects.
  */
 class Triple
 {

@@ -45,7 +45,10 @@ namespace Dataquay
 /**
  * \class RDFException RDFException.h <dataquay/RDFException.h>
  *
- * Exception resulting from an error specific to the RDF datastore.
+ * RDFException is an exception that results from incorrect usage of
+ * the RDF store interface or unsuitable data provided to a function.
+ * For example, this exception would be thrown in response to trying
+ * to add an incomplete triple to the store.
  */
 class RDFException : virtual public std::exception
 {
@@ -69,11 +72,27 @@ protected:
 };
 
 /**
+ * \class RDFInternalError RDFException.h <dataquay/RDFException.h>
+ *
+ * RDFInternalError is an exception that results from an internal
+ * error in the RDF store.
+ */
+class RDFInternalError : virtual public RDFException
+{
+public:
+    RDFInternalError(QString message, QString data = "") throw() :
+        RDFException(message, data) { }
+    RDFInternalError(QString message, Uri data) throw() :
+        RDFException(message, data) { }
+};
+
+/**
  * \class RDFDuplicateImportException RDFException.h <dataquay/RDFException.h>
  *
- * Exception resulting from an import into a store from an RDF
- * document in ImportFailOnDuplicates mode, where the document
- * contains a triple that already exists in the store.
+ * RDFDuplicateImportException is an exception that results from an
+ * import into a store from an RDF document in ImportFailOnDuplicates
+ * mode, where the document contains a triple that already exists in
+ * the store.
  */
 class RDFDuplicateImportException : virtual public RDFException
 {

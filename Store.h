@@ -64,7 +64,7 @@ typedef QList<Change> ChangeSet;
 /**
  * \class Store Store.h <dataquay/Store.h>
  *
- * Abstract interface for Dataquay RDF data stores.
+ * Store is an abstract interface for Dataquay RDF data stores.
  */
 class Store
 {

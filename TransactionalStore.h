@@ -42,9 +42,9 @@ namespace Dataquay
 /**
  * \class TransactionalStore TransactionalStore.h <dataquay/TransactionalStore.h>
  *
- * RDF data store implementing the Store interface, providing
- * transaction support as a wrapper around a non-transactional store
- * such as a BasicStore.
+ * TransactionalStore is an RDF data store implementing the Store
+ * interface, providing transaction support as a wrapper around a
+ * non-transactional store such as a BasicStore.
  *
  * Write access to the store is permitted only in the context of a
  * transaction.  If you call a modifying function directly on

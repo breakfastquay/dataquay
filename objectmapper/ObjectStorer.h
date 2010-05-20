@@ -49,10 +49,10 @@ class TypeMapping;
 /**
  * \class ObjectStorer ObjectStorer.h <dataquay/objectmapper/ObjectStorer.h>
  *
- * Storage handler capable of turning objects derived from QObject
- * into RDF statements in a datastore, such that under the right
- * conditions the original objects can be recreated from the store by
- * ObjectLoader.
+ * ObjectStorer is a storage handler capable of turning objects
+ * derived from QObject into RDF statements in a datastore, such that
+ * under the right conditions the original objects can be recreated
+ * from the store by ObjectLoader.
  *
  * See also ObjectMapper, for a class which manages a set of objects
  * and uses ObjectStorer and ObjectLoader to map changes
@@ -98,6 +98,8 @@ class TypeMapping;
  * arbitrary RDF graphs, and the mechanism has been tested and
  * optimised to some degree for some millions of triples, but that way
  * could lie madness.
+ *
+ * ObjectStorer is re-entrant, but not thread-safe.
  */
 
 class ObjectStorer

@@ -45,9 +45,9 @@ class Transaction;
 /**
  * \class Connection Connection.h <dataquay/Connection.h>
  *
- * Provides a connection interface to a transactional store, in a
- * manner intended to be familiar to users of SQL database connection
- * interfaces.
+ * Connection provides a connection interface to a transactional
+ * store, in a manner intended to be familiar to programmers working
+ * with SQL databases.
  * 
  * Each processing thread may construct a Connection to a central
  * TransactionalStore.  The Connection will start a new Transaction on

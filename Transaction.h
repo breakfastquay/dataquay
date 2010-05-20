@@ -42,11 +42,12 @@ namespace Dataquay
 /**
  * \class Transaction Transaction.h <dataquay/Transaction.h>
  *
- * Interface for reading and writing an RDF Store within the context
- * of an atomic operation such as an editing command.  The Transaction
- * interface provides the same editing operations as the Store
- * interface; it subclasses from Store and may be interchanged with
- * Store in most contexts.
+ * Transaction is an interface for reading and writing an RDF Store
+ * within the context of an atomic operation such as an editing
+ * command.  The Transaction interface provides the same editing
+ * operations as the Store interface; it subclasses from Store and may
+ * be interchanged with Store in most contexts.  To obtain a
+ * Transaction, use TransactionalStore.
  */
 class Transaction : public Store
 {

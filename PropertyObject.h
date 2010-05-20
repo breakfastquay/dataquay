@@ -51,13 +51,14 @@ class Store;
 /**
  * \class PropertyObject PropertyObject.h <dataquay/PropertyObject.h>
  *
- * Helper class for managing properties of an object URI -- that is,
- * triples that share a common subject and possibly a common prefix
- * for the predicate, and that are unique (having a one-to-one
- * relationship between (subject,predicate) and object).  This class
- * provides set and get methods that act directly upon the backing
- * datastore, with (optional but recommended) transaction support.
- * See CacheingPropertyObject for a cacheing alternative.
+ * PropertyObject is a helper class for managing RDF properties of an
+ * object URI -- that is, triples that share a common subject and
+ * possibly a common prefix for the predicate, and that are unique
+ * (having a one-to-one relationship between (subject,predicate) and
+ * object).  This class provides set and get methods that act directly
+ * upon the backing datastore, with (optional but recommended)
+ * transaction support.  See CacheingPropertyObject for a cacheing
+ * alternative.
  *
  * PropertyObject is constructed using a "property prefix" (a string)
  * and "my URI" (a URI).  The URI is used by the property object as

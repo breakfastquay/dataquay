@@ -57,10 +57,11 @@ namespace Dataquay
 {
 
 /**
- * Class to represent URIs.  The Uri is a very thin wrapper around a
- * string.  Its purpose is to distinguish between abbreviated URIs
- * which may be subject to prefix expansion (represented by strings)
- * and properly expanded URIs (represented by Uri).
+ * Uri represents a single URI.  It is a very thin wrapper around a
+ * string.  Its purpose is to allow us to distinguish between
+ * abbreviated URIs which may be subject to prefix expansion
+ * (represented by strings) and properly expanded URIs (represented by
+ * Uri).
  *
  * In terms of the Turtle syntax, anything written within angle
  * brackets is a Uri, while a bare string in URI context is not: it
@@ -71,9 +72,9 @@ namespace Dataquay
  *
  * (Wherever a method in Dataquay accepts a URI as a QString type, it
  * is safe to assume that it will expand any prefixes used in the URI
- * before use.  Some methods exist in alternative forms with Uri or
- * QString arguments; the QString form does prefix expansion, while
- * the Uri form does not.)
+ * before use.  Some methods may exist in alternative forms with Uri
+ * or QString arguments; in this case the QString form does prefix
+ * expansion, while the Uri form does not.)
  *
  * Dataquay uses Uri in preference to QUrl because the latter is
  * relatively slow to convert to and from string forms.  Uri imposes
@@ -124,7 +125,6 @@ public:
     inline bool operator<(const Uri &u) const { return m_uri < u.m_uri; }
     inline bool operator>(const Uri &u) const { return u < *this; }
 
-    //!!! is there a nicer way to do this?
     static QString metaTypeName();
     static int metaTypeId();
     static bool isUri(const QVariant &);

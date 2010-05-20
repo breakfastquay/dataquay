@@ -93,7 +93,7 @@ public:
             QMutexLocker locker(&m_mutex);
             DEBUG << "TransactionalStore::commitTransaction" << endl;
             if (tx != m_currentTx) {
-                throw RDFException("Transaction integrity error");
+                throw RDFInternalError("Transaction integrity error");
             }
             enterTransactionContext();
             cs = m_currentTx->getChanges();
@@ -113,7 +113,7 @@ public:
         QMutexLocker locker(&m_mutex);
         DEBUG << "TransactionalStore::rollbackTransaction" << endl;
         if (tx != m_currentTx) {
-            throw RDFException("Transaction integrity error");
+            throw RDFInternalError("Transaction integrity error");
         }
         leaveTransactionContext();
         // The store is now in non-transaction context, which means
@@ -248,14 +248,14 @@ private:
         // transaction is complete
         m_mutex.lock();
         if (tx != m_currentTx) {
-            throw RDFException("Transaction integrity error");
+            throw RDFInternalError("Transaction integrity error");
         }
         enterTransactionContext();
     }
 
     void endOperation(const Transaction *tx) const {
         if (tx != m_currentTx) {
-            throw RDFException("Transaction integrity error");
+            throw RDFInternalError("Transaction integrity error");
         }            
         m_mutex.unlock();
     }
@@ -274,7 +274,7 @@ private:
             DEBUG << "TransactionalStore::enterTransactionContext: replaying" << endl;
             try {
                 m_store->change(cs);
-            } catch (RDFException e) {
+            } catch (RDFException &e) {
                 throw RDFException(QString("Failed to enter transaction context.  Has the store been modified non-transactionally while a transaction was in progress?  Original error is: %1").arg(e.what()));
             }
         }
@@ -298,7 +298,7 @@ private:
         if (!cs.empty()) {
             try {
                 m_store->revert(cs);
-            } catch (RDFException e) {
+            } catch (RDFException &e) {
                 throw RDFException(QString("Failed to leave transaction context.  Has the store been modified non-transactionally while a transaction was in progress?  Original error is: %1").arg(e.what()));
             }
         }
@@ -370,7 +370,7 @@ public:
                     m_tx->addChange(Change(RemoveTriple, tt[i]));
                     found = true;
                 } else if (wild) {
-                    throw RDFException("Failed to remove matched statement in remove() with wildcards");
+                    throw RDFInternalError("Failed to remove matched statement in remove() with wildcards");
                 }
             }
             return found;

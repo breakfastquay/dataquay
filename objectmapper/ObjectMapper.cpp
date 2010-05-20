@@ -60,6 +60,8 @@ ObjectMapper::D : public QObject
 {
     struct Network
     {
+        // Use Network only with mutex held please
+
         ObjectLoader::NodeObjectMap nodeObjectMap;
         ObjectStorer::ObjectNodeMap objectNodeMap;
         
@@ -104,6 +106,7 @@ public:
     }
 
     void setTypeMapping(const TypeMapping &tm) {
+        QMutexLocker locker(&m_mutex);
         m_tm = tm;
         m_loader->setTypeMapping(m_tm);
         m_storer->setTypeMapping(m_tm);
@@ -114,14 +117,17 @@ public:
     }
 
     Node getNodeForObject(QObject *o) {
+        QMutexLocker locker(&m_mutex);
         return m_n.getNodeForObject(o);
     }
     
     QObject *getObjectByNode(Node n) {
+        QMutexLocker locker(&m_mutex);
         return m_n.getObjectByNode(n);
     }
 
     void add(QObject *o) {
+        QMutexLocker locker(&m_mutex);
         try {
             manage(o);
         } catch (NoUriException) {
@@ -133,15 +139,21 @@ public:
     }
 
     void add(QObjectList ol) {
+        QMutexLocker locker(&m_mutex);
+
         foreach (QObject *o, ol) {
-            add(o);
+            try {
+                manage(o);
+            } catch (NoUriException) {
+                // doesn't matter (as above)
+            }
+        }
+        foreach (QObject *o, ol) {
+            m_changedObjects.insert(o);
         }
     }
 
     void manage(QObject *o) {
-        //!!! is object new? do we want to write it to store now, or
-        //!!! just manage it?
-
         QMutexLocker locker(&m_mutex);
         
         if (m_n.objectNodeMap.contains(o)) {
@@ -181,9 +193,6 @@ public:
             unmanage(o);
         }
     }
-
-//    void remap(QObject *) { } //!!! poor
-//    void unmap(QObject *) { } //!!! poor
 
     void objectModified(QObject *o) {
         std::cerr << "objectModified(" << o << ")" << std::endl;
@@ -484,19 +493,7 @@ ObjectMapper::unmanage(QObjectList ol)
 {
     m_d->unmanage(ol);
 }
-/*
-void
-ObjectMapper::remap(QObject *o)
-{
-    m_d->remap(o);
-}
 
-void
-ObjectMapper::unmap(QObject *o)
-{
-    m_d->unmap(o);
-}
-*/
 void
 ObjectMapper::commit()
 {

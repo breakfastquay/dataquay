@@ -56,7 +56,8 @@ namespace Dataquay
 /**
  * \class Node Node.h <dataquay/Node.h>
  *
- * A single RDF node, with conversions to and from variant types.
+ * Node represents a single RDF node, with conversions to and from
+ * variant types.
  */
 class Node
 {

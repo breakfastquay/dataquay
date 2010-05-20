@@ -89,10 +89,10 @@ public:
         if (!m_storage) {
             DEBUG << "Failed to create RDF trees storage, falling back to default storage type" << endl;
             m_storage = librdf_new_storage(m_w.getWorld(), 0, 0, 0);
-            if (!m_storage) throw RDFException("Failed to create RDF data storage");
+            if (!m_storage) throw RDFInternalError("Failed to create RDF data storage");
         }
         m_model = librdf_new_model(m_w.getWorld(), m_storage, 0);
-        if (!m_model) throw RDFException("Failed to create RDF data model");
+        if (!m_model) throw RDFInternalError("Failed to create RDF data model");
     }
 
     void addPrefix(QString prefix, Uri uri) {
@@ -118,7 +118,7 @@ public:
             for (int i = 0; i < tt.size(); ++i) {
                 if (!doRemove(tt[i])) {
                     DEBUG << "Failed to remove matched triple in remove() with wildcards; triple was: " << tt[i] << endl;
-                    throw RDFException("Failed to remove matched statement in remove() with wildcards");
+                    throw RDFInternalError("Failed to remove matched statement in remove() with wildcards");
                 }
             }
             return true;
@@ -307,7 +307,7 @@ public:
     Node addBlankNode() {
         QMutexLocker locker(&m_librdfLock);
         librdf_node *node = librdf_new_node_from_blank_identifier(m_w.getWorld(), 0);
-        if (!node) throw RDFException("Failed to create new blank node");
+        if (!node) throw RDFInternalError("Failed to create new blank node");
         return lrdfNodeToNode(node);
     }
 
@@ -320,7 +320,7 @@ public:
 
         librdf_uri *base_uri = uriToLrdfUri(m_baseUri);
         librdf_serializer *s = librdf_new_serializer(m_w.getWorld(), "turtle", 0, 0);
-        if (!s) throw RDFException("Failed to construct RDF serializer");
+        if (!s) throw RDFInternalError("Failed to construct RDF serializer");
 
         for (PrefixMap::const_iterator i = m_prefixes.begin();
              i != m_prefixes.end(); ++i) {
@@ -377,7 +377,7 @@ public:
         librdf_parser *parser = librdf_new_parser
             (m_w.getWorld(), format.toLocal8Bit().data(), NULL, NULL);
         if (!parser) {
-            throw RDFException("Failed to construct RDF parser");
+            throw RDFInternalError("Failed to construct RDF parser");
         }
 
         if (idm == ImportPermitDuplicates) {
@@ -400,13 +400,13 @@ public:
             if (!is) is = librdf_new_storage(m_w.getWorld(), 0, 0, 0);
             if (!is) {
                 librdf_free_parser(parser);
-                throw RDFException("Failed to create import RDF data storage");
+                throw RDFInternalError("Failed to create import RDF data storage");
             }
             librdf_model *im = librdf_new_model(m_w.getWorld(), is, 0);
             if (!im) {
                 librdf_free_storage(is);
                 librdf_free_parser(parser);
-                throw RDFException("Failed to create import RDF data model");
+                throw RDFInternalError("Failed to create import RDF data model");
             }
 
             librdf_stream *stream = 0;
@@ -424,7 +424,7 @@ public:
                     // Need to query twice, first time to check for dupes
                     stream = librdf_model_find_statements(im, all);
                     if (!stream) {
-                        throw RDFException("Failed to list imported RDF model in duplicates check");
+                        throw RDFInternalError("Failed to list imported RDF model in duplicates check");
                     }
                     while (!librdf_stream_end(stream)) {
                         librdf_statement *current = librdf_stream_get_object(stream);
@@ -442,7 +442,7 @@ public:
                 // may allow duplicates and we want to avoid them
                 stream = librdf_model_find_statements(im, all);
                 if (!stream) {
-                    throw RDFException("Failed to list imported RDF model");
+                    throw RDFInternalError("Failed to list imported RDF model");
                 }
                 while (!librdf_stream_end(stream)) {
                     librdf_statement *current = librdf_stream_get_object(stream);
@@ -553,7 +553,7 @@ private:
         }
         if (librdf_model_add_statement(m_model, statement)) {
             librdf_free_statement(statement);
-            throw RDFException("Failed to add statement to model");
+            throw RDFInternalError("Failed to add statement to model");
         }
         librdf_free_statement(statement);
         return true;
@@ -581,7 +581,7 @@ private:
         librdf_uri *luri = librdf_new_uri
             (m_w.getWorld(),
              (const unsigned char *)uri.toString().toUtf8().data());
-        if (!luri) throw RDFException("Failed to construct URI", uri);
+        if (!luri) throw RDFInternalError("Failed to construct URI", uri);
         return luri;
     }
 
@@ -703,7 +703,7 @@ private:
         librdf_statement *templ = tripleToStatement(t);
         librdf_stream *stream = librdf_model_find_statements(m_model, templ);
         librdf_free_statement(templ);
-        if (!stream) throw RDFException("Failed to match RDF triples");
+        if (!stream) throw RDFInternalError("Failed to match RDF triples");
         while (!librdf_stream_end(stream)) {
             librdf_statement *current = librdf_stream_get_object(stream);
             if (current) results.push_back(statementToTriple(current));
