@@ -5,12 +5,8 @@ QT -= gui
 
 TARGET = dataquay
 
-exists(platform.pri) {
-	include(./platform.pri)
-}
-
-## Path to librdf includes here!
-#INCLUDEPATH += /usr/local/include /usr/local/include/rasqal
+OBJECTS_DIR = o
+MOC_DIR = o
 
 HEADERS += BasicStore.h \
            Connection.h \
@@ -45,3 +41,8 @@ SOURCES += BasicStore.cpp \
            objectmapper/ObjectMapperForwarder.cpp \
            objectmapper/ObjectStorer.cpp \
            objectmapper/TypeMapping.cpp
+
+exists(platform.pri) {
+	include(./platform.pri)
+}
+

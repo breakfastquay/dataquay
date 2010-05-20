@@ -8,11 +8,20 @@ DEPENDPATH += . ..
 LIBPATH += ..
 PRE_TARGETDEPS += ../libdataquay.a
 
-LIBS += -ldataquay -lraptor -lrasqal -lrdf
+OBJECTS_DIR = o
+MOC_DIR = o
 
-#LIBPATH += ../../ext
-#LIBS += -ldataquay -lext
+LIBS += -ldataquay -lraptor -lrasqal -lrdf
 
 HEADERS += TestObjects.h
 SOURCES += TestDataquay.cpp TestQtWidgets.cpp
+
+exists(./platform.pri) {
+    include(./platform.pri)
+}
+!exists(./platform.pri) {
+    exists(../platform.pri) {
+	include(../platform.pri)
+    }
+}
 
