@@ -63,29 +63,7 @@ public:
 
     void setTypeMapping(const TypeMapping &);
     const TypeMapping &getTypeMapping() const;
-        
-    /**
-     * Load to the given object all QObject properties defined in this
-     * object mapper's store for the given object URI.
-     */
-/*
-    void loadProperties(QObject *o, Uri uri);
-*/
-    //!!! want loadObject, loadTree, loadGraph, loadAllGraphs (loadGraph equivalent to loadFrom) -- and then loader callback gets passed an enum value identifying load type
     
-    /**
-     * Construct a QObject based on the properties of the given object
-     * URI in the object mapper's store.  The type of class created
-     * will be determined by the rdf:type for the URI.
-     *!!!??? type prefix? how these map to class names?
-     */
-/*
-    QObject *loadObject(Uri uri, QObject *parent); // may throw ConstructionFailedException, UnknownTypeException
-    QObject *loadObjectTree(Uri rootUri, QObject *parent); // may throw ConstructionFailedException
-    QObject *loadAllObjects(QObject *parent); // may throw ConstructionFailedException
-
-    QObject *loadFrom(NodeObjectMap &map, Node sourceNode);
-*/
     enum FollowOption {
         FollowNone             = 0, // the default
         FollowObjectProperties = 1,
@@ -106,6 +84,14 @@ public:
 
     void setAbsentPropertyPolicy(AbsentPropertyPolicy policy);
     AbsentPropertyPolicy getAbsentPropertyPolicy() const;
+
+    /**
+     * Construct a QObject based on the properties of the given object
+     * URI in the object mapper's store.  The type of class created
+     * will be determined by the rdf:type for the URI.
+     *!!!??? type prefix? how these map to class names?
+     */
+
 
     QObject *load(Node node); //!!! n.b. could be very expensive if follow options are set! might load lots & lots of stuff and then leak it! ... also, want to specify parent as in old loadObject, and to have uri arg... old method was better here
     
