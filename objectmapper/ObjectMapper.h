@@ -146,18 +146,91 @@ signals:
     void committed();
 
 public slots:
+    /**
+     * Add a new object to the store.  This tells ObjectMapper to
+     * manage the object, and also marks it to be stored the next time
+     * \ref commit is called.
+     *
+     * You must call \ref add or \ref manage for every new object that
+     * needs to be managed; ObjectMapper does not have any other way
+     * to find out about new objects, even if they are properties or
+     * children of existing managed objects.
+     */
     void add(QObject *);
+
+    /**
+     * Add a list of new objects to the store.  This tells
+     * ObjectMapper to manage the objects, and also marks them to be
+     * stored the next time \ref commit is called.
+     *
+     * You must call \ref add or \ref manage for every new object that
+     * needs to be managed; ObjectMapper does not have any other way
+     * to find out about new objects, even if they are properties or
+     * children of existing managed objects.
+     */
     void add(QObjectList);
 
+    /**
+     * Tell ObjectMapper to start managing an object.  This tells
+     * ObjectMapper to watch the object and commit to the store any
+     * changes that it detects in the object's properties, or when the
+     * object is destroyed.
+     *
+     * This does not mark the object as needing to be written; it
+     * implies that the object is known to be up-to-date with the
+     * store already.  ObjectMapper will refuse to manage any object
+     * that lacks a uri property; if your object is a "new" one, you
+     * should use \ref add instead of \ref manage.
+     */
     void manage(QObject *);
+
+    /**
+     * Tell ObjectMapper to start managing a list of objects.  This
+     * tells ObjectMapper to watch the objects and commit to the store
+     * any changes that it detects in the objects' properties, or when
+     * the objects are destroyed.
+     *
+     * This does not mark the objects as needing to be written; it
+     * implies that the objects are known to be up-to-date with the
+     * store already.  ObjectMapper will refuse to manage any object
+     * that lacks a uri property; if your object is a "new" one, you
+     * should use \ref add instead of \ref manage.
+     */
     void manage(QObjectList);
 
+    /**
+     * Tell ObjectMapper to stop managing the given object.
+     */
     void unmanage(QObject *);
+
+    /**
+     * Tell ObjectMapper to stop managing the given objects.
+     */
     void unmanage(QObjectList);
 
+    /**
+     * Commit to the store any changes that have happened to the
+     * currently managed objects since the last commit.
+     *
+     * You need to call this if you want any changes to appear in the
+     * store.
+     */
     void commit();
 
+    /**
+     * Notify ObjectMapper that the given object has changed.
+     * ObjectMapper automatically watches the notify signals for an
+     * object's properties, but it will not spot any changes that do
+     * not have an associated notify signal.
+     */
     void objectModified(QObject *);
+
+    /**
+     * Notify ObjectMapper that the given object is being destroyed.
+     * This should not normally be necessary, as ObjectMapper
+     * automatically watches the destroyed signals for objects it
+     * manages.
+     */
     void objectDestroyed(QObject *);
 
 private slots:
