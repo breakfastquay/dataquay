@@ -94,11 +94,27 @@ class ObjectMapper : public QObject
     Q_OBJECT
 
 public:
+    /**
+     * Construct an object mapper backed by the given store.  The
+     * mapper is initially managing no objects.
+     *
+     * The store must be a TransactionalStore (rather than for example
+     * a BasicStore) because the object mapper commits each update as
+     * a single transaction and relies on the
+     * TransactionalStore::transactionCommitted signal to learn about
+     * changes in the store.
+     */
     ObjectMapper(TransactionalStore *ts);
     ~ObjectMapper();
 
+    /**
+     * Obtain the TransactionalStore that was passed to the
+     * constructor.
+     */
     TransactionalStore *getStore();
 
+    /**
+     */
     void setTypeMapping(const TypeMapping &);
     const TypeMapping &getTypeMapping() const;
 

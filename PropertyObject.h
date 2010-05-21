@@ -53,12 +53,11 @@ class Store;
  *
  * PropertyObject is a helper class for managing RDF properties of an
  * object URI -- that is, triples that share a common subject and
- * possibly a common prefix for the predicate, and that are unique
- * (having a one-to-one relationship between (subject,predicate) and
- * object).  This class provides set and get methods that act directly
- * upon the backing datastore, with (optional but recommended)
- * transaction support.  See CacheingPropertyObject for a cacheing
- * alternative.
+ * possibly a common prefix for the predicate, and that have only one
+ * value for each subject-predicate combination.  This class provides
+ * set and get methods that act directly upon the backing datastore,
+ * with (optional but recommended) transaction support.  See
+ * CacheingPropertyObject for a cacheing alternative.
  *
  * PropertyObject is constructed using a "property prefix" (a string)
  * and "my URI" (a URI).  The URI is used by the property object as
@@ -403,14 +402,15 @@ private:
 };
 
 /**
- * \class CacheingPropertyObject CacheingPropertyObject.h <dataquay/PropertyObject.h>
+ * \class CacheingPropertyObject PropertyObject.h <dataquay/PropertyObject.h>
  *
- * Helper class for managing properties of an object URI -- that is,
- * triples that share a common subject and possibly a common prefix
- * for the predicate -- with a demand-populated cache.  This class is
- * usually faster than PropertyObject as it avoids datastore access,
- * but it can only be used in contexts where it is known that no other
- * agent may be modifying the same set of properties.
+ * CacheingPropertyObject is a helper class for managing RDF
+ * properties of an object URI -- that is, triples that share a common
+ * subject and possibly a common prefix for the predicate, and that
+ * have only one value for each subject-predicate combination.  This
+ * class is usually faster than PropertyObject as it avoids datastore
+ * access, but it can only be used in contexts where it is known that
+ * no other agent may be modifying the same set of properties.
  */
 class CacheingPropertyObject
 {

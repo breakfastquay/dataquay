@@ -40,6 +40,20 @@ namespace Dataquay {
 
 class ObjectMapper;
 
+/**
+ * ObjectMapperForwarder notifies ObjectMapper when a QObject is
+ * modified or destroyed.  It connects all of the object's property
+ * notify signals and its destroyed signal to itself, and then calls
+ * ObjectMapper methods when they are activated.
+ *
+ * ObjectMapperForwarder is used automatically by ObjectMapper; you do
+ * not normally need to use it yourself.
+ *
+ * The principal motivation for this class is to avoid the
+ * ObjectMapper trying to connect many signals for each of many
+ * managed objects directly to its slots: if the number of such
+ * objects was large, this would be a serious performance bottleneck.
+ */
 class ObjectMapperForwarder : public QObject
 {
     Q_OBJECT
