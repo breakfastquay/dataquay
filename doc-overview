@@ -19,26 +19,25 @@ ad-hoc RDF needs for metadata management.
 
 \section contents What's in Dataquay?
 
-%Dataquay contains C++ abstractions for the RDF Node, Triple
-(statement), and for the RDF Store.  The standard BasicStore offers
+%Dataquay contains C++ abstractions for the RDF Node and Triple
+(or statement), and for the RDF Store.  The standard BasicStore offers
 simple add, remove, matching, and querying functions and file I/O.
 
-Also provided is TransactionalStore, a simple transactional interface
-to the store that offers per-thread isolation, atomic commit, and a
+Also provided is TransactionalStore, a transactional interface to the
+store that offers per-thread isolation, atomic commit, and a
 Connection class in the style of a traditional relational database
 interface.
 
-%Dataquay also contains ObjectMapper, a facility which can take care
-of a complete object hierarchy, map it to the RDF store, and
-synchronise in both directions any changes to the hierarchy or the
-store.  Arbitrary mappings between C++ class and property names and
-RDF URIs can be specified using TypeMapping.  The mapping is flexible
-enough to allow you to load many publicly generated Linked Data
-sources directly into object class hierarchies, if you wish (although
-this is not usually an ideal way to handle unpredictable data
-sources).  The classes that manage the object-to-store and
-store-to-object mapping can also be used separately, as ObjectStorer
-and ObjectLoader.
+%Dataquay also offers ObjectMapper, a facility which can take care of
+a complete object hierarchy, map it to the RDF store, and synchronise
+in both directions any changes to the hierarchy or the store.
+Arbitrary mappings between C++ class and property names and RDF URIs
+can be specified using TypeMapping.  The mapping is flexible enough to
+allow you to load many publicly generated Linked Data sources directly
+into object class hierarchies, if you wish (although this is not
+usually an ideal way to handle unpredictable data sources).  The
+classes that manage the object-to-store and store-to-object mapping
+can also be used separately, as ObjectStorer and ObjectLoader.
 
 \section start Start Here...
 
@@ -57,8 +56,8 @@ manner, then you could consider using a BasicStore, wrapping that in a
 TransactionalStore, and using ObjectMapper to deal with the
 hibernation side of things.
 
-In any of these cases you'll want to look closely at the Uri, Node,
-and Triple classes.
+In any of these cases you'll also want to look closely at the Uri,
+Node, and Triple classes.
 
 */
 

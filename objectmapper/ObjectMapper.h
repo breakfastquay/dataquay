@@ -114,11 +114,32 @@ public:
     TransactionalStore *getStore();
 
     /**
+     * Supply a TypeMapping object describing the RDF URIs that should
+     * be used to encode each object's property and class names.
+     * Without this, ObjectMapper (or rather its ObjectStorer and
+     * ObjectLoader classes) will generate suitable-looking URIs for
+     * each class and property names.
      */
     void setTypeMapping(const TypeMapping &);
+
+    /**
+     * Obtain the TypeMapping previously set using setTypeMapping, or
+     * the default (empty) TypeMapping if none has been set.
+     */
     const TypeMapping &getTypeMapping() const;
 
+    /**
+     * Obtain the RDF node to which the given object has been mapped,
+     * or a null Node if the object has not yet been stored by this
+     * ObjectMapper.
+     */
     Node getNodeForObject(QObject *o) const;
+
+    /**
+     * Obtain the QObject which has been mapped to the given node, or
+     * NULL if the node is not one that has been stored by this
+     * ObjectMapper.
+     */
     QObject *getObjectByNode(Node n) const;
 
 signals:
