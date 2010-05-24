@@ -39,6 +39,14 @@ usually an ideal way to handle unpredictable data sources).  The
 classes that manage the object-to-store and store-to-object mapping
 can also be used separately, as ObjectStorer and ObjectLoader.
 
+\section status Development Status
+
+Certain aspects of %Dataquay are still somewhat provisional, and the
+API may continue to change until the 1.0 release.  However, most of
+the API design is likely to remain as it is now and the library has
+been reasonably well tested.  The principal task remaining for 1.0 is
+to expand the test suite and produce some more example code.
+
 \section start Start Here...
 
 If you want your application to have access to RDF metadata but you
@@ -58,6 +66,13 @@ hibernation side of things.
 
 In any of these cases you'll also want to look closely at the Uri,
 Node, and Triple classes.
+
+\section licence Licence
+
+%Dataquay is published under a liberal BSD-style licence, similar to
+(and of course compatible with) the Apache licence used by Redland.
+You can use it without fee in open-source or proprietary applications.
+See the COPYING file for details.
 
 */
 

@@ -41,7 +41,13 @@
 namespace Dataquay
 {
 
-class TypeMapping //!!! not a good name
+/**
+ * TypeMapping describes a set of relationships between RDF entity and
+ * property URIs, and C++ class and QObject property names.  The
+ * TypeMapping is referred to by ObjectMapper, ObjectStorer and
+ * ObjectLoader when mapping between RDF entities and C++ objects.
+ */
+class TypeMapping
 {
 public:
     TypeMapping();
@@ -49,26 +55,99 @@ public:
     TypeMapping &operator=(const TypeMapping &);
     ~TypeMapping();
 
-    //!!! review these function names
-
-    //!!!... document
+    /**
+     * Set the prefix for synthetic type URIs.  This is the prefix
+     * used when asked to generate or convert type URIs for which no
+     * specific mapping has been set using setTypeMapping.  See also
+     * \ref synthesiseTypeUriForClass and \ref synthesiseClassForTypeUri.
+     */
     void setObjectTypePrefix(Uri prefix);
+
+    /**
+     * Retrieve the prefix for synthetic type URIs.
+     */
     Uri getObjectTypePrefix() const;
 
+    /**
+     * Set the prefix for synthetic property URIs.  This is the prefix
+     * used when generating URIs for QObject properties for which no
+     * specific mapping has been set using addPropertyMapping, and
+     * when converting such URIs back to QObject properties.
+     */
     void setPropertyPrefix(Uri prefix);
+
+    /**
+     * Retrieve the prefix for synthetic property URIs.
+     */
     Uri getPropertyPrefix() const;
 
+    /**
+     * Set the prefix for ObjectMapper-specific property URIs.  This
+     * is the prefix used for object relationship properties such as
+     * "parent" or "follows".
+     */
     void setRelationshipPrefix(Uri prefix);
+
+    /**
+     * Retrieve the prefix for ObjectMapper-specific property URIs.
+     */
     Uri getRelationshipPrefix() const;
 
+    /**
+     * Add a specific mapping from class name to entity URI.
+     */
     void addTypeMapping(QString className, Uri uri);
 
+    /**
+     * Retrieve the URI that has been set for the given class name
+     * using \ref addTypeMapping, returning it in uri.  Return true if
+     * such a URI was found, false otherwise.
+     */
     bool getTypeUriForClass(QString className, Uri &uri);
+
+    /**
+     * Retrieve the C++ class name that has been set for the given
+     * entity URI using \ref addTypeMapping, returning it in
+     * className.  Return true if such a name was found, false
+     * otherwise.
+     */
     bool getClassForTypeUri(Uri uri, QString &className);
 
-    Uri synthesiseTypeUriForClass(QString className); // may throw UnknownTypeException
-    QString synthesiseClassForTypeUri(Uri uri);
+    /**
+     * Return a URI for the RDF entity type corresponding to the given
+     * C++ class.
+     *
+     * If a specific URI has been set for this class name using \ref
+     * addTypeMapping (i.e. if \ref getTypeUriForClass would return a
+     * result for this class name), the result will be that URI.
+     *
+     * Otherwise, the result will consist of the synthetic type URI
+     * prefix (set using setObjectTypePrefix, or the default synthetic
+     * type URI prefix if none has been set) followed by the class
+     * name, with all namespace separators ("::") replaced by slashes
+     * ("/").
+     */
+    Uri synthesiseTypeUriForClass(QString className);
 
+    /**
+     * Return a C++ class name corresponding to the given RDF entity
+     * type URI.
+     *
+     * If a specific class name has been set for this URI using \ref
+     * addTypeMapping (i.e. if \ref getClassForTypeUri would return a
+     * result for this URI), the result will be that class name.
+     *
+     * Otherwise, the result will consist of the URI with the
+     * synthetic type URI prefix (set using setObjectTypePrefix, or
+     * the default synthetic type URI prefix if none has been set)
+     * stripped off the beginning, and with subsequent slashes ("/")
+     * replaced by namespace separators ("::").
+     *
+     * Throws UnknownTypeException if no specific class name is
+     * available and the URI does not begin with the synthetic type
+     * URI prefix.
+     */
+    QString synthesiseClassForTypeUri(Uri uri);
 
     /**
      * Add a mapping between class name and the common parts of any

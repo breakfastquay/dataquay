@@ -48,12 +48,13 @@ class TypeMapping;
 /**
  * \class ObjectMapper ObjectMapper.h <dataquay/objectmapper/ObjectMapper.h>
  *
- * ObjectMapper manages a set of objects to maintain a consistent
- * record of their state in an RDF store.  It uses ObjectStorer to map
- * objects (derived from QObject) to the store, and then watches both
- * the objects and the store for changes, applying to the store any
- * changes in the objects and using ObjectLoader to bring the objects
- * up to date with any changes in the store.
+ * ObjectMapper manages a set of objects, maintaining a consistent
+ * record of their state in a TransactionalStore by mapping changes in
+ * both directions between objects and store.  It uses ObjectStorer to
+ * map objects (derived from QObject) to the store, and then watches
+ * both the objects and the store for changes, applying to the store
+ * any changes in the objects and using ObjectLoader to bring the
+ * objects up to date with any changes in the store.
  *
  * See ObjectStorer for details of how objects are mapped to the RDF
  * store, and ObjectLoader for details of how changes in the RDF store

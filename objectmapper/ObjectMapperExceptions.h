@@ -40,6 +40,13 @@
 namespace Dataquay
 {
 
+/**
+ * \class UnknownTypeException ObjectMapperExceptions.h <dataquay/objectmapper/ObjectMapperExceptions.h>
+ *
+ * UnknownTypeException is an exception thrown by ObjectMapper classes
+ * when asked to load an object from an RDF entity whose type cannot
+ * be mapped to a C++ class type using the current TypeMapping.
+ */
 class UnknownTypeException : virtual public std::exception {
 public:
     UnknownTypeException(QString type) throw() : m_type(type) { }
@@ -51,6 +58,13 @@ protected:
     QString m_type;
 };
 
+/**
+ * \class ConstructionFailedException ObjectMapperExceptions.h <dataquay/objectmapper/ObjectMapperExceptions.h>
+ *
+ * ConstructionFailedException is an exception that may be thrown by
+ * ObjectMapper classes if a class mapped from an RDF entity type
+ * could not be constructed.
+ */
 class ConstructionFailedException : virtual public std::exception {
 public:
     ConstructionFailedException(QString type) throw() : m_type(type) { }
@@ -63,6 +77,13 @@ protected:
     QString m_type;
 };
 
+/**
+ * \class NoUriException ObjectMapperExceptions.h <dataquay/objectmapper/ObjectMapperExceptions.h>
+ *
+ * NoUriException is an exception thrown by ObjectMapper classes when
+ * asked to store a class that is expected to have been assigned a URI
+ * already, if its URI property is absent.
+ */
 class NoUriException : virtual public std::exception {
 public:
     NoUriException(QString oname, QString cname) throw() : m_oname(oname), m_cname(cname) { }

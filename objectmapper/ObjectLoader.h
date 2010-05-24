@@ -46,6 +46,14 @@ namespace Dataquay
 class Store;
 class TypeMapping;
 
+/**
+ * \class ObjectLoader ObjectLoader.h <dataquay/objectmapper/ObjectLoader.h>
+ *
+ * ObjectLoader can create and refresh objects based on the types and
+ * relationships set out in a Store.  
+ *!!!
+ */
+ 
 class ObjectLoader
 {
 public:

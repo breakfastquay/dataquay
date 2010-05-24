@@ -46,14 +46,15 @@ namespace Dataquay {
  * \class ObjectBuilder ObjectBuilder.h <dataquay/objectmapper/ObjectBuilder.h>
  *
  * ObjectBuilder is a singleton object factory capable of constructing
- * new objects of classes that are subclassed from QObject, given the
- * class name as a string, and optionally a parent object.  To be
- * capable of construction using ObjectBuilder, a class must be
- * declared using Q_OBJECT as well as subclassed from QObject.
+ * new objects of classes that are subclassed from QObject.  Given the
+ * class name as a string, and optionally a parent object, it will
+ * return a new instance of the class.  To be capable of construction
+ * using ObjectBuilder, a class must be declared using Q_OBJECT as
+ * well as subclassed from QObject.
  *
- * All object classes need to be registered with the builder before
- * they can be constructed; the only class that ObjectBuilder is able
- * to construct without registration is QObject itself.
+ * All candidate object classes need to be registered with the builder
+ * before they can be constructed.  The only class that ObjectBuilder
+ * is able to construct without registration is QObject itself.
  *
  * This class permits code to construct new objects dynamically,
  * without needing to know anything about them except for their class
