@@ -46,11 +46,41 @@ namespace Dataquay
  * property URIs, and C++ class and QObject property names.  The
  * TypeMapping is referred to by ObjectMapper, ObjectStorer and
  * ObjectLoader when mapping between RDF entities and C++ objects.
+ *
+ * For example, say we have a class MyApplication::Person, with a
+ * QObject string property called "name".  We want the class to be
+ * stored as a URI with RDF type foaf:Person, and the property to be
+ * stored as a relationship for that URI of type foaf:name.  These
+ * URIs need to be expanded in order to be used with TypeMapping; we
+ * assume here that "store" points to a Store which is aware of the
+ * "foaf" prefix and can perform that expansion for us through
+ * Store::expand.
+ *
+ * \code
+ * TypeMapping tm;
+ * tm.addTypeMapping("MyApplication::Person", store->expand("foaf:Person"));
+ * tm.addPropertyMapping("MyApplication::Person", "name", store->expand("foaf:name"));
+ * objectStorer->setTypeMapping(tm);
+ * \endcode
+ *
+ * Now if objectStorer is used to store an object of class
+ * MyApplication::Person, it will do so as a foaf:Person.  Similarly,
+ * whenever ObjectLoader is asked to load a foaf:Person, it will
+ * create a MyApplication::Person object to do so.
+ *
+ * TypeMapping is re-entrant, but not thread-safe.
+ * 
+ * 
+ *!!! TODO: Review method names
  */
 class TypeMapping
 {
 public:
+    /**
+     * Construct a TypeMapping using default URIs throughout.
+     */
     TypeMapping();
+    
     TypeMapping(const TypeMapping &);
     TypeMapping &operator=(const TypeMapping &);
     ~TypeMapping();
@@ -175,13 +205,42 @@ public:
      */
     void addTypeUriPrefixMapping(QString className, Uri prefix);
 
+    /**
+     * Retrieve the URI prefix set for the given className using \ref
+     * addTypeUriPrefixMapping, if any, returning it in prefix.
+     * Return true if such a prefix was found, false otherwise.
+     */
     bool getUriPrefixForClass(QString className, Uri &prefix);
 
-    //!!! n.b. document that uris must be distinct (can't map to properties to same RDF predicate as we'd be unable to distinguish between them on reload -- we don't use the object type to distinguish which predicate is which)
+    /**
+     * Add a specific mapping for the given QObject property in the
+     * given C++ class, to an RDF property URI.
+     *
+     * Note that distinct properties of the same class must map to
+     * distinct URIs.  If two properties of a class map to the same
+     * URI, ObjectLoader will not be able to distinguish between them
+     * (it does not attempt to resolve ambiguities using the type of
+     * the argument, for example).
+     */
     void addPropertyMapping(QString className, QString propertyName, Uri uri);
 
+    /**
+     * Retrieve the URI that has been set for the given property in
+     * the given class using \ref addPropertyMapping, returning it in
+     * uri.  Return true if such a URI was found, false otherwise.
+     */
     bool getPropertyUri(QString className, QString propertyName, Uri &uri);
+
+    /**
+     * Retrieve the name of the property for which the given URI has
+     * been set in the given class using \ref addPropertyMapping,
+     * returning it in propertyName.  Return true if such a property
+     * was found, false otherwise.
+     */
     bool getPropertyName(QString className, Uri propertyUri, QString &propertyName);
+
+    //!!! Note no property equivalents of
+    //!!! synthesiseClassForTypeUri/synthesiseTypeUriForClass -- do we want them? if only to have somewhere to put the documentation?
 
 private:
     class D;

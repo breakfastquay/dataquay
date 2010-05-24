@@ -52,6 +52,8 @@ class TypeMapping;
  * ObjectLoader can create and refresh objects based on the types and
  * relationships set out in a Store.  
  *!!!
+ *
+ * ObjectLoader is re-entrant, but not thread-safe.
  */
  
 class ObjectLoader

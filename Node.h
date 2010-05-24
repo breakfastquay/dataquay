@@ -118,19 +118,23 @@ public:
      * node's value storing the XSD representation and the node's
      * datatype storing the XSD datatype URI.
      *
-     * QVariants containing Uris are converted to URI nodes.  Note
+     * QVariants containing \ref Uri are converted to URI nodes.  Note
      * that URIs using namespace prefixes will need to be expanded
-     * before they can safely be represented in a Uri or URL variant.
+     * before they can safely be represented in a Uri or Uri QVariant.
      * Call Store::expand() to achieve this.  In general you should
      * ensure that URIs are expanded when placed in a Node object
      * rather than being stored in prefixed form.
      *
-     * Other QVariants including complex structures are converted into
-     * literals containing an encoded representation which may be
+     * For QVariants whose types have been registered using
+     * registerDatatype, the registered VariantEncoder's fromVariant
+     * method will be used to convert the variant to a string which
+     * will be stored in a literal node.
+     *
+     * Other QVariants, including complex structures, are converted
+     * into literals containing an encoded representation which may be
      * converted back again using toVariant but cannot be directly
      * read from or interchanged using the node's value.  These types
      * are given a specific fixed datatype URI.
-     *!!! update for custom encoders
      */
     static Node fromVariant(const QVariant &v);
 
@@ -143,7 +147,6 @@ public:
      * corresponding to Uri, not as QString variants.  This may result
      * in invalid Uris if the URIs were not properly expanded on
      * construction (see the notes about fromVariant).
-     *!!! update for custom encoders
      */
     QVariant toVariant() const;
 
@@ -160,7 +163,6 @@ public:
      * must have been registered using registerDatatype, if it is not
      * one of the types with built-in support).  If no encoder is
      * found, a QString variant will be returned instead.
-     *!!! should this not be QString metaTypeName like registerDatatype?
      */
     QVariant toVariant(int metaTypeId) const;
 
@@ -171,9 +173,25 @@ public:
         return false;
     }
 
+    /**
+     * VariantEncoder is an abstract interface for classes that can
+     * convert between QVariant and strings for storage in literal
+     * Node objects.
+     */
     struct VariantEncoder {
-        //!!! these could both just be called "convert"
+
+        /**
+         * Convert a string to a variant.  The VariantEncoder is
+         * expected to be know the node type from which the string has
+         * been obtained.
+         */
         virtual QVariant toVariant(const QString &n) = 0;
+
+        /**
+         * Convert a variant to a string.  The specific VariantEncoder
+         * is expected to know the node type which is the target of
+         * the conversion.
+         */
         virtual QString fromVariant(const QVariant &v) = 0;
     };
 
@@ -201,7 +219,19 @@ public:
                                  QString variantTypeName,
                                  VariantEncoder *encoder = 0);
 
+    /**
+     * Retrieve the datatype URI that has been associated with the
+     * given variant type using \ref registerDatatype.  If no such
+     * association has been made or the variant type is unknown,
+     * return the empty Uri.
+     */
     static Uri getDatatype(QString variantTypeName);
+
+    /**
+     * Retrieve the variant type that has been associated with the
+     * given datatype Uri using \ref registerDatatype.  If no such
+     * association has been made, return an empty string.
+     */
     static QString getVariantTypeName(Uri datatype);
     
     Type type;

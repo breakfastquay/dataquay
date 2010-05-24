@@ -246,7 +246,6 @@ Node::getDatatype(QString typeName)
     if (id <= 0) return Uri();
     Uri dt;
     if (DatatypeMetatypeAssociation::instance()->getDatatype(id, dt)) return dt;
-    //!!! else what? no way to indicate this distinction
     return Uri();
 }
 

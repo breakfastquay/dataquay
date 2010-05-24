@@ -43,8 +43,6 @@ static Uri defaultTypePrefix("http://breakfastquay.com/rdf/dataquay/objectmapper
 static Uri defaultPropertyPrefix("http://breakfastquay.com/rdf/dataquay/objectmapper/property/");
 static Uri defaultRelationshipPrefix("http://breakfastquay.com/rdf/dataquay/objectmapper/relationship/");
 
-//!!! NB this is not thread safe in any way -- should it be? we need to document it, either way
-
 class TypeMapping::D
 {
 public:

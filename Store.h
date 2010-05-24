@@ -170,8 +170,12 @@ public:
     /**
      * Expand the given URI (which may use local namespaces) and
      * prefix-expand it, returning the result as a Uri.  (The Uri
-     * class is not suitable for storing URIs that use namespaces,
-     * particularly local ones.)
+     * class cannot be used to store URIs that have unexpanded
+     * namespace prefixes.)
+     *
+     * The set of available prefixes for expansion depends on the
+     * subclass implementation.  See, for example,
+     * BasicStore::addPrefix.
      */
     virtual Uri expand(QString uri) const = 0;
 
