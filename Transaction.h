@@ -53,22 +53,36 @@ class Transaction : public Store
 {
 public:
     /**
-     * Delete this transaction object, committing the transaction
-     * first.  If you do not want the transaction to be committed,
-     * call rollback() prior to destruction.  You must delete this
-     * object before beginning any other transaction.
+     * Delete this transaction object.  You must either commit or roll
+     * back the transaction before deleting it.
+     * 
+     * The destructor will throw RDFException if the transaction has
+     * been used but not committed or rolled back.  Such a situation
+     * indicates a straightforward coding oversight: fix the code,
+     * rather than catching the exception.
      */
     virtual ~Transaction() { }
- 
-   /**
+    
+    /**
+     * Commit this transaction.  Changes made during the transaction
+     * will be committed to the store, atomically with respect to
+     * other active transactions.
+     *
+     * You should not attempt to use the Transaction object again
+     * (except to call getChanges or to delete it) after this call is
+     * made.  Any further call to the transaction's Store interface
+     * will throw an RDFException.
+     */
+    virtual void commit() = 0;
+    
+    /**
      * Roll back this transaction.  All changes made during the
      * transaction will be discarded.
      *
      * You should not attempt to use the Transaction object again
      * (except to delete it) after this call is made.  Any further
      * call to the transaction's Store interface will throw an
-     * RDFException.  When the transaction is deleted, it will simply
-     * be discarded rather than being committed.
+     * RDFException.
      */
     virtual void rollback() = 0;
 
@@ -76,9 +90,9 @@ public:
      * Return the ChangeSet applied so far by this transaction.  This
      * returns all changes provisionally made during the transaction.
      *
-     * (Once the transaction is committed and deleted, you can in
-     * principle revert it in its entirety by calling Store::revert()
-     * with this change set.)
+     * (After a transaction has been committed, you can in principle
+     * revert it in its entirety by calling Store::revert() with this
+     * change set.)
      *
      * If the transaction has been rolled back, this will return the
      * changes that were accumulated prior to the roll back, i.e. the

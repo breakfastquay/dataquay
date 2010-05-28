@@ -847,10 +847,16 @@ testImportOptions()
 
     store.save("test3.ttl");
     
+    bool caught = false;
     try {
         store.import(QUrl("file:test3.ttl"), BasicStore::ImportFailOnDuplicates);
     } catch (RDFDuplicateImportException) {
         cerr << "Correctly caught RDFDuplicateImportException when importing duplicate store" << endl;
+        caught = true;
+    }
+    if (!caught) {
+        cerr << "Failed to get RDFDuplicateImportException when importing duplicate store" << endl;
+        return false;
     }
 
     Triples triples = store.match(Triple());
@@ -858,11 +864,12 @@ testImportOptions()
         cerr << "Wrong number of triples in store after failed import: expected " << count << ", found " << triples.size() << endl;
         return false;
     }
-    
+
     try {
         store.import(QUrl("file:test3.ttl"), BasicStore::ImportPermitDuplicates);
     } catch (RDFDuplicateImportException) {
-        cerr << "Correctly caught RDFDuplicateImportException when importing duplicate store with duplicates permitted" << endl;
+        cerr << "Incorrectly caught RDFDuplicateImportException when importing duplicate store with duplicates permitted" << endl;
+        return false;
     }
 
     triples = store.match(Triple());
@@ -962,6 +969,24 @@ testTransactionalStore()
     ++added;
 
     ChangeSet changes = t->getChanges();
+    
+    t->commit();
+
+    // Test that we can't use the transaction after a commit
+
+    bool caught = false;
+    try {
+        t->add(Triple(":fred2",
+                      "http://xmlns.com/foaf/0.1/knows",
+                      Node(Node::URI, ":samuel")));
+    } catch (RDFException) {
+        cerr << "Correctly caught RDFException when trying to use a transaction after committing it" << endl;
+        caught = true;
+    }
+    if (!caught) {
+        cerr << "Failed to get RDFException when trying to use a transaction after committing it" << endl;
+        return false;
+    }
 
     delete t;
 
@@ -974,6 +999,7 @@ testTransactionalStore()
 
     t = ts.startTransaction();
     t->revert(changes);
+    t->commit();
     delete t;
 
     triples = ts.match(Triple());
@@ -984,6 +1010,7 @@ testTransactionalStore()
 
     t = ts.startTransaction();
     t->change(changes);
+    t->commit();
     delete t;
 
     triples = ts.match(Triple());
@@ -1007,6 +1034,27 @@ testTransactionalStore()
         return false;
     }
 
+    
+    // Test that we can't delete a transaction that has been used
+    // without committing it or rolling back
+        
+    t = ts.startTransaction();
+
+    t->add(Triple(":fred2",
+                  "http://xmlns.com/foaf/0.1/knows",
+                  Node(Node::URI, ":samuel")));
+    
+    caught = false;
+    try {
+        delete t;
+    } catch (RDFException) {
+        cerr << "Correctly caught RDFException when trying to delete a used but uncommitted/unrolled-back transaction" << endl;
+        caught = true;
+    }
+    if (!caught) {
+        cerr << "Failed to get RDFException when trying to delete a used but uncommitted/unrolled-back transaction" << endl;
+        return false;
+    }
 
 
     // Test explicit rollback
@@ -1096,6 +1144,13 @@ testTransactionalStore()
         ++exceptionCount;
     }
     ++expectedExceptions;
+    try {
+        t->commit();
+    } catch (RDFException) {
+        ++exceptionCount;
+    }
+    ++expectedExceptions;
+    t->commit();
     delete t;
 
     triples = ts.match(Triple());

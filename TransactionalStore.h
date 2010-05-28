@@ -66,6 +66,8 @@ namespace Dataquay
  * Transaction::rollback() if you decide you do not wish to commit it.
  *
  * TransactionalStore is thread-safe.
+ *
+ *!!! ... but the individual Transactions that you get from it are _not_ thread-safe -- document this (it's probably acceptable) or fix it
  */
 class TransactionalStore : public QObject, public Store
 {
@@ -112,8 +114,8 @@ public:
     /**
      * Start a transaction and obtain a Transaction through which to
      * carry out its operations.  Once the transaction is complete,
-     * you must delete the Transaction object to finish the
-     * transaction.
+     * you must call commit on the Transaction object to finish the
+     * transaction, and then you must delete the object.
      */
     Transaction *startTransaction();
 
@@ -172,6 +174,7 @@ private:
         Uri expand(QString uri) const;
 
         // Transaction interface
+        void commit();
         void rollback();
 
         TSTransaction(TransactionalStore::D *td);

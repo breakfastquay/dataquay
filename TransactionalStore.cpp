@@ -37,6 +37,8 @@
 
 #include <QMutex>
 #include <QMutexLocker>
+#include <QThread>
+#include <QThreadStorage>
 
 #include <iostream>
 #include <memory> // auto_ptr
@@ -310,24 +312,69 @@ class TransactionalStore::TSTransaction::D
 {
 public:
     D(TransactionalStore::TSTransaction *tx, TransactionalStore::D *td) :
-        m_tx(tx), m_td(td), m_abandoned(false) {
+        m_tx(tx), m_td(td), m_committed(false), m_abandoned(false) {
+
+        // m_threadStorage is used solely to test for, and issue a
+        // warning about, any case where we already have a transaction
+        // in this thread that has not been deleted yet.  You almost
+        // always want to delete a transaction immediately after it
+        // has been committed or rolled back, so by far the most
+        // likely reason why a transaction that was created in this
+        // thread would still exist on the heap is that you forgot to
+        // delete it.  If you have another use case (i.e. if this
+        // warning is bugging you but there's nothing wrong with your
+        // code) I'd be interested to hear about it.
+
+        //!!! ach, no -- of course there's another use case: using
+        //!!! auto_ptr or QSharedPointer or whatever.  You can quite
+        //!!! legitimately have any number of transactions in scope at
+        //!!! once even though they may have been committed long ago.
+
+        // It would be nice if this debug message could be eliminated
+        // in release builds, just in case -- but we don't really have
+        // fine-grained debug here and most of our debug messages are
+        // at an informational level.  If it were me, I'd want to see
+        // this even when most debug messages were switched off.
+
+        // Better still would be to formalise this well enough that it
+        // could be a proper, reliable exception somewhere instead of
+        // just a crappy warning.
+
+        if (m_threadStorage.hasLocalData()) {
+            std::cerr << "WARNING: Transaction created in thread " 
+                      << QThread::currentThreadId()
+                      << " even though the previous transaction has not been deleted -- did you forget to delete after commit or rollback?"
+                      << std::endl;
+        } else {
+            m_threadStorage.setLocalData(new int(1));
+        }
     }
     ~D() {
-        if (m_abandoned) {
+        m_threadStorage.setLocalData(0);
+        if (!m_committed && !m_abandoned && !m_tx->getChanges().empty()) {
+            // Although it's not a good idea for any code to try to
+            // catch this exception and continue (better just to fix
+            // the code!), we should at least make it possible -- so
+            // we need to either commit or rollback, or else the next
+            // transaction will stall
             m_td->rollbackTransaction(m_tx);
-        } else {
-            m_td->commitTransaction(m_tx);
+            throw RDFException(QString("Transaction was used then deleted, without having been committed or rolled back"));
         }
     }
 
     void abandon() const {
+        if (m_abandoned || m_committed) return;
         DEBUG << "TransactionalStore::TSTransaction::abandon: Auto-rollback triggered by exception" << endl;
+        m_td->rollbackTransaction(m_tx);
         m_abandoned = true;
     }
     
     void check() const {
         if (m_abandoned) {
             throw RDFException("Transaction abandoned");
+        }
+        if (m_committed) {
+            throw RDFException("Transaction already committed");
         }
     }
 
@@ -498,17 +545,30 @@ public:
         return m_tx->getChanges();
     }
 
+    void commit() {
+        check();
+        DEBUG << "TransactionalStore::TSTransaction::commit: Committing" << endl;
+        m_td->commitTransaction(m_tx);
+        m_committed = true;
+    }
+
     void rollback() {
         check();
         DEBUG << "TransactionalStore::TSTransaction::rollback: Abandoning" << endl;
+        m_td->rollbackTransaction(m_tx);
         m_abandoned = true;
     }
         
 private:
     TransactionalStore::TSTransaction *m_tx;
     TransactionalStore::D *m_td;
+    mutable bool m_committed;
     mutable bool m_abandoned;
+
+    static QThreadStorage<int *> m_threadStorage;
 };
+
+QThreadStorage<int *> TransactionalStore::TSTransaction::D::m_threadStorage;
 
 TransactionalStore::TransactionalStore(Store *store, DirectWriteBehaviour dwb) :
     m_d(new D(this, store, dwb))
@@ -706,6 +766,12 @@ Uri
 TransactionalStore::TSTransaction::expand(QString uri) const
 {
     return m_d->expand(uri);
+}
+
+void
+TransactionalStore::TSTransaction::commit()
+{
+    m_d->commit();
 }
 
 void
