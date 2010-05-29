@@ -118,8 +118,11 @@ Connection::D::start()
 void
 Connection::D::commit()
 {
-    delete m_tx;
-    m_tx = NoTransaction;
+    if (m_tx) {
+        m_tx->commit();
+        delete m_tx;
+        m_tx = NoTransaction;
+    }
 }
 
 void

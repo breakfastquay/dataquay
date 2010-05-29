@@ -80,7 +80,7 @@ public:
         QMutexLocker locker(&m_mutex);
         DEBUG << "TransactionalStore::startTransaction" << endl;
         if (m_currentTx != NoTransaction) {
-            throw RDFException("ERROR: Attempt to start transaction when another transaction from the same thread is already in train");
+            throw RDFTransactionError("ERROR: Attempt to start transaction when another transaction from the same thread is already in train");
         }
         Transaction *tx = new TSTransaction(this);
         m_currentTx = tx;
@@ -275,7 +275,7 @@ private:
             try {
                 m_store->change(cs);
             } catch (RDFException &e) {
-                throw RDFException(QString("Failed to enter transaction context.  Has the store been modified non-transactionally while a transaction was in progress?  Original error is: %1").arg(e.what()));
+                throw RDFTransactionError(QString("Failed to enter transaction context.  Has the store been modified non-transactionally while a transaction was in progress?  Original error is: %1").arg(e.what()));
             }
         }
         m_context = TxContext;
@@ -299,7 +299,7 @@ private:
             try {
                 m_store->revert(cs);
             } catch (RDFException &e) {
-                throw RDFException(QString("Failed to leave transaction context.  Has the store been modified non-transactionally while a transaction was in progress?  Original error is: %1").arg(e.what()));
+                throw RDFTransactionError(QString("Failed to leave transaction context.  Has the store been modified non-transactionally while a transaction was in progress?  Original error is: %1").arg(e.what()));
             }
         }
         m_context = NonTxContext;
@@ -310,24 +310,33 @@ class TransactionalStore::TSTransaction::D
 {
 public:
     D(TransactionalStore::TSTransaction *tx, TransactionalStore::D *td) :
-        m_tx(tx), m_td(td), m_abandoned(false) {
+        m_tx(tx), m_td(td), m_committed(false), m_abandoned(false) {
     }
     ~D() {
-        if (m_abandoned) {
+        if (!m_committed && !m_abandoned && !m_tx->getChanges().empty()) {
+            // Although it's not a good idea for any code to try to
+            // catch this exception and continue (better just to fix
+            // the code!), we should at least make it possible -- so
+            // we need to either commit or rollback, or else the next
+            // transaction will stall
             m_td->rollbackTransaction(m_tx);
-        } else {
-            m_td->commitTransaction(m_tx);
+            throw RDFTransactionError(QString("Transaction deleted without having been committed or rolled back"));
         }
     }
 
     void abandon() const {
+        if (m_abandoned || m_committed) return;
         DEBUG << "TransactionalStore::TSTransaction::abandon: Auto-rollback triggered by exception" << endl;
+        m_td->rollbackTransaction(m_tx);
         m_abandoned = true;
     }
     
     void check() const {
         if (m_abandoned) {
-            throw RDFException("Transaction abandoned");
+            throw RDFTransactionError("Transaction used after being rolled back");
+        }
+        if (m_committed) {
+            throw RDFTransactionError("Transaction used afted being committed");
         }
     }
 
@@ -340,7 +349,7 @@ public:
             } else {
                 return false;
             }
-        } catch (RDFException) {
+        } catch (RDFException &) {
             abandon();
             throw;
         }
@@ -374,7 +383,7 @@ public:
                 }
             }
             return found;
-        } catch (RDFException) {
+        } catch (RDFException &) {
             abandon();
             throw;
         }
@@ -424,7 +433,7 @@ public:
         check();
         try {
             return m_td->contains(m_tx, t);
-        } catch (RDFException) {
+        } catch (RDFException &) {
             abandon();
             throw;
         }
@@ -434,7 +443,7 @@ public:
         check();
         try {
             return m_td->match(m_tx, t);
-        } catch (RDFException) {
+        } catch (RDFException &) {
             abandon();
             throw;
         }
@@ -444,7 +453,7 @@ public:
         check();
         try {
             return m_td->query(m_tx, sparql);
-        } catch (RDFException) {
+        } catch (RDFException &) {
             abandon();
             throw;
         }
@@ -454,7 +463,7 @@ public:
         check();
         try {
             return m_td->matchFirst(m_tx, t);
-        } catch (RDFException) {
+        } catch (RDFException &) {
             abandon();
             throw;
         }
@@ -464,7 +473,7 @@ public:
         check();
         try {
             return m_td->queryFirst(m_tx, sparql, bindingName);
-        } catch (RDFException) {
+        } catch (RDFException &) {
             abandon();
             throw;
         }
@@ -474,7 +483,7 @@ public:
         check();
         try {
             return m_td->getUniqueUri(m_tx, prefix);
-        } catch (RDFException) {
+        } catch (RDFException &) {
             abandon();
             throw;
         }
@@ -484,7 +493,7 @@ public:
         check();
         try {
             return m_td->addBlankNode(m_tx);
-        } catch (RDFException) {
+        } catch (RDFException &) {
             abandon();
             throw;
         }
@@ -498,15 +507,24 @@ public:
         return m_tx->getChanges();
     }
 
+    void commit() {
+        check();
+        DEBUG << "TransactionalStore::TSTransaction::commit: Committing" << endl;
+        m_td->commitTransaction(m_tx);
+        m_committed = true;
+    }
+
     void rollback() {
         check();
         DEBUG << "TransactionalStore::TSTransaction::rollback: Abandoning" << endl;
+        m_td->rollbackTransaction(m_tx);
         m_abandoned = true;
     }
         
 private:
     TransactionalStore::TSTransaction *m_tx;
     TransactionalStore::D *m_td;
+    mutable bool m_committed;
     mutable bool m_abandoned;
 };
 
@@ -706,6 +724,12 @@ Uri
 TransactionalStore::TSTransaction::expand(QString uri) const
 {
     return m_d->expand(uri);
+}
+
+void
+TransactionalStore::TSTransaction::commit()
+{
+    m_d->commit();
 }
 
 void
