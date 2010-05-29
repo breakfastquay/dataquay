@@ -1150,7 +1150,6 @@ testTransactionalStore()
         ++exceptionCount;
     }
     ++expectedExceptions;
-    t->commit();
     delete t;
 
     triples = ts.match(Triple());
@@ -1793,6 +1792,7 @@ testObjectMapper()
         cerr << "Failed to remove property triple in transactional store!" << endl;
         return false;
     }
+    tx->commit();
     delete tx;
 
     if (c->getString() != "") {
@@ -1806,6 +1806,7 @@ testObjectMapper()
         cerr << "Failed to add property triple in transactional store!" << endl;
         return false;
     }
+    tx->commit();
     delete tx;
 
     if (c->getString() != "Another lone string") {
@@ -1855,6 +1856,7 @@ testObjectMapper()
     // recall that uri is the uri of the original test object o, which
     // is the parent of the timer object t
     tx->remove(Triple(uri, Node(), Node()));
+    tx->commit();
     delete tx;
 
     mapper.commit();

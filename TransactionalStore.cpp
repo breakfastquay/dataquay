@@ -82,7 +82,7 @@ public:
         QMutexLocker locker(&m_mutex);
         DEBUG << "TransactionalStore::startTransaction" << endl;
         if (m_currentTx != NoTransaction) {
-            throw RDFException("ERROR: Attempt to start transaction when another transaction from the same thread is already in train");
+            throw RDFTransactionError("ERROR: Attempt to start transaction when another transaction from the same thread is already in train");
         }
         Transaction *tx = new TSTransaction(this);
         m_currentTx = tx;
@@ -277,7 +277,7 @@ private:
             try {
                 m_store->change(cs);
             } catch (RDFException &e) {
-                throw RDFException(QString("Failed to enter transaction context.  Has the store been modified non-transactionally while a transaction was in progress?  Original error is: %1").arg(e.what()));
+                throw RDFTransactionError(QString("Failed to enter transaction context.  Has the store been modified non-transactionally while a transaction was in progress?  Original error is: %1").arg(e.what()));
             }
         }
         m_context = TxContext;
@@ -301,7 +301,7 @@ private:
             try {
                 m_store->revert(cs);
             } catch (RDFException &e) {
-                throw RDFException(QString("Failed to leave transaction context.  Has the store been modified non-transactionally while a transaction was in progress?  Original error is: %1").arg(e.what()));
+                throw RDFTransactionError(QString("Failed to leave transaction context.  Has the store been modified non-transactionally while a transaction was in progress?  Original error is: %1").arg(e.what()));
             }
         }
         m_context = NonTxContext;
@@ -358,7 +358,7 @@ public:
             // we need to either commit or rollback, or else the next
             // transaction will stall
             m_td->rollbackTransaction(m_tx);
-            throw RDFException(QString("Transaction was used then deleted, without having been committed or rolled back"));
+            throw RDFTransactionError(QString("Transaction deleted without having been committed or rolled back"));
         }
     }
 
@@ -371,10 +371,10 @@ public:
     
     void check() const {
         if (m_abandoned) {
-            throw RDFException("Transaction abandoned");
+            throw RDFTransactionError("Transaction used after being rolled back");
         }
         if (m_committed) {
-            throw RDFException("Transaction already committed");
+            throw RDFTransactionError("Transaction used afted being committed");
         }
     }
 
@@ -387,7 +387,7 @@ public:
             } else {
                 return false;
             }
-        } catch (RDFException) {
+        } catch (RDFException &) {
             abandon();
             throw;
         }
@@ -421,7 +421,7 @@ public:
                 }
             }
             return found;
-        } catch (RDFException) {
+        } catch (RDFException &) {
             abandon();
             throw;
         }
@@ -471,7 +471,7 @@ public:
         check();
         try {
             return m_td->contains(m_tx, t);
-        } catch (RDFException) {
+        } catch (RDFException &) {
             abandon();
             throw;
         }
@@ -481,7 +481,7 @@ public:
         check();
         try {
             return m_td->match(m_tx, t);
-        } catch (RDFException) {
+        } catch (RDFException &) {
             abandon();
             throw;
         }
@@ -491,7 +491,7 @@ public:
         check();
         try {
             return m_td->query(m_tx, sparql);
-        } catch (RDFException) {
+        } catch (RDFException &) {
             abandon();
             throw;
         }
@@ -501,7 +501,7 @@ public:
         check();
         try {
             return m_td->matchFirst(m_tx, t);
-        } catch (RDFException) {
+        } catch (RDFException &) {
             abandon();
             throw;
         }
@@ -511,7 +511,7 @@ public:
         check();
         try {
             return m_td->queryFirst(m_tx, sparql, bindingName);
-        } catch (RDFException) {
+        } catch (RDFException &) {
             abandon();
             throw;
         }
@@ -521,7 +521,7 @@ public:
         check();
         try {
             return m_td->getUniqueUri(m_tx, prefix);
-        } catch (RDFException) {
+        } catch (RDFException &) {
             abandon();
             throw;
         }
@@ -531,7 +531,7 @@ public:
         check();
         try {
             return m_td->addBlankNode(m_tx);
-        } catch (RDFException) {
+        } catch (RDFException &) {
             abandon();
             throw;
         }

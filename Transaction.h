@@ -56,10 +56,10 @@ public:
      * Delete this transaction object.  You must either commit or roll
      * back the transaction before deleting it.
      * 
-     * The destructor will throw RDFException if the transaction has
-     * been used but not committed or rolled back.  Such a situation
-     * indicates a straightforward coding oversight: fix the code,
-     * rather than catching the exception.
+     * The destructor will throw RDFTransactionError if the
+     * transaction has been used but not committed or rolled back.
+     * Such a situation indicates a straightforward coding oversight:
+     * fix the code, rather than catching the exception.
      */
     virtual ~Transaction() { }
     
@@ -71,7 +71,7 @@ public:
      * You should not attempt to use the Transaction object again
      * (except to call getChanges or to delete it) after this call is
      * made.  Any further call to the transaction's Store interface
-     * will throw an RDFException.
+     * will throw an RDFTransactionError.
      */
     virtual void commit() = 0;
     
@@ -82,7 +82,7 @@ public:
      * You should not attempt to use the Transaction object again
      * (except to delete it) after this call is made.  Any further
      * call to the transaction's Store interface will throw an
-     * RDFException.
+     * RDFTransactionError.
      */
     virtual void rollback() = 0;
 

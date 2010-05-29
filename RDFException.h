@@ -87,6 +87,20 @@ public:
 };
 
 /**
+ * \class RDFTransactionError RDFException.h <dataquay/RDFException.h>
+ *
+ * RDFTransactionError is an exception that results from incorrect use
+ * of a Transaction, for example using a Transaction object after it
+ * has been committed.
+ */
+class RDFTransactionError : virtual public RDFException
+{
+public:
+    RDFTransactionError(QString message, QString data = "") throw() :
+        RDFException(message, data) { }
+};
+
+/**
  * \class RDFDuplicateImportException RDFException.h <dataquay/RDFException.h>
  *
  * RDFDuplicateImportException is an exception that results from an
