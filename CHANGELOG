@@ -1,0 +1,34 @@
+
+
+Changes in Dataquay 0.3 since the previous version 0.2:
+
+ * Add the entire ObjectMapper API and implementation
+
+ * Add the ability to extend Node with new converters between QVariant
+   types and RDF literal types
+
+ * Replace QUrl with a new, very thin Uri class throughout for
+   representation of RDF URIs.  QUrl turned out to be very costly for
+   this and most of its facilities are not needed here
+
+ * Change the Transaction interface so as to require an explicit
+   commit() call rather than committing on delete (it's more work to
+   use this way, but code written to use the old interface just didn't
+   read well)
+
+ * Change Node so as to use an untyped literal for string types rather
+   than using xsd:string (necessary for practical interoperability)
+
+ * Some very substantial performance improvements and further fixes
+
+
+Changes in Dataquay 0.2 since the initial version 0.1:
+
+ * Add the ability to control how duplicate triples are handled on
+   import
+
+ * Make the transactional store emit a signal when a transaction is
+   committed
+
+ * A small number of other fixes
+

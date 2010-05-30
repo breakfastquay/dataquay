@@ -60,6 +60,10 @@ store and Turtle I/O implementations. You will need to have the
 Raptor, Rasqal and Redland libraries installed in order to build and
 use Dataquay.
 
+To compile Dataquay, run qmake then make.  There is no install step
+yet.  Note that this is a pre-1.0 release and the API is still subject
+to change.
+
 
 Chris Cannam
 chris.cannam@breakfastquay.com
