@@ -92,6 +92,7 @@ public:
         m_storer = new ObjectStorer(&m_c);
         m_storer->setPropertyStorePolicy(ObjectStorer::StoreIfChanged);
         m_storer->setBlankNodePolicy(ObjectStorer::NoBlankNodes); //!!!???
+        m_storer->setFollowPolicy(ObjectStorer::FollowObjectProperties);
         connect(&m_c, SIGNAL(transactionCommitted(const ChangeSet &)),
                 m_m, SLOT(transactionCommitted(const ChangeSet &)));
     }
