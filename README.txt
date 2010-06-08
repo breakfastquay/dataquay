@@ -51,7 +51,7 @@ Dataquay provides these features:
    source applications and modify it as you like with no particular
    requirements except acknowledgement in your copyright notes. We do
    ask that you let us know of any bugs, fixes and enhancements you
-   might find — particularly for serious bugs — but you have no
+   might find -- particularly for serious bugs -- but you have no
    obligation to do so.
 
 Dataquay is a small library: most of the serious work is done by Dave
