@@ -312,7 +312,9 @@ ObjectStorer::D::removeUnusedBlankNode(Node node)
 
     foreach (Triple t, tails) {
         DEBUG << "... recursing to list tail" << endl;
-        removeUnusedBlankNode(t.c);
+        if (t.c.type == Node::Blank) {
+            removeUnusedBlankNode(t.c);
+        }
     }
 }
             
@@ -370,6 +372,9 @@ ObjectStorer::D::variantToPropertyNodeList(ObjectNodeMap &map, ObjectSet &examin
     } else if (isStarType(typeName)) {
 
         // do not attempt to write binary pointers!
+        DEBUG << "variantToPropertyNodeList: Note: Ignoring pointer type "
+              << typeName
+              << " that is unknown to container and object builders" << endl;
         return Nodes();
 
     } else {
