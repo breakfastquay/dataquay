@@ -59,11 +59,11 @@ public:
      * type for undefined elements (used in wildcard matching, etc).
      *
      * However, in order to be inserted in the RDF store, a triple
-     * must consist of URI, URI, and either URI or Literal types, in
-     * that order.  (A complete RDF statement may have either URI or
-     * blank node as its subject, but we don't handle blank nodes
-     * properly in this wrapper.)  See the following constructor for
-     * some simple assistance in constructing those.
+     * must have either URI or Blank type for its first (or subject)
+     * node, URI for its second (or predicate) node, and either URI,
+     * Blank, or Literal type for its third (or object) node.  See the
+     * following constructor for some simple assistance in
+     * constructing typical statement triples.
      */
     Triple(Node _a, Node _b, Node _c) :
         a(_a), b(_b), c(_c) { }
@@ -72,7 +72,7 @@ public:
      * Construct a triple of two URIs and an arbitrary node.
      * 
      * This constructor simplifies constructing complete RDF
-     * statements -- with URI, URI, and URI or Literal nodes.
+     * statements with subject and predicate both URIs.
      */
     Triple(QString a_uri, QString b_uri, Node _c) :
         a(Node::URI, a_uri),
@@ -81,9 +81,6 @@ public:
 
     /**
      * Construct a triple of Node, URI, and an arbitrary node.
-     * 
-     * This constructor simplifies constructing complete RDF
-     * statements -- with URI, URI, and URI or Literal nodes.
      */
     Triple(Node _a, QString b_uri, Node _c) :
         a(_a),

@@ -196,13 +196,13 @@ public:
     }
 
     void objectModified(QObject *o) {
-        std::cerr << "objectModified(" << o << ")" << std::endl;
+        DEBUG << "ObjectMapper:: objectModified(" << o << ")" << endl;
         QMutexLocker locker(&m_mutex);
         if (m_inReload) {
             // This signal must have been emitted by a modification
             // caused by our own transactionCommitted method (see
             // similar comment about m_inCommit in that method).
-            std::cerr << "(by us, ignoring it)" << std::endl;
+            DEBUG << "(by us, ignoring it)" << endl;
             return;
         }
 
@@ -213,7 +213,7 @@ public:
     }
 
     void objectDestroyed(QObject *o) {
-        std::cerr << "objectDestroyed(" << o << ")" << std::endl;
+        DEBUG << "ObjectMapper::objectDestroyed(" << o << ")" << endl;
         QMutexLocker locker(&m_mutex);
         m_changedObjects.remove(o);
         if (m_forwarders.contains(o)) {
@@ -222,7 +222,7 @@ public:
         }
         Node node = m_n.objectNodeMap.value(o);
         if (node == Node()) {
-            std::cerr << "(have no node for this)" << std::endl;
+            DEBUG << "(have no node for this)" << endl;
             return;
         }
         m_n.objectNodeMap.remove(o);
@@ -240,7 +240,7 @@ public:
             // to ignore events for objects we know we are
             // synchronising already.
             if (m_reloading.contains(node)) {
-                std::cerr << "(by us, ignoring it)" << std::endl;
+                DEBUG << "(by us, ignoring it)" << endl;
                 return;
             }
             // ^^^ write a unit test for this!
@@ -250,7 +250,7 @@ public:
     }
 
     void transactionCommitted(const ChangeSet &cs) {
-        std::cerr << "transactionCommitted" << std::endl;
+        DEBUG << "ObjectMapper::transactionCommitted" << endl;
         QMutexLocker locker(&m_mutex);
         if (m_inCommit) {
             // This signal must have been emitted by a commit invoked
@@ -261,7 +261,7 @@ public:
             // mutex, otherwise we would have deadlocked).  And we
             // don't want to update on the basis of our own commits,
             // only on the basis of commits happening elsewhere.
-            std::cerr << "(by us, ignoring it)" << std::endl;
+            DEBUG << "(by us, ignoring it)" << endl;
             return;
         }
         //!!! but now what?
@@ -302,9 +302,9 @@ public:
     void commit() { 
 
         QMutexLocker locker(&m_mutex);
-        std::cerr << "ObjectMapper: Synchronising " << m_changedObjects.size()
-                  << " changed and " << m_deletedObjectNodes.size()
-                  << " deleted object(s)" << std::endl;
+        DEBUG << "ObjectMapper: Synchronising " << m_changedObjects.size()
+              << " changed and " << m_deletedObjectNodes.size()
+              << " deleted object(s)" << endl;
         //!!! if an object has been added as a new sibling of existing
         //!!! objects, then we presumably may have to rewrite our
         //!!! follows relationships?
@@ -414,8 +414,8 @@ private:
              i != unfound.end(); ++i) {
             to.remove(*i);
         }
-        std::cerr << "syncMap: Note: updated " << updated << " and removed "
-                  << unfound.size() << " element(s) from target map" << std::endl;
+        DEBUG << "syncMap: Note: updated " << updated << " and removed "
+              << unfound.size() << " element(s) from target map" << endl;
     }
 };
 
