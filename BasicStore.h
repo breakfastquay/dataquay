@@ -71,7 +71,8 @@ public:
     Uri getBaseUri() const;
     
     /**
-     * Empty the store (including prefixes as well as triples).
+     * Empty the store of triples.  Prefixes that have been added with
+     * addPrefix are unaffected.
      */
     void clear();
 

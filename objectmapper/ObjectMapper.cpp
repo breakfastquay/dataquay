@@ -66,15 +66,35 @@ ObjectMapper::D : public QObject
         ObjectStorer::ObjectNodeMap objectNodeMap;
         
         Node getNodeForObject(QObject *o) {
-            ObjectStorer::ObjectNodeMap::const_iterator i = objectNodeMap.find(o);
+            ObjectStorer::ObjectNodeMap::const_iterator i =
+                objectNodeMap.find(o);
             if (i != objectNodeMap.end()) return i.value();
             return Node();
         }
         QObject *getObjectByNode(Node n) {
-            ObjectLoader::NodeObjectMap::const_iterator i = nodeObjectMap.find(n);
+            ObjectLoader::NodeObjectMap::const_iterator i =
+                nodeObjectMap.find(n);
             if (i != nodeObjectMap.end()) return i.value();
             return 0;
         }
+    };
+
+    struct LoadStoreCallback : public ObjectStorer::StoreCallback,
+                               public ObjectLoader::LoadCallback
+    {
+        LoadStoreCallback(ObjectMapper::D *d) : m_d(d) { }
+        void loaded(ObjectLoader *, ObjectLoader::NodeObjectMap &,
+                    Node, QObject *o) {
+            DEBUG << "LoadStoreCallback::loaded: Object " << o << endl;
+            m_d->manage(o);
+        }
+        void stored(ObjectStorer *, ObjectStorer::ObjectNodeMap &,
+                    QObject *o, Node) {
+            DEBUG << "LoadStoreCallback::stored: Object " << o << endl;
+            m_d->manage(o);
+        }
+    private:
+        ObjectMapper::D *m_d;
     };
 
 public:
@@ -84,15 +104,20 @@ public:
         m_c(s),
         m_mutex(QMutex::Recursive),
         m_inCommit(false),
-        m_inReload(false)
+        m_inReload(false),
+        m_callback(this)
     {
         m_loader = new ObjectLoader(&m_c);
         m_loader->setAbsentPropertyPolicy(ObjectLoader::ResetAbsentProperties);
         m_loader->setFollowPolicy(ObjectLoader::FollowObjectProperties);
+        m_loader->addLoadCallback(&m_callback);
+
         m_storer = new ObjectStorer(&m_c);
         m_storer->setPropertyStorePolicy(ObjectStorer::StoreIfChanged);
         m_storer->setBlankNodePolicy(ObjectStorer::NoBlankNodes); //!!!???
         m_storer->setFollowPolicy(ObjectStorer::FollowObjectProperties);
+        m_storer->addStoreCallback(&m_callback);
+
         connect(&m_c, SIGNAL(transactionCommitted(const ChangeSet &)),
                 m_m, SLOT(transactionCommitted(const ChangeSet &)));
     }
@@ -136,6 +161,7 @@ public:
             // which will happen on the next commit because we are
             // adding it to the changed object map
         }
+        DEBUG << "ObjectMapper::add: Adding " << o << " to changed list" << endl;
         m_changedObjects.insert(o);
     }
 
@@ -149,6 +175,7 @@ public:
                 // doesn't matter (as above)
             }
         }
+        DEBUG << "ObjectMapper::add: Adding " << ol.size() << " object(s) to changed list" << endl;
         foreach (QObject *o, ol) {
             m_changedObjects.insert(o);
         }
@@ -156,11 +183,33 @@ public:
 
     void manage(QObject *o) {
         QMutexLocker locker(&m_mutex);
+
+        Uri uri = o->property("uri").value<Uri>();
+        if (uri == Uri()) {
+            //!!! document this -- generally, document conditions for manage() to be used rather than add()
+            throw NoUriException(o->objectName(), o->metaObject()->className());
+        }
+
+        // An object is managed if we have it in both maps. If it's
+        // only in one map, then it has probably been stored or loaded
+        // by following a property or other connection, and stored in
+        // the map by the loader/storer call, but not yet properly
+        // managed (particularly, not yet connected to a forwarder).
+        // This function is called from the load/store callback
+        // specifically to deal with managing such
+        // known-but-not-properly-managed objects before the two maps
+        // are synchronised.  If it wasn't called, such objects would
+        // remain forever in a sort of half-managed limbo.
         
-        if (m_n.objectNodeMap.contains(o)) {
-            DEBUG << "ObjectMapper::manage: Object is already managed" << endl;
+        if (m_n.objectNodeMap.contains(o) &&
+            m_n.nodeObjectMap.contains(Node(uri))) {
+            DEBUG << "ObjectMapper::manage: Object " << o
+                  << " " << uri << " is already managed" << endl;
             return;
         }
+
+        DEBUG << "ObjectMapper::manage: Managing " << o
+              << " " << uri << endl;
 
         // The forwarder avoids us trying to connect potentially many,
         // many signals to the same mapper object -- which is slow.
@@ -169,16 +218,8 @@ public:
         ObjectMapperForwarder *f = new ObjectMapperForwarder(m_m, o);
         m_forwarders.insert(o, f);
 
-        Uri uri = o->property("uri").value<Uri>();
-        if (uri == Uri()) {
-            //!!! document this -- generally, document conditions for manage() to be used rather than add()
-            throw NoUriException(o->objectName(), o->metaObject()->className());
-        } else {
-            m_n.objectNodeMap.insert(o, Node(uri));
-            m_n.nodeObjectMap.insert(Node(uri), o);
-        }
-
-        //!!! also manage objects that are properties? and manage any new settings of those that appear when we commit?
+        m_n.objectNodeMap.insert(o, Node(uri));
+        m_n.nodeObjectMap.insert(Node(uri), o);
     }
 
     void manage(QObjectList ol) {
@@ -355,6 +396,7 @@ private:
 
     ObjectLoader *m_loader;
     ObjectStorer *m_storer;
+    LoadStoreCallback m_callback;
 
     class InternalMappingInconsistency : virtual public std::exception {
     public:

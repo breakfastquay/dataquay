@@ -156,6 +156,7 @@ public slots:
      * needs to be managed; ObjectMapper does not have any other way
      * to find out about new objects, even if they are properties or
      * children of existing managed objects.
+     *!!! above is no longer correct (anything stored or loaded is managed automatically), document
      */
     void add(QObject *);
 
@@ -168,6 +169,7 @@ public slots:
      * needs to be managed; ObjectMapper does not have any other way
      * to find out about new objects, even if they are properties or
      * children of existing managed objects.
+     *!!! above is no longer correct (anything stored or loaded is managed automatically), document
      */
     void add(QObjectList);
 
@@ -175,13 +177,15 @@ public slots:
      * Tell ObjectMapper to start managing an object.  This tells
      * ObjectMapper to watch the object and commit to the store any
      * changes that it detects in the object's properties, or when the
-     * object is destroyed.
+     * object is destroyed.  If the object was managed already,
+     * nothing happens.
      *
      * This does not mark the object as needing to be written; it
      * implies that the object is known to be up-to-date with the
      * store already.  ObjectMapper will refuse to manage any object
      * that lacks a uri property; if your object is a "new" one, you
      * should use \ref add instead of \ref manage.
+     *!!! above is no longer enough (anything stored or loaded is managed automatically), document
      */
     void manage(QObject *);
 
@@ -191,11 +195,16 @@ public slots:
      * any changes that it detects in the objects' properties, or when
      * the objects are destroyed.
      *
+     * Any objects that were managed already are ignored: there is no
+     * harm in passing them more than once, except a small time
+     * penalty.
+     *
      * This does not mark the objects as needing to be written; it
      * implies that the objects are known to be up-to-date with the
      * store already.  ObjectMapper will refuse to manage any object
      * that lacks a uri property; if your object is a "new" one, you
      * should use \ref add instead of \ref manage.
+     *!!! above is no longer enough (anything stored or loaded is managed automatically), document
      */
     void manage(QObjectList);
 
