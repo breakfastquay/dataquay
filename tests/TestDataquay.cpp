@@ -408,6 +408,31 @@ testBasicStore()
             return false;
         }
 
+        cerr << "Testing triples comparison..." << endl;
+
+        triples = store.match(Triple(Node(Node::URI, ":fred"), Node(), Node()));
+        Triples triples2 = store.match(Triple(Node(Node::URI, ":fred"), Node(), Node()));
+
+        if (!triples.matches(triples2)) {
+            cerr << "Triples returned from two identical matches fail to match" << endl;
+            return false;
+        }
+
+        triples2 = Triples();
+        foreach (Triple t, triples) triples2.push_front(t);
+        
+        if (!triples.matches(triples2)) {
+            cerr << "Triples fail to match same triples in reverse order" << endl;
+            return false;
+        }
+
+        triples2 = store.match(Triple(Node(Node::URI, ":alice"), Node(), Node()));
+
+        if (triples.matches(triples2)) {
+            cerr << "Triples returned from two different matches compare equal" << endl;
+            return false;
+        }
+
         cerr << "Testing file save..." << endl;
 
         store.save("test.ttl");

@@ -38,13 +38,34 @@
 
 #include <QList>
 #include <QHash>
+#include <QMap>
 #include <QPair>
 
 namespace Dataquay
 {
 
 /// A list of RDF triples.
-typedef QList<Triple> Triples;
+class Triples : public QList<Triple> {
+public:
+    /**
+     * Return true if the two Triples lists contain the same elements.
+     * Triples is an ordered list, so operator== returns true only if
+     * the two lists have the same elements in the same order; this
+     * test is independent of order (although not independent of
+     * number, in the case of duplicate triples) and so may be more
+     * meaningful in some cases.
+     */
+    bool matches(const Triples &other) const {
+        if (this == &other) return true;
+        if (size() != other.size()) return false;
+        if (size() < 2) return QList<Triple>::operator==(other);
+        // Triple has operator< but not qHash, hence use QMap rather than QSet
+        QMap<Triple, int> a, b;
+        foreach (Triple t, *this) ++a[t];
+        foreach (Triple t, other) ++b[t];
+        return a == b;
+    }
+};
 
 /// A mapping from key to node, used to list results for a set of result keys.
 typedef QHash<QString, Node> Dictionary;
