@@ -262,16 +262,20 @@ public:
         }
     }
 
-    QObjectList loadAll() {
+    QObjectList loadType(Uri type) {
         NodeObjectMap map;
-        return loadAll(map);
+        return loadType(type, map);
     }
 
-    QObjectList loadAll(NodeObjectMap &map) {
+    QObjectList loadType(Uri type, NodeObjectMap &map) {
+        return loadType(Node(type), map);
+    }
+
+    QObjectList loadType(Node typeNode, NodeObjectMap &map) {
 
         Nodes nodes;
         
-        Triples candidates = m_s->match(Triple(Node(), "a", Node()));
+        Triples candidates = m_s->match(Triple(Node(), "a", typeNode));
         foreach (Triple t, candidates) {
             if (t.c.type != Node::URI) continue;
             nodes.push_back(t.a);
@@ -285,6 +289,15 @@ public:
             if (o) objects.push_back(o);
         }
         return objects;
+    }
+
+    QObjectList loadAll() {
+        NodeObjectMap map;
+        return loadAll(map);
+    }
+
+    QObjectList loadAll(NodeObjectMap &map) {
+        return loadType(Node(), map);
     }
     
     void addLoadCallback(LoadCallback *cb) {
@@ -946,6 +959,18 @@ void
 ObjectLoader::load(Nodes nodes, NodeObjectMap &map)
 {
     m_d->load(nodes, map);
+}
+
+QObjectList
+ObjectLoader::loadType(Uri type)
+{
+    return m_d->loadType(type);
+}
+
+QObjectList
+ObjectLoader::loadType(Uri type, NodeObjectMap &map)
+{
+    return m_d->loadType(type, map);
 }
 
 QObjectList

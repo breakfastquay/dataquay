@@ -143,6 +143,13 @@ public:
      */
     QObject *getObjectByNode(Node n) const;
 
+    //!!!doc
+    QObject *load(Node node);
+
+    //!!!doc
+    QObjectList loadType(Uri type);
+    
+
 signals:
     void committed();
 

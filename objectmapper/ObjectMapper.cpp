@@ -152,6 +152,16 @@ public:
         return m_n.getObjectByNode(n);
     }
 
+    QObject *load(Node n) {
+        QMutexLocker locker(&m_mutex);
+        return m_loader->load(n);
+    }
+
+    QObjectList loadType(Uri u) {
+        QMutexLocker locker(&m_mutex);
+        return m_loader->loadType(u);
+    }
+
     void add(QObject *o) {
         QMutexLocker locker(&m_mutex);
         try {
@@ -499,6 +509,18 @@ QObject *
 ObjectMapper::getObjectByNode(Node n) const
 {
     return m_d->getObjectByNode(n);
+}
+
+QObject *
+ObjectMapper::load(Node node)
+{
+    return m_d->load(node);
+}
+
+QObjectList
+ObjectMapper::loadType(Uri type)
+{
+    return m_d->loadType(type);
 }
 
 void

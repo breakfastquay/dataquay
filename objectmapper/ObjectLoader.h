@@ -104,6 +104,9 @@ public:
 
 
     QObject *load(Node node); //!!! n.b. could be very expensive if follow options are set! might load lots & lots of stuff and then leak it! ... also, want to specify parent as in old loadObject, and to have uri arg... old method was better here
+
+    QObjectList loadType(Uri type); //!!!
+    QObjectList loadType(Uri type, NodeObjectMap &map); //!!!
     
     //!!! new method... do we want to distinguish between load-create
     //!!! and reload?
