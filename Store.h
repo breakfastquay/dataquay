@@ -55,6 +55,11 @@ public:
      * number, in the case of duplicate triples) and so may be more
      * meaningful in some cases.
      */
+    //!!! not sure about this, actually.  in many cases I think we
+    //!!! want to match a subset of a,b,c (e.g. compare two sets of
+    //!!! triples to establish whether they represent the same
+    //!!! property and object of different subjects).  are there use
+    //!!! cases for this version?
     bool matches(const Triples &other) const {
         if (this == &other) return true;
         if (size() != other.size()) return false;
