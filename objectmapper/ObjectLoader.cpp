@@ -35,16 +35,17 @@
 
 #include "ObjectBuilder.h"
 #include "ContainerBuilder.h"
-#include "PropertyObject.h"
 #include "TypeMapping.h"
-#include "Store.h"
 
 #include "ObjectMapperExceptions.h"
 
 #include <QMetaProperty>
 #include <QSet>
 
-#include "Debug.h"
+#include "../PropertyObject.h"
+#include "../Store.h"
+
+#include "../Debug.h"
 
 namespace Dataquay {
 

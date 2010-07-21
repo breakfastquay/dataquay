@@ -40,8 +40,8 @@
 
 #include "TypeMapping.h"
 
-#include "TransactionalStore.h"
-#include "Connection.h"
+#include "../TransactionalStore.h"
+#include "../Connection.h"
 
 #include "../Debug.h"
 
