@@ -107,6 +107,7 @@ public:
         }
         m_ts->transactionCommitted(cs);
         m_ts->transactionCommitted();
+        DEBUG << "TransactionalStore::commitTransaction complete" << endl;
     }
 
     void rollbackTransaction(Transaction *tx) {
@@ -119,6 +120,7 @@ public:
         // The store is now in non-transaction context, which means
         // the transaction's changes are uncommitted
         m_currentTx = NoTransaction;
+        DEBUG << "TransactionalStore::rollbackTransaction complete" << endl;
     }
 
     class Operation

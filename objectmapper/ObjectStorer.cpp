@@ -468,7 +468,7 @@ ObjectStorer::D::listToPropertyNode(ObjectNodeMap &map, ObjectSet &examined, QVa
 Node
 ObjectStorer::D::store(ObjectNodeMap &map, ObjectSet &examined, QObject *o)
 {
-    DEBUG << "store: Examining " << o << endl;
+    DEBUG << "ObjectStorer::store: Examining " << o << endl;
 
     if (m_fp != FollowNone) {
         examined.insert(o);
@@ -615,40 +615,47 @@ ObjectStorer::D::store(ObjectNodeMap &map, ObjectSet &examined, QObject *o)
 Node
 ObjectStorer::D::allocateNode(ObjectNodeMap &map, QObject *o)
 {
+    DEBUG << "allocateNode " << o << endl;
+
     Node node = map.value(o);
+    if (node != Node()) return node;
 
-    if (node == Node()) {
+    QVariant uriVar = o->property("uri");
 
-        QVariant uriVar = o->property("uri");
-
-        if (uriVar != QVariant()) {
-
-            if (Uri::isUri(uriVar)) {
-                node = uriVar.value<Uri>();
-            } else {
-                node = m_s->expand(uriVar.toString());
-            }
-
-        } else if (!map.contains(o) && m_bp == BlankNodesAsNeeded) { //!!! I don't much like that name
-
-            node = m_s->addBlankNode();
-
+    if (uriVar != QVariant()) {
+        Uri uri;
+        if (Uri::isUri(uriVar)) {
+            uri = uriVar.value<Uri>();
         } else {
-            QString className = o->metaObject()->className();
-            Uri prefix;
-            if (!m_tm.getUriPrefixForClass(className, prefix)) {
-                //!!! put this in TypeMapping?
-                QString tag = className.toLower() + "_";
-                tag.replace("::", "_");
-                prefix = m_s->expand(":" + tag);
-            }
-            Uri uri = m_s->getUniqueUri(prefix.toString());
-            o->setProperty("uri", QVariant::fromValue(uri));
-            node = uri;
+            uri = m_s->expand(uriVar.toString());
         }
-
-        map.insert(o, node);
+        if (uri != Uri()) {
+            node = Node(uri);
+            map.insert(o, node);
+            return node;
+        }
     }
+
+    if (!map.contains(o) && m_bp == BlankNodesAsNeeded) { //!!! I don't much like that name
+
+        node = m_s->addBlankNode();
+
+    } else {
+        QString className = o->metaObject()->className();
+        DEBUG << "className = " << className << endl;
+        Uri prefix;
+        if (!m_tm.getUriPrefixForClass(className, prefix)) {
+            //!!! put this in TypeMapping?
+            QString tag = className.toLower() + "_";
+            tag.replace("::", "_");
+            prefix = m_s->expand(":" + tag);
+        }
+        Uri uri = m_s->getUniqueUri(prefix.toString());
+        o->setProperty("uri", QVariant::fromValue(uri));
+        node = uri;
+    }
+
+    map.insert(o, node);
 
     return node;
 }

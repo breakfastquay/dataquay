@@ -581,7 +581,7 @@ private:
         librdf_uri *luri = librdf_new_uri
             (m_w.getWorld(),
              (const unsigned char *)uri.toString().toUtf8().data());
-        if (!luri) throw RDFInternalError("Failed to construct URI", uri);
+        if (!luri) throw RDFInternalError("Failed to convert URI to internal representation", uri);
         return luri;
     }
 
