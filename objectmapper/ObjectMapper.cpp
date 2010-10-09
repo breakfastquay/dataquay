@@ -338,7 +338,7 @@ public:
         foreach (const Node &n, m_reloading) {
             nodes.push_back(n);
         }
-        m_loader->load(nodes, m_n.nodeObjectMap);
+        m_loader->reload(nodes, m_n.nodeObjectMap);
         m_reloading.clear();
 
         // The load call will have updated m_n.nodeObjectMap; sync the

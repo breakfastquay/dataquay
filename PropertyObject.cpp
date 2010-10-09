@@ -482,7 +482,6 @@ CacheingPropertyObject::getPropertyNodeList(QString name) const
 QStringList
 CacheingPropertyObject::getPropertyNames() const
 {
-    //!!!
     return m_po.getPropertyNames();
 }
 
@@ -522,23 +521,10 @@ CacheingPropertyObject::setPropertyList(QString name, Nodes nodes)
 }
 
 void
-CacheingPropertyObject::setProperty(Transaction *tx, QString name, QVariant value)
-{
-    m_po.setProperty(tx, name, value);
-    m_cached = false;
-}
-
-void
 CacheingPropertyObject::removeProperty(QString name)
 {
     m_po.removeProperty(name);
     m_cached = false;
-}
-
-Store *
-CacheingPropertyObject::getStore(Transaction *tx) const 
-{
-    return m_po.getStore(tx);
 }
 
 Uri

@@ -221,7 +221,7 @@ public:
         return o;
     }
     
-    void load(Nodes nodes, NodeObjectMap &map) {
+    void reload(Nodes nodes, NodeObjectMap &map) {
         
         NodeSet examined;
 
@@ -282,7 +282,7 @@ public:
             nodes.push_back(t.a);
         }
 
-        load(nodes, map);
+        reload(nodes, map);
 
         QObjectList objects;
         foreach (Node n, nodes) {
@@ -957,9 +957,9 @@ ObjectLoader::load(Node node)
 }
 
 void
-ObjectLoader::load(Nodes nodes, NodeObjectMap &map)
+ObjectLoader::reload(Nodes nodes, NodeObjectMap &map)
 {
-    m_d->load(nodes, map);
+    m_d->reload(nodes, map);
 }
 
 QObjectList

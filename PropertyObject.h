@@ -54,10 +54,12 @@ class Store;
  * PropertyObject is a helper class for managing RDF properties of an
  * object URI -- that is, triples that share a common subject and
  * possibly a common prefix for the predicate, and that have only one
- * value for each subject-predicate combination.  This class provides
- * set and get methods that act directly upon the backing datastore,
- * with (optional but recommended) transaction support.  See
- * CacheingPropertyObject for a cacheing alternative.
+ * value for each subject-predicate combination.  This could be of use
+ * in situations where properties of a single object URI are referred
+ * to often.  This class provides set and get methods that act
+ * directly upon the backing datastore, optionally using a
+ * transaction.  See CacheingPropertyObject for a cacheing
+ * alternative.
  *
  * PropertyObject is constructed using a "property prefix" (a string)
  * and "my URI" (a URI).  The URI is used by the property object as
@@ -225,7 +227,14 @@ public:
      */
     Node getPropertyNode(QString name) const;
     
-    //!!! shall we get rid of the Transaction versions of these? after all, Transaction is a Store and we construct with a Store... though it's nice to be able to keep these hanging around persistently
+    /**
+     * Get the node for the given property, querying through the given
+     * transaction.  That is, if the store contains at least one
+     * triple whose subject and predicate match those for my URI and
+     * the expansion of the given property name, return the object
+     * part of the first such matching triple.  If there is no such
+     * match, return Node().
+     */
     Node getPropertyNode(Transaction *tx, QString name) const;
 
     /**
@@ -240,7 +249,17 @@ public:
      */
     Nodes getPropertyNodeList(QString name) const;
 
-    //!!!doc
+    /**
+     * Get the nodes for the given property, querying through the
+     * given transaction.  That is, if the store contains at least one
+     * triple whose subject and predicate match those for my URI and
+     * the expansion of the given property name, return the object
+     * parts of all such matching triples.  If there is no such match,
+     * return an empty list.
+     *
+     * Note that the order of nodes in the returned list is arbitrary
+     * and may change from one call to the next.
+     */
     Nodes getPropertyNodeList(Transaction *tx, QString name) const;
 
     /**
@@ -407,10 +426,15 @@ private:
  * CacheingPropertyObject is a helper class for managing RDF
  * properties of an object URI -- that is, triples that share a common
  * subject and possibly a common prefix for the predicate, and that
- * have only one value for each subject-predicate combination.  This
- * class is usually faster than PropertyObject as it avoids datastore
- * access, but it can only be used in contexts where it is known that
- * no other agent may be modifying the same set of properties.
+ * have only one value for each subject-predicate combination.
+ *
+ * This class caches results from the datastore and so may be faster
+ * than PropertyObject, but it can only be used in contexts where it
+ * is known that no other agent may be modifying the same set of
+ * properties.  Its set of available functions is more limited than
+ * PropertyObject also: it has no Transaction-based functions.
+ *
+ * See PropertyObject for individual method documentation.
  */
 class CacheingPropertyObject
 {
@@ -437,12 +461,8 @@ public:
     void setPropertyList(QString name, QVariantList values);
     void setPropertyList(QString name, Nodes nodes);
 
-    //!!!???
-    void setProperty(Transaction *tx, QString name, QVariant value);
-
     void removeProperty(QString name);
 
-    Store *getStore(Transaction *tx) const;
     Uri getPropertyUri(QString name) const;
 
 private:

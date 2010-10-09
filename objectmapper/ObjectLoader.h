@@ -105,22 +105,34 @@ public:
 
     QObject *load(Node node); //!!! n.b. could be very expensive if follow options are set! might load lots & lots of stuff and then leak it! ... also, want to specify parent as in old loadObject, and to have uri arg... old method was better here
 
-    QObjectList loadType(Uri type); //!!!
-    QObjectList loadType(Uri type, NodeObjectMap &map); //!!!
+    /**
+     * For each node of the given RDF type found in the store,
+     * construct a corresponding QObject, returning the objects.
+     */
+    QObjectList loadType(Uri type);
+
+    /**
+     * For each node of the given RDF type found in the store,
+     * construct a corresponding QObject, updating the map with all
+     * resulting node-object correspondences and returning the
+     * objects.
+     */
+    QObjectList loadType(Uri type, NodeObjectMap &map);
     
-    //!!! new method... do we want to distinguish between load-create
-    //!!! and reload?
-    // NB this will also delete objects if they are no longer referred
-    // to in store
-    void load(Nodes nodes, NodeObjectMap &map);
+    /**
+     * Examine each of the nodes passed in, and if there is no
+     * corresponding node in the node-object map, load the node as a
+     * new QObject and place it in the map; if there is a
+     * corresponding node in the node-object map, update it with
+     * current properties from the store.  If a node is passed in that
+     * does not exist in the store, delete any object associated with
+     * it from the map.
+     */
+    void reload(Nodes nodes, NodeObjectMap &map);
 
     //!!! currently this loads all objects in store -- that is not the same thing as reloading all objects whose nodes are in the map
     QObjectList loadAll();
     QObjectList loadAll(NodeObjectMap &map);
-
-    //!!! we could usefully add: loadType() -- load all objects of a
-    //!!! given RDF type; loadByQuery() -- load all objects identified
-    //!!! by first binding of a SPARQL query
     
     struct LoadCallback {
         virtual void loaded(ObjectLoader *, NodeObjectMap &, Node, QObject *) = 0;
