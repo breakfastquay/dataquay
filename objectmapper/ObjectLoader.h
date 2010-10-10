@@ -98,12 +98,19 @@ public:
     /**
      * Construct a QObject based on the properties of the given object
      * URI in the object mapper's store.  The type of class created
-     * will be determined by the rdf:type for the URI.
-     *!!!??? type prefix? how these map to class names?
+     * will be calculated from the rdf:type for the URI, using the
+     * current TypeMapping (see TypeMapping::getClassForTypeUri).
+     *
+     * Use caution in calling this method when the FollowPolicy is set
+     * to anything other than FollowNone.  Other objects may be loaded
+     * when following connections from the given node according to the
+     * current FollowPolicy, but only the object initially requested
+     * is actually returned from the function -- other objects loaded
+     * may be only accessible as parent/child or properties of this
+     * node, or in some cases (e.g. FollowSiblings) may even be
+     * inaccessible to the caller and be leaked.
      */
-
-
-    QObject *load(Node node); //!!! n.b. could be very expensive if follow options are set! might load lots & lots of stuff and then leak it! ... also, want to specify parent as in old loadObject, and to have uri arg... old method was better here
+    QObject *load(Node node);
 
     /**
      * For each node of the given RDF type found in the store,
@@ -130,14 +137,38 @@ public:
      */
     void reload(Nodes nodes, NodeObjectMap &map);
 
-    //!!! currently this loads all objects in store -- that is not the same thing as reloading all objects whose nodes are in the map
+    /**
+     * Load and return an object for each node in the store that can
+     * be loaded.
+     */
     QObjectList loadAll();
+
+    /**
+     * Load and return an object for each node in the store that can
+     * be loaded, updating the map with all resulting node-object
+     * correspondences.  Note that this loads all suitably-typed nodes
+     * found in the store, not the objects found in the map.  If there
+     * are nodes in the map which are not found in the store, they
+     * will be ignored (and not deleted from the map).
+     */
     QObjectList loadAll(NodeObjectMap &map);
     
     struct LoadCallback {
+        /**
+         * An object has been loaded by the given ObjectLoader from
+         * the given RDF node.  The node and object will also be found
+         * in the NodeObjectMap, which additionally references any
+         * other objects which have been loaded during this load
+         * sequence.
+         */
         virtual void loaded(ObjectLoader *, NodeObjectMap &, Node, QObject *) = 0;
     };
 
+    /**
+     * Register the given callback (a subclass of the abstract
+     * LoadCallback class) as providing a "loaded" callback method
+     * which will be called after each object is loaded.
+     */
     void addLoadCallback(LoadCallback *callback);
 
 private:

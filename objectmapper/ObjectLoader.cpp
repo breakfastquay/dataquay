@@ -91,133 +91,12 @@ public:
         return m_ap;
     }
 
-/*
-    void loadProperties(QObject *o, Uri uri) {
-        NodeObjectMap map;
-        loadProperties(map, o, uri, false, 0);
-    }
-
-    QObject *loadObject(Uri uri, QObject *parent) {
-        NodeObjectMap map;
-	return loadSingle(map, uri, parent, "", false, 0);
-    }
-
-    QObject *loadObjectTree(Uri root, QObject *parent) {
-        NodeObjectMap map;
-        QObject *rv = loadTree(map, root, parent);
-        loadConnections(map);
-        return rv;
-    }
-
-    QObject *loadAllObjects(QObject *parent) {
-
-        NodeObjectMap map;
-
-        Triples candidates = m_s->match(Triple(Node(), "a", Node()));
-
-        foreach (Triple t, candidates) {
-            
-            if (t.c.type != Node::URI) continue;
-
-            Uri typeUri(t.c.value);
-
-            QString className;
-
-            try {
-                className = m_tm.synthesiseClassForTypeUri(typeUri);
-            } catch (UnknownTypeException) {
-                continue;
-            }
-
-            if (!m_ob->knows(className)) {
-                DEBUG << "Can't construct type " << typeUri << endl;
-                continue;
-            }
-            
-            loadFrom(map, t.a, className);
-        }
-
-        loadConnections(map);
-
-        QObjectList rootObjects;
-        foreach (QObject *o, map) {
-            if (!o->parent()) {
-                rootObjects.push_back(o);
-            }
-        }
-
-        if (!parent && (rootObjects.size() == 1)) {
-            return rootObjects[0];
-        }
-
-        QObject *superRoot = parent;
-        if (!superRoot) {
-            superRoot = new QObject;
-            superRoot->setObjectName("Dataquay ObjectLoader synthetic parent");
-        }
-        foreach (QObject *o, rootObjects) {
-            o->setParent(superRoot);
-        }
-        return superRoot;
-    }
-
-    QObject *loadFrom(NodeObjectMap &map, Node node, QString classHint = "") {
-
-        DEBUG << "loadFrom: " << node << " (classHint " << classHint << ")" << endl;
-
-        //!!! should we return here before traversing parent and siblings? or only return after loadSingle call as we did before?
-        if (map.contains(node)) {
-            DEBUG << "loadFrom: " << node << " already loaded" << endl;
-            return map[node];
-        }
-
-        // We construct the property object with the property prefix
-        // rather than relationship prefix, so that we can reuse it in
-        // loadProperties (passed through as the final argument).
-        // PropertyObjects can look up properties with any prefix if
-        // we make them explicit (as we will do in a moment); they
-        // just default to the one in the ctor
-
-	//!!! would be nice to be able to skip the parent and siblings if so told
-	
-	CacheingPropertyObject po(m_s, m_tm.getPropertyPrefix().toString(), node);
-
-	//!!! This doesn't seem to be written in ObjectStorer!  Write
-	// a test case for it
-        QString followsProp = m_tm.getRelationshipPrefix().toString() + "follows";
-	if (po.hasProperty(followsProp)) {
-            try {
-                loadFrom(map, po.getPropertyNode(followsProp));
-            } catch (UnknownTypeException) { }
-	}
-
-        QObject *parent = 0;
-        QString parentProp = m_tm.getRelationshipPrefix().toString() + "parent";
-	if (po.hasProperty(parentProp)) {
-            DEBUG << "loadFrom: node " << node << " has parent, loading that first" << endl;
-            try {
-                parent = loadFrom(map, po.getPropertyNode(parentProp));
-            } catch (UnknownTypeException) {
-                parent = 0;
-            }
-	}
-
-        //!!! NB. as this stands, if the RDF is "wrong" containing the
-        //!!! wrong type for a property of this, we will fail the
-        //!!! whole thing with an UnknownTypeException -- is that the
-        //!!! right thing to do? consider
-
-        QObject *o = loadSingle(map, node, parent, classHint, true, &po);
-        return o;
-    }
-*/
     QObject *load(Node node) {
         NodeObjectMap map;
         NodeSet examined;
         map.insert(node, 0);
         QObject *o = load(map, examined, node);
         // do not catch UnknownTypeException
-        //!!! leaks any other stuff in map! should not be following anything here!
         return o;
     }
     
@@ -325,13 +204,10 @@ private:
                             QString classHint,
                             CacheingPropertyObject *po);
 
-//    QObject *loadTree(NodeObjectMap &map, Node node, QObject *parent);
     QObject *loadSingle(NodeObjectMap &map, NodeSet &examined, Node node, QObject *parent,
                         QString classHint, CacheingPropertyObject *po);
 
     void callLoadCallbacks(NodeObjectMap &map, Node node, QObject *o);
-
-//    void loadConnections(NodeObjectMap &map);
 
     void loadProperties(NodeObjectMap &map, NodeSet &examined, QObject *o, Node node,
                         CacheingPropertyObject *po);
@@ -810,64 +686,7 @@ ObjectLoader::D::callLoadCallbacks(NodeObjectMap &map, Node node, QObject *o)
         cb->loaded(m_m, map, node, o);
     }
 }
-/*
-void
-ObjectLoader::D::loadConnections(NodeObjectMap &map)
-{
-    QString slotTemplate = SLOT(xxx());
-    QString signalTemplate = SIGNAL(xxx());
 
-    // The store does not necessarily know m_relationshipPrefix
-
-    ResultSet rs = m_s->query
-        (QString
-         (" PREFIX rel: <%1> "
-          " SELECT ?sobj ?ssig ?tobj ?tslot WHERE { "
-          " ?conn a rel:Connection; rel:source ?s; rel:target ?t. "
-          " ?s rel:object ?sobj; rel:signal ?ssig. "
-          " ?t rel:object ?tobj; rel:slot ?tslot. "
-          " } ").arg(m_tm.getRelationshipPrefix().toString()));
-
-    foreach (Dictionary d, rs) {
-
-        Uri sourceUri(d["sobj"].value);
-        Uri targetUri(d["tobj"].value);
-        if (!map.contains(sourceUri) || !map.contains(targetUri)) continue;
-
-        QString sourceSignal = signalTemplate.replace("xxx", d["ssig"].value);
-        QString targetSlot = slotTemplate.replace("xxx", d["tslot"].value);
-
-        QByteArray sigba = sourceSignal.toLocal8Bit();
-        QByteArray slotba = targetSlot.toLocal8Bit();
-                
-        QObject::connect(map[sourceUri], sigba.data(),
-                         map[targetUri], slotba.data());
-    }
-}
-
-QObject *
-ObjectLoader::D::loadTree(NodeObjectMap &map, Node node, QObject *parent)
-{
-
-    QObject *o;
-    try {
-        o = loadSingle(map, node, parent, "", true, 0); //!!!??? or false?
-    } catch (UnknownTypeException e) {
-        o = 0;
-    }
-
-    if (o) {
-        Triples childTriples = m_s->match
-            (Triple(Node(),
-		    m_tm.getRelationshipPrefix().toString() + "parent", node));
-        foreach (Triple t, childTriples) {
-            loadTree(map, t.a, o);
-        }
-    }
-
-    return o;
-}
-*/
 ObjectLoader::ObjectLoader(Store *s) :
     m_d(new D(this, s))
 { }
@@ -918,37 +737,6 @@ ObjectLoader::getAbsentPropertyPolicy() const
 {
     return m_d->getAbsentPropertyPolicy();
 }
-
-/*void
-ObjectLoader::loadProperties(QObject *o, Uri uri)
-{
-    m_d->loadProperties(o, uri);
-}
-
-QObject *
-ObjectLoader::loadObject(Uri uri, QObject *parent)
-{
-    return m_d->loadObject(uri, parent);
-}
-
-QObject *
-ObjectLoader::loadObjectTree(Uri rootUri, QObject *parent)
-{
-    return m_d->loadObjectTree(rootUri, parent);
-}
-
-QObject *
-ObjectLoader::loadAllObjects(QObject *parent)
-{
-    return m_d->loadAllObjects(parent);
-}
-
-QObject *
-ObjectLoader::loadFrom(NodeObjectMap &map, Node source)
-{
-    return m_d->loadFrom(map, source);
-}
-*/
 
 QObject *
 ObjectLoader::load(Node node)
