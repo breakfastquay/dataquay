@@ -349,7 +349,8 @@ ObjectLoader::D::loadProperties(NodeObjectMap &map, NodeSet &examined, QObject *
 
         if (!value.isValid()) {
             DEBUG << "Ignoring invalid variant for value of property "
-                  << pname << " of object " << node << endl;
+                  << pname << ", type " << property.typeName()
+                  << " of object " << node << endl;
             continue;
         }
 
@@ -469,6 +470,8 @@ ObjectLoader::D::propertyNodeToVariant(NodeObjectMap &map, NodeSet &examined,
     //
     // We have to fail that one, because we're not in any position to
     // do general type conversion here.
+
+    DEBUG << "propertyNodeToVariant: typeName = " << typeName << endl;
 
     if (typeName == "") {
         return pnode.toVariant();
