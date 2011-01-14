@@ -179,7 +179,8 @@ public:
      * Node objects.
      */
     struct VariantEncoder {
-
+        virtual ~VariantEncoder() { }
+        
         /**
          * Convert a string to a variant.  The VariantEncoder is
          * expected to be know the node type from which the string has
