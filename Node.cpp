@@ -41,6 +41,7 @@
 #include <QByteArray>
 #include <QMetaType>
 #include <QMutex>
+#include <QHash>
 
 namespace Dataquay
 {

@@ -37,6 +37,7 @@
 #include <QTextStream>
 #include <QVariant>
 #include <QMutex>
+#include <QHash>
 
 #include <iostream>
 
