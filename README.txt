@@ -66,6 +66,8 @@ Compiling Dataquay
 
 Run qmake then make.  There is no install step yet.
 
+Dataquay requires Qt 4.6 or newer.
+
 The default debug build will print a lot of information to standard
 error during run time; this can be very helpful for debugging your
 application, but it can quickly become excessive.  Define NDEBUG in
