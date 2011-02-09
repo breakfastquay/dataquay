@@ -194,6 +194,10 @@ public:
     void manage(QObject *o) {
         QMutexLocker locker(&m_mutex);
 
+        // Ensure that the Uri datatype has been registered. This is a
+        // bit of a hack
+        (void)Uri::metaTypeId();
+
         Uri uri = o->property("uri").value<Uri>();
         if (uri == Uri()) {
             //!!! document this -- generally, document conditions for manage() to be used rather than add()
