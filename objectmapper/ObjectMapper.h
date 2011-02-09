@@ -80,13 +80,22 @@ class TypeMapping;
  * have any other way to find out about new objects, even if they are
  * properties or children of existing managed objects.
  *
- * Call manage() to manage an object without marking it as needing to
- * be written -- implying that the object is known to be up-to-date
- * with the store already.  ObjectMapper will refuse to manage any
- * object that lacks a uri property, as any objects that have not
- * previously been mapped will normally need to be add()ed rather than
- * manage()d.  Call unmanage() to tell ObjectMapper to stop watching
- * an object.
+ * Alternatively, call manage() to manage an object without marking it
+ * as needing to be written -- implying that the object is known to be
+ * up-to-date with the store already.  ObjectMapper will refuse to
+ * manage any object that lacks a uri property, as any objects that
+ * have not previously been mapped will normally need to be add()ed
+ * (which gives them URIs) rather than manage()d.
+ *
+ * It is safe to call add() or manage() with an object that is already
+ * managed; if add() is called with such an object it will be
+ * rescheduled to be stored, but there will be no other effect.
+ *
+ * Call unmanage() to tell ObjectMapper to stop watching an object.
+ * You should not call this when the object is destroyed, unless you
+ * want to ensure that destroying it does not remove it from the
+ * store.  Managed objects are automatically monitored for destruction
+ * and removed from the store and unmanaged appropriately.
  *
  * ObjectMapper is thread-safe.
  */
