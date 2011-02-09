@@ -62,20 +62,24 @@ public:
     }
 
     int getType() const { return type; }
+    QString getName() const { return name; }
 
 private:
+    QString name;
     int type;
 
-    UriRegistrar() {
-        type = qRegisterMetaType<Uri>("Dataquay::Uri");
-        qRegisterMetaTypeStreamOperators<Uri>("Dataquay::Uri");
+    UriRegistrar() : name("Dataquay::Uri") {
+        DEBUG << "UriRegistrar: registering Dataquay::Uri" << endl;
+        QByteArray bname = name.toLatin1();
+        type = qRegisterMetaType<Uri>(bname.data());
+        qRegisterMetaTypeStreamOperators<Uri>(bname.data());
     }
 };
 
 QString
 Uri::metaTypeName()
 {
-    return "Dataquay::Uri";
+    return UriRegistrar::instance()->getName();
 }
 
 int
