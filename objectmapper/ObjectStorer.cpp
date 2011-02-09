@@ -160,6 +160,7 @@ private:
 
     bool isStarType(const char *) const;
     bool variantsEqual(const QVariant &, const QVariant &) const;
+    Uri getUriFrom(QObject *o) const;
 
     Node allocateNode(ObjectNodeMap &map, QObject *o);
     Node storeSingle(ObjectNodeMap &map, ObjectSet &examined, QObject *o);
@@ -219,6 +220,23 @@ ObjectStorer::D::variantsEqual(const QVariant &v1, const QVariant &v2) const
     Node n2 = Node::fromVariant(v2);
     DEBUG << "variantsEqual: comparing " << n1 << " and " << n2 << endl;
     return (n1 == n2);
+}
+
+Uri
+ObjectStorer::D::getUriFrom(QObject *o) const
+{
+    Uri uri;
+    QVariant uriVar = o->property("uri");
+    
+    if (uriVar != QVariant()) {
+        if (Uri::isUri(uriVar)) {
+            uri = uriVar.value<Uri>();
+        } else {
+            uri = m_s->expand(uriVar.toString());
+        }
+    }
+
+    return uri;
 }
 
 void
@@ -413,13 +431,9 @@ ObjectStorer::D::objectToPropertyNode(ObjectNodeMap &map, ObjectSet &examined, Q
         // if the object is not intended to be stored, but it has a
         // URI, we should nonetheless write a reference to that -- but
         // not put it in the map
-        QVariant uriVar = o->property("uri");
-        if (uriVar != QVariant()) {
-            if (Uri::isUri(uriVar)) {
-                pnode = uriVar.value<Uri>();
-            } else {
-                pnode = m_s->expand(uriVar.toString());
-            }
+        Uri uri = getUriFrom(o);
+        if (uri != Uri()) {
+            pnode = Node(uri);
             return pnode;
         }
     }
@@ -620,20 +634,11 @@ ObjectStorer::D::allocateNode(ObjectNodeMap &map, QObject *o)
     Node node = map.value(o);
     if (node != Node()) return node;
 
-    QVariant uriVar = o->property("uri");
-
-    if (uriVar != QVariant()) {
-        Uri uri;
-        if (Uri::isUri(uriVar)) {
-            uri = uriVar.value<Uri>();
-        } else {
-            uri = m_s->expand(uriVar.toString());
-        }
-        if (uri != Uri()) {
-            node = Node(uri);
-            map.insert(o, node);
-            return node;
-        }
+    Uri uri = getUriFrom(o);
+    if (uri != Uri()) {
+        node = Node(uri);
+        map.insert(o, node);
+        return node;
     }
 
     if (!map.contains(o) && m_bp == BlankNodesAsNeeded) { //!!! I don't much like that name
