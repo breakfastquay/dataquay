@@ -59,9 +59,8 @@ namespace Dataquay
 /**
  * Uri represents a single URI.  It is a very thin wrapper around a
  * string.  Its purpose is to allow us to distinguish between
- * abbreviated URIs which may be subject to prefix expansion
- * (represented by strings) and properly expanded URIs (represented by
- * Uri).
+ * abbreviated URIs (CURIEs) which may be subject to prefix expansion
+ * (represented by strings) and full URIs (represented by Uri).
  *
  * In terms of the Turtle syntax, anything written within angle
  * brackets is a Uri, while a bare string in URI context is not: it
