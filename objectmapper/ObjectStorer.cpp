@@ -283,7 +283,9 @@ ObjectStorer::D::storeProperties(ObjectNodeMap &map, ObjectSet &examined, QObjec
             }
         }
 
-        DEBUG << "For object " << node.value << " (" << o << ") writing property " << pname << " of type " << property.userType() << endl;
+        if (store) {
+            DEBUG << "For object " << node.value << " (" << o << ") writing property " << pname << " of type " << property.userType() << endl;
+        }
 
         Uri puri;
 	if (!m_tm.getPropertyUri(cname, pname, puri)) {
