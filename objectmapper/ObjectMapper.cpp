@@ -354,7 +354,7 @@ public:
         DEBUG << "ObjectMapper::transactionCommitted done" << endl;
     }
 
-    void commit() { 
+    void doCommit(ChangeSet *cs) { 
 
         QMutexLocker locker(&m_mutex);
         DEBUG << "ObjectMapper: Synchronising " << m_changedObjects.size()
@@ -379,7 +379,11 @@ public:
         m_storer->store(ol, m_n.objectNodeMap);
 
         m_inCommit = true;
-        m_c.commit();
+        if (cs) {
+            *cs = m_c.commitAndObtain();
+        } else {
+            m_c.commit();
+        }            
         m_inCommit = false;
 
         // The store call will have updated m_n.objectNodeMap; sync
@@ -390,6 +394,16 @@ public:
         m_deletedObjectNodes.clear();
         m_changedObjects.clear();
         DEBUG << "ObjectMapper::commit done" << endl;
+    }
+
+    void commit() {
+        doCommit(0);
+    }
+
+    ChangeSet commitAndObtain() {
+        ChangeSet cs;
+        doCommit(&cs);
+        return cs;
     }
 
 private:
@@ -567,6 +581,12 @@ void
 ObjectMapper::commit()
 {
     m_d->commit();
+}
+
+ChangeSet
+ObjectMapper::commitAndObtain()
+{
+    return m_d->commitAndObtain();
 }
 
 void

@@ -238,10 +238,20 @@ public slots:
      * Commit to the store any changes that have happened to the
      * currently managed objects since the last commit.
      *
-     * You need to call this if you want any changes to appear in the
-     * store.
+     * You need to call this (or commitAndObtain) if you want any
+     * changes to appear in the store.
      */
     void commit();
+
+    /**
+     * Commit to the store any changes that have happened to the
+     * currently managed objects since the last commit, and return the
+     * changes committed.
+     *
+     * You need to call this (or commit) if you want any changes to
+     * appear in the store.
+     */
+    ChangeSet commitAndObtain();
 
     /**
      * Notify ObjectMapper that the given object has changed.

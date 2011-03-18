@@ -114,7 +114,7 @@ public slots:
      * Commit the outstanding Transaction, if any, and return the
      * changes committed.
      */
-    void commit(ChangeSet &cs);
+    ChangeSet commitAndObtain();
 
     /**
      * Roll back the outstanding Transaction, if any, and prepare to

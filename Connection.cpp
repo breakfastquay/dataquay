@@ -59,7 +59,7 @@ public:
     Uri expand(QString uri) const;
     
     void commit();
-    void commit(ChangeSet &cs);
+    ChangeSet commitAndObtain();
     void rollback();
 
 private:
@@ -126,15 +126,17 @@ Connection::D::commit()
     }
 }
 
-void
-Connection::D::commit(ChangeSet &cs)
+ChangeSet
+Connection::D::commitAndObtain()
 {
+    ChangeSet cs;
     if (m_tx) {
         m_tx->commit();
         cs = m_tx->getCommittedChanges();
         delete m_tx;
         m_tx = NoTransaction;
     }
+    return cs;
 }
 
 void
@@ -296,10 +298,10 @@ Connection::commit()
     m_d->commit();
 }
 
-void 
-Connection::commit(ChangeSet &cs)
+ChangeSet
+Connection::commitAndObtain()
 {
-    m_d->commit(cs);
+    return m_d->commitAndObtain();
 }
 
 void 
