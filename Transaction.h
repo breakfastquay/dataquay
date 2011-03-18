@@ -87,26 +87,32 @@ public:
     virtual void rollback() = 0;
 
     /**
-     * Return the ChangeSet applied so far by this transaction.  This
-     * returns all changes provisionally made during the transaction.
+     * Return the ChangeSet committed in this transaction.  If the
+     * transaction has not yet been committed (or has been rolled
+     * back), this will be empty.
      *
      * (After a transaction has been committed, you can in principle
      * revert it in its entirety by calling Store::revert() with this
      * change set.)
+     */
+    virtual ChangeSet getCommittedChanges() const = 0;
+
+    /**
+     * Return the ChangeSet for this transaction to date.  This
+     * returns all changes provisionally made (but not necessarily
+     * committed) during the transaction.
      *
      * If the transaction has been rolled back, this will return the
      * changes that were accumulated prior to the roll back, i.e. the
-     * changes that were then rolled back.  (This behaviour is
-     * required by some internal functions.)
+     * changes that were then rolled back.
+     *
+     * If the transaction has been committed, this will return the
+     * same ChangeSet as getCommittedChanges().
      */
-    ChangeSet getChanges() const {
-        return m_changes;
-    }
+    virtual ChangeSet getChanges() const = 0;
 
 protected:
     Transaction() { }
-
-    ChangeSet m_changes;
 
 private:
     Transaction(const Transaction &);

@@ -346,7 +346,7 @@ public:
         check();
         try {
             if (m_td->add(m_tx, t)) {
-                m_tx->addChange(Change(AddTriple, t));
+                m_changes.push_back(Change(AddTriple, t));
                 return true;
             } else {
                 return false;
@@ -378,7 +378,7 @@ public:
             bool found = false;
             for (int i = 0; i < tt.size(); ++i) {
                 if (m_td->remove(m_tx, tt[i])) {
-                    m_tx->addChange(Change(RemoveTriple, tt[i]));
+                    m_changes.push_back(Change(RemoveTriple, tt[i]));
                     found = true;
                 } else if (wild) {
                     throw RDFInternalError("Failed to remove matched statement in remove() with wildcards");
@@ -505,10 +505,6 @@ public:
         return m_td->expand(uri);
     }
 
-    ChangeSet getChanges() const {
-        return m_tx->getChanges();
-    }
-
     void commit() {
         check();
         DEBUG << "TransactionalStore::TSTransaction::commit: Committing" << endl;
@@ -522,10 +518,20 @@ public:
         m_td->rollbackTransaction(m_tx);
         m_abandoned = true;
     }
+
+    ChangeSet getCommittedChanges() const {
+        if (m_committed) return m_changes;
+        else return ChangeSet();
+    }
+
+    ChangeSet getChanges() const {
+        return m_changes;
+    }
         
 private:
     TransactionalStore::TSTransaction *m_tx;
     TransactionalStore::D *m_td;
+    ChangeSet m_changes;
     mutable bool m_committed;
     mutable bool m_abandoned;
 };
@@ -740,10 +746,16 @@ TransactionalStore::TSTransaction::rollback()
     m_d->rollback();
 }
 
-void
-TransactionalStore::TSTransaction::addChange(const Change &change)
+ChangeSet
+TransactionalStore::TSTransaction::getCommittedChanges() const
 {
-    m_changes.push_back(change);
+    return m_d->getCommittedChanges();
+}
+
+ChangeSet
+TransactionalStore::TSTransaction::getChanges() const
+{
+    return m_d->getChanges();
 }
 
 }

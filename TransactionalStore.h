@@ -176,6 +176,8 @@ private:
         // Transaction interface
         void commit();
         void rollback();
+        ChangeSet getCommittedChanges() const;
+        ChangeSet getChanges() const;
 
         TSTransaction(TransactionalStore::D *td);
         virtual ~TSTransaction();
@@ -183,7 +185,6 @@ private:
     private:
         TSTransaction(const TSTransaction &);
         TSTransaction &operator=(const TSTransaction &);
-        void addChange(const Change &);
         class D;
         D *m_d;
     };

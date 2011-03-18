@@ -14,7 +14,8 @@ MOC_DIR = o
 LIBS += -ldataquay -lraptor -lrasqal -lrdf
 
 HEADERS += TestObjects.h
-SOURCES += TestDataquay.cpp TestQtWidgets.cpp
+SOURCES += TestDataquay.cpp
+#SOURCES += TestQtWidgets.cpp
 
 exists(./platform.pri) {
     include(./platform.pri)

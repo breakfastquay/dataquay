@@ -993,9 +993,29 @@ testTransactionalStore()
                   Node::fromVariant(true)));
     ++added;
 
+    // Get the changes that are about to be committed.  We'll use this
+    // for a revert test later
     ChangeSet changes = t->getChanges();
+
+    // but also check whether this is empty (it should be)
+    ChangeSet changes2 = t->getCommittedChanges();
+    if (!changes2.empty()) {
+        cerr << "Transactional failure -- getCommittedChanges() within initial transaction returned " << changes2.size() << " changes (should have been empty)" << endl;
+        return false;
+    }
     
     t->commit();
+
+    // now this should be the same as our getChanges call
+    changes2 = t->getCommittedChanges();
+    if (changes2.empty()) {
+        cerr << "Transactional failure -- getCommittedChanges() after commit returned empty change set" << endl;
+        return false;
+    }
+    if (changes2 != changes) {
+        cerr << "Transactional failure -- getCommittedChanges() after commit returned different change set from getChanges() immediately before commit (" << changes2.size() << " vs " << changes.size() << " changes)" << endl;
+        return false;
+    }
 
     // Test that we can't use the transaction after a commit
 
