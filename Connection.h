@@ -111,6 +111,12 @@ public slots:
     void commit();
 
     /**
+     * Commit the outstanding Transaction, if any, and return the
+     * changes committed.
+     */
+    void commit(ChangeSet &cs);
+
+    /**
      * Roll back the outstanding Transaction, if any, and prepare to
      * begin a new Transaction the next time a modifying function is
      * called.
