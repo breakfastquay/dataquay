@@ -480,7 +480,8 @@ private:
              i != source.end(); ++i) {
             
             QObject *o = i.value();
-
+            if (!o) continue;
+            
             if (target.contains(o)) {
                 Node n(target.value(o));
                 if (n != Node() && n != i.key()) {
