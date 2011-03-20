@@ -103,7 +103,7 @@ public:
         Triples triples = m_s->match(Triple(n, Node(), Node()));
         foreach (Triple t, triples) {
             if (t.b.type == Node::URI) {
-                removeOldPropertyNodes(n, Uri(t.b.value));
+                removePropertyNodes(n, Uri(t.b.value));
             }
         }
         m_s->remove(Triple(Node(), Node(), n));
@@ -169,7 +169,7 @@ private:
 
     void storeProperties(ObjectNodeMap &map, ObjectSet &examined, QObject *o, Node node);
     void removeUnusedBlankNode(Node node);
-    void removeOldPropertyNodes(Node node, Uri propertyUri);
+    void removePropertyNodes(Node node, Uri propertyUri, QSet<Node> *retain = 0);
     Nodes variantToPropertyNodeList(ObjectNodeMap &map, ObjectSet &examined, QVariant v);
     Node objectToPropertyNode(ObjectNodeMap &map, ObjectSet &examined, QObject *o);
     Node listToPropertyNode(ObjectNodeMap &map, ObjectSet &examined, QVariantList list);
@@ -292,19 +292,50 @@ ObjectStorer::D::storeProperties(ObjectNodeMap &map, ObjectSet &examined, QObjec
             puri = po.getPropertyUri(pname);
         }
 
-        removeOldPropertyNodes(node, puri);
-
         if (store) {
-            Nodes pnodes = variantToPropertyNodeList(map, examined, value);
+
+            QSet<Node> pnodes = QSet<Node>::fromList
+                (variantToPropertyNodeList(map, examined, value));
+
+            int before = pnodes.size();
+
+            // this modifies pnodes, removing from it any nodes that
+            // are already present and correct as properties of this
+            // node (in preference to erasing and reinstating them)
+            removePropertyNodes(node, puri, &pnodes);
+
+            DEBUG << "Have " << before << " property triples, reduced to "
+                  << pnodes.size() << " to write after checking old values" << endl;
 
             Triple t(node, puri, Node());
-            for (int j = 0; j < pnodes.size(); ++j) {
-                t.c = pnodes[j];
+            foreach (Node n, pnodes) {
+                t.c = n;
                 m_s->add(t);
             }
+
+        } else {
+
+            removePropertyNodes(node, puri);
         }
     }
 }            
+            
+void
+ObjectStorer::D::removePropertyNodes(Node node, Uri propertyUri, QSet<Node> *retain) 
+{
+    Triple t(node, propertyUri, Node());
+    Triples m(m_s->match(t));
+    foreach (t, m) {
+        if (retain && retain->contains(t.c)) {
+            retain->remove(t.c);
+        } else {
+            m_s->remove(t);
+            if (t.c.type == Node::Blank && t.c != node) {
+                removeUnusedBlankNode(t.c);
+            }
+        }
+    }
+}
 
 void
 ObjectStorer::D::removeUnusedBlankNode(Node node)
@@ -333,19 +364,6 @@ ObjectStorer::D::removeUnusedBlankNode(Node node)
     foreach (Triple t, tails) {
         DEBUG << "... recursing to list tail" << endl;
         if (t.c.type == Node::Blank) {
-            removeUnusedBlankNode(t.c);
-        }
-    }
-}
-            
-void
-ObjectStorer::D::removeOldPropertyNodes(Node node, Uri propertyUri) 
-{
-    Triple t(node, propertyUri, Node());
-    Triples m(m_s->match(t));
-    foreach (t, m) {
-        m_s->remove(t);
-        if (t.c.type == Node::Blank && t.c != node) {
             removeUnusedBlankNode(t.c);
         }
     }
