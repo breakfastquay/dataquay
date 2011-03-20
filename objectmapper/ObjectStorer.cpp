@@ -170,6 +170,8 @@ private:
     void storeProperties(ObjectNodeMap &map, ObjectSet &examined, QObject *o, Node node);
     void removeUnusedBlankNode(Node node);
     void removePropertyNodes(Node node, Uri propertyUri, QSet<Node> *retain = 0);
+    void replacePropertyNodes(Node node, Uri propertyUri, Node newValue);
+    void replacePropertyNodes(Node node, Uri propertyUri, Nodes newValues);
     Nodes variantToPropertyNodeList(ObjectNodeMap &map, ObjectSet &examined, QVariant v);
     Node objectToPropertyNode(ObjectNodeMap &map, ObjectSet &examined, QObject *o);
     Node listToPropertyNode(ObjectNodeMap &map, ObjectSet &examined, QVariantList list);
@@ -294,24 +296,8 @@ ObjectStorer::D::storeProperties(ObjectNodeMap &map, ObjectSet &examined, QObjec
 
         if (store) {
 
-            QSet<Node> pnodes = QSet<Node>::fromList
-                (variantToPropertyNodeList(map, examined, value));
-
-            int before = pnodes.size();
-
-            // this modifies pnodes, removing from it any nodes that
-            // are already present and correct as properties of this
-            // node (in preference to erasing and reinstating them)
-            removePropertyNodes(node, puri, &pnodes);
-
-            DEBUG << "Have " << before << " property triples, reduced to "
-                  << pnodes.size() << " to write after checking old values" << endl;
-
-            Triple t(node, puri, Node());
-            foreach (Node n, pnodes) {
-                t.c = n;
-                m_s->add(t);
-            }
+            Nodes pnodes = variantToPropertyNodeList(map, examined, value);
+            replacePropertyNodes(node, puri, pnodes);
 
         } else {
 
@@ -334,6 +320,31 @@ ObjectStorer::D::removePropertyNodes(Node node, Uri propertyUri, QSet<Node> *ret
                 removeUnusedBlankNode(t.c);
             }
         }
+    }
+}
+
+void
+ObjectStorer::D::replacePropertyNodes(Node node, Uri propertyUri, Node newValue)
+{
+    QSet<Node> nodeSet;
+    nodeSet << newValue;
+    removePropertyNodes(node, propertyUri, &nodeSet);
+    // nodeSet now contains only those nodes whose triples need to be
+    // added, i.e. those not present as our properties before
+    if (!nodeSet.empty()) {
+        m_s->add(Triple(node, propertyUri, newValue));
+    }
+}
+
+void
+ObjectStorer::D::replacePropertyNodes(Node node, Uri propertyUri, Nodes newValues)
+{
+    QSet<Node> nodeSet = QSet<Node>::fromList(newValues);
+    removePropertyNodes(node, propertyUri, &nodeSet);
+    // nodeSet now contains only those nodes whose triples need to be
+    // added, i.e. those not present as our properties before
+    foreach (Node pn, nodeSet) {
+        m_s->add(Triple(node, propertyUri, pn));
     }
 }
 
@@ -534,8 +545,7 @@ ObjectStorer::D::store(ObjectNodeMap &map, ObjectSet &examined, QObject *o)
         Node pn = map.value(parent);
         if (pn != Node()) {
 
-            m_s->remove(Triple(node, parentUri, Node()));
-            m_s->add(Triple(node, parentUri, pn));
+            replacePropertyNodes(node, parentUri, pn);
 
             Uri followsUri(m_tm.getRelationshipPrefix().toString() + "follows");
 
@@ -597,8 +607,7 @@ ObjectStorer::D::store(ObjectNodeMap &map, ObjectSet &examined, QObject *o)
 
                 Node sn = map.value(previous);
                 if (sn != Node()) {
-                    m_s->remove(Triple(node, followsUri, Node()));
-                    m_s->add(Triple(node, followsUri, sn));
+                    replacePropertyNodes(node, followsUri, sn);
                 } else {
                     if (m_fp & FollowSiblings) {
                         std::cerr << "Internal error: FollowSiblings set, but previous sibling has not been written" << std::endl;

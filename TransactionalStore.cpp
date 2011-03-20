@@ -105,6 +105,7 @@ public:
             m_currentTx = NoTransaction;
             m_context = NonTxContext;
         }
+        DEBUG << "TransactionalStore::commitTransaction: committed " << cs.size() << " change(s)" << endl;
         m_ts->transactionCommitted(cs);
         m_ts->transactionCommitted();
         DEBUG << "TransactionalStore::commitTransaction complete" << endl;
