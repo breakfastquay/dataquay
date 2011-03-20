@@ -57,6 +57,7 @@ public:
     Uri getUniqueUri(QString prefix) const;
     Node addBlankNode();
     Uri expand(QString uri) const;
+    void save(QString filename) const;
     
     void commit();
     ChangeSet commitAndObtain();
@@ -205,6 +206,12 @@ Connection::D::expand(QString uri) const
     return getStore()->expand(uri);
 }
 
+void
+Connection::D::save(QString filename) const
+{
+    getStore()->save(filename);
+}
+
 Connection::Connection(TransactionalStore *ts) :
     m_d(new D(ts))
 {
@@ -290,6 +297,12 @@ Uri
 Connection::expand(QString uri) const
 {
     return m_d->expand(uri);
+}
+
+void
+Connection::save(QString filename) const
+{
+    return m_d->save(filename);
 }
 
 void 

@@ -177,6 +177,12 @@ public:
      */
     virtual Uri expand(QString uri) const = 0;
 
+    /** 
+     * Export the store to an RDF/TTL file with the given filename.
+     * If the file already exists, it will if possible be overwritten.
+     */
+    virtual void save(QString filename) const = 0;
+
 protected:
     virtual ~Store() { }
 };

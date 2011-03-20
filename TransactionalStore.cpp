@@ -183,7 +183,7 @@ public:
     }
 
     Node queryFirst(const Transaction *tx, QString sparql,
-                        QString bindingName) const {
+                    QString bindingName) const {
         Operation op(this, tx);
         return m_store->queryFirst(sparql, bindingName);
     }
@@ -200,6 +200,11 @@ public:
 
     Uri expand(QString uri) const {
         return m_store->expand(uri);
+    }
+
+    void save(const Transaction *tx, QString filename) const {
+        Operation op(this, tx);
+        m_store->save(filename);
     }
 
     bool hasWrap() const {
@@ -505,6 +510,16 @@ public:
         return m_td->expand(uri);
     }
 
+    void save(QString filename) const {
+        check();
+        try {
+            return m_td->save(m_tx, filename);
+        } catch (RDFException &) {
+            abandon();
+            throw;
+        }
+    }
+
     void commit() {
         check();
         DEBUG << "TransactionalStore::TSTransaction::commit: Committing" << endl;
@@ -550,6 +565,13 @@ Transaction *
 TransactionalStore::startTransaction()
 {
     return m_d->startTransaction();
+}
+
+void
+TransactionalStore::save(QString filename) const
+{
+    D::NonTransactionalAccess ntxa(m_d);
+    m_d->getStore()->save(filename);
 }
 
 bool
@@ -732,6 +754,12 @@ Uri
 TransactionalStore::TSTransaction::expand(QString uri) const
 {
     return m_d->expand(uri);
+}
+
+void
+TransactionalStore::TSTransaction::save(QString filename) const
+{
+    return m_d->save(filename);
 }
 
 void

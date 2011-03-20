@@ -55,7 +55,7 @@ namespace Dataquay
  * progress already.
  *
  * Read access may be carried out through a Transaction, in which case
- * the read state will reflect the changes made so far in the pending
+ * the read state will reflect the changes made so far in that
  * transaction, or directly on the TransactionalStore, in which case
  * the read will be isolated from any pending transaction.
  *
@@ -133,6 +133,15 @@ public:
     Node addBlankNode();
     Uri expand(QString uri) const;
 
+    /**
+     * Export the store to an RDF/TTL file with the given filename.
+     * The saved state of the store will be isolated from any pending
+     * transactions.  If the file already exists, it will if possible
+     * be overwritten.  May throw RDFException, FileOperationFailed,
+     * FailedToOpenFile, etc.
+     */
+    void save(QString filename) const;
+
 signals:
     /**
      * Emitted after a transaction has been committed.  Note that the
@@ -172,6 +181,7 @@ private:
         Uri getUniqueUri(QString prefix) const;
         Node addBlankNode();
         Uri expand(QString uri) const;
+        void save(QString filename) const;
 
         // Transaction interface
         void commit();
