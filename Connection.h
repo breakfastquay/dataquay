@@ -103,6 +103,7 @@ public:
     Uri getUniqueUri(QString prefix) const;
     Node addBlankNode();
     Uri expand(QString uri) const;
+    void save(QString filename) const;
 
 public slots:
     /**
