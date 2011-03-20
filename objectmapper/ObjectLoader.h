@@ -37,6 +37,7 @@
 #include "../Node.h"
 
 #include <QHash>
+#include <QPointer>
 
 class QObject;
 
@@ -60,7 +61,7 @@ class ObjectLoader
 {
 public:
     /// Map from RDF node to object
-    typedef QHash<Node, QObject *> NodeObjectMap;
+    typedef QHash<Node, QPointer<QObject> > NodeObjectMap;
 
     /**
      * Create an ObjectLoader ready to load objects from the given RDF
@@ -170,6 +171,9 @@ public:
      * which will be called after each object is loaded.
      */
     void addLoadCallback(LoadCallback *callback);
+
+private slots:
+    void objectDestroyed(QObject *);
 
 private:
     ObjectLoader(const ObjectLoader &);

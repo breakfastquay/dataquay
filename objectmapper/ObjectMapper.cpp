@@ -441,51 +441,62 @@ private:
         QString m_b;
     };
 
-    template <typename A, typename B>
-    void syncMap(QHash<B,A> &to, QHash<A,B> &from) {
+    void syncMap(ObjectLoader::NodeObjectMap &target,
+                 ObjectStorer::ObjectNodeMap &source) {
+        
+        ObjectLoader::NodeObjectMap newMap;
+        int inCommon = 0;
 
-        //!!! rather slow, I think this is not the best way to do this!
+        for (ObjectStorer::ObjectNodeMap::iterator i = source.begin();
+             i != source.end(); ++i) {
+            
+            Node n = i.value();
 
-        // are we in fact doing the same thing as copying all elements
-        // from "from" to a new reverse map and assigning that to
-        // "to", plus additional consistency check?  would that be
-        // quicker?  or would it be better to do the extra work to
-        // keep tabs on exactly what has changed?  perhaps we should
-        // wait until this function becomes a bottleneck and then
-        // compare methods
-
-        int updated = 0;
-        QSet<B> found;
-        for (typename QHash<A,B>::iterator i = from.begin();
-             i != from.end(); ++i) {
-            A a = i.key();
-            B b = i.value();
-            A otherA = to.value(b);
-            if (otherA != A()) {
-                if (otherA != a) {
-                    throw InternalMappingInconsistency(typeid(B).name(),
-                                                       typeid(A).name());
+            if (target.contains(n)) {
+                QObject *o = target.value(n);
+                if (o && o != i.key()) {
+                    throw InternalMappingInconsistency("Node", "QObject");
                 }
-            } else {
-                to.insert(b, a);
-                ++updated;
+                ++inCommon;
             }
-            found.insert(b);
+            
+            newMap.insert(n, i.key());
         }
-        QSet<B> unfound;
-        for (typename QHash<B,A>::iterator i = to.begin();
-             i != to.end(); ++i) {
-            B b = i.key();
-            if (!found.contains(b)) {
-                unfound.insert(b);
+
+        DEBUG << "syncMap: Note: resized NodeObjectMap from " << target.size()
+              << " to " << newMap.size() << " element(s); " << inCommon
+              << " unchanged or trivial" << endl;
+
+        target = newMap;
+    }
+
+    void syncMap(ObjectStorer::ObjectNodeMap &target,
+                 ObjectLoader::NodeObjectMap &source) {
+
+        ObjectStorer::ObjectNodeMap newMap;
+        int inCommon = 0;
+
+        for (ObjectLoader::NodeObjectMap::iterator i = source.begin();
+             i != source.end(); ++i) {
+            
+            QObject *o = i.value();
+
+            if (target.contains(o)) {
+                Node n(target.value(o));
+                if (n != Node() && n != i.key()) {
+                    throw InternalMappingInconsistency("QObject", "Node");
+                }
+                ++inCommon;
             }
+            
+            newMap.insert(o, i.key());
         }
-        for (typename QSet<B>::iterator i = unfound.begin();
-             i != unfound.end(); ++i) {
-            to.remove(*i);
-        }
-        DEBUG << "syncMap: Note: updated " << updated << " and removed "
-              << unfound.size() << " element(s) from target map" << endl;
+
+        DEBUG << "syncMap: Note: resized ObjectNodeMap from " << target.size()
+              << " to " << newMap.size() << " element(s); " << inCommon
+              << " unchanged or trivial" << endl;
+
+        target = newMap;
     }
 };
 
