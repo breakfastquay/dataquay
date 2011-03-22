@@ -79,7 +79,7 @@ namespace Dataquay {
  * 
  * Workflow: something like --
  * 
- * - Receive list A of the nodes the customer particularly wants
+ * - Receive list A of the nodes the customer wants
  *
  * - Receive node-object map B from customer for updating (and for our
  *   reference, as soon as we know that a particular node has been
@@ -88,6 +88,7 @@ namespace Dataquay {
  * - Construct set C of nodes to load, initially empty
  *
  * - Traverse list A; for each node:
+ *   - if node does not exist in store, set null in B and continue
  *   - add node to set C
  *   - push parent on end of A if FollowParent and parent property
  *     is present and parent is not in C
@@ -97,15 +98,17 @@ namespace Dataquay {
  *   - likewise for each property node if FollowObjectProperties
  *     and node is not in C
  *
- * Now we really need a version D of set C which is in tree traversal
- * order -- roots first...
+ * Now we really need a version D of set C (or list A) which is in
+ * tree traversal order -- roots first...
  *
  * - Traverse D; for each node:
  *   - load node, recursing to parent and siblings if necessary,
  *     but do not set any properties
+ *   - put node value in B
  *
  * - Traverse D; for each node:
- *   - load properties
+ *   - load properties, recursing if appropriate
+ *   - call load callbacks
  * 
  * But we still need the examined set to avoid repeating ourselves
  * where an object is actually un-loadable?
@@ -116,6 +119,13 @@ class ObjectLoader::D
     typedef QSet<Node> NodeSet;
 
 public:
+    struct LoadState {
+        Nodes desired;
+        Nodes candidates;
+        NodeSet visited;
+        NodeObjectMap map;
+    };
+
     D(ObjectLoader *m, Store *s) :
         m_m(m),
         m_ob(ObjectBuilder::getInstance()),
@@ -154,16 +164,22 @@ public:
     }
 
     QObject *load(Node node) {
-        NodeObjectMap map;
-        NodeSet examined;
-        map.insert(node, 0);
-        QObject *o = load(map, examined, node);
-        // do not catch UnknownTypeException
-        return o;
+        LoadState state;
+        state.desired << node;
+        collect(state);
+        load(state);
+        return state.map.value(node);
     }
     
     void reload(Nodes nodes, NodeObjectMap &map) {
         
+        LoadState state;
+        state.desired = nodes;
+        state.map = map;
+        collect(state);
+        load(state);        
+
+/*
         NodeSet examined;
 
         foreach (Node n, nodes) {
@@ -202,6 +218,9 @@ public:
                 map.remove(n);
             }
         }
+*/
+
+        map = state.map;
     }
 
     QObjectList loadType(Uri type) {
@@ -255,6 +274,132 @@ private:
     FollowPolicy m_fp;
     AbsentPropertyPolicy m_ap;
     QList<LoadCallback *> m_loadCallbacks;
+
+    void collect(LoadState &state) {
+
+        state.candidates = state.desired;
+
+        NodeSet examined;
+
+        // Avoid ever pushing the nil Node as a future candidate by
+        // marking it as used already
+
+        examined << Node();
+        
+        // Use counter to iterate, so that when additional elements
+        // pushed onto the end of state.desired will be iterated over
+
+        for (int i = 0; i < state.candidates.size(); ++i) {
+        
+            Node node = state.candidates[i];
+
+            examined << node;
+
+            if (!nodeHasTypeInStore(node)) {
+                state.map.insert(node, 0);
+                continue;
+            }
+
+            Nodes relatives;
+
+            if (m_fp & FollowParent) {
+                relatives << parentOf(node);
+            }
+            if (m_fp & FollowChildren) {
+                relatives << childrenOf(node);
+            }
+            if (m_fp & FollowSiblings) {
+                relatives << prevSiblingOf(node) << nextSiblingOf(node);
+            }
+            if (m_fp & FollowObjectProperties) {
+                relatives << potentialPropertyNodesOf(node);
+            }
+                
+            foreach (Node r, relatives) {
+                if (!examined.contains(r)) {
+                    state.candidates << r;
+                }
+            }
+        }
+
+        DEBUG << "ObjectLoader: collect: desired = "
+              << state.desired.size() << ", candidates = "
+              << state.candidates.size() << endl;
+    }
+
+    bool nodeHasTypeInStore(Node node) {
+        Triple t = m_s->matchFirst(Triple(node, "a", Node()));
+        return (t.c.type == Node::URI);
+    }
+
+    Node parentOf(Node node) {
+        QString parentProp = m_tm.getRelationshipPrefix().toString() + "parent";
+        Triple t = m_s->matchFirst(Triple(node, parentProp, Node()));
+        if (t != Triple()) return t.c;
+        else return Node();
+    }
+
+    Nodes childrenOf(Node node) {
+        Nodes nn;
+        QString parentProp = m_tm.getRelationshipPrefix().toString() + "parent";
+        Triples tt = m_s->match(Triple(Node(), parentProp, node));
+        foreach (Triple t, tt) nn << t.a;
+        return nn;
+    }
+
+    Node prevSiblingOf(Node node) {
+        QString followProp = m_tm.getRelationshipPrefix().toString() + "follows";
+        Triple t = m_s->matchFirst(Triple(node, followProp, Node()));
+        if (t != Triple()) return t.c;
+        else return Node();
+    }
+
+    Node nextSiblingOf(Node node) {
+        QString followProp = m_tm.getRelationshipPrefix().toString() + "follows";
+        Triple t = m_s->matchFirst(Triple(Node(), followProp, node));
+        if (t != Triple()) return t.a;
+        else return Node();
+    }
+
+    Nodes potentialPropertyNodesOf(Node node) {
+        Nodes nn;
+        Triples tt = m_s->match(Triple(node, Node(), Node()));
+        foreach (Triple t, tt) {
+            if (nodeHasTypeInStore(t.a)) {
+                nn << t.a;
+            }
+        }
+        return nn;
+    }
+
+    void load(LoadState &state) {
+        
+        NodeSet examined;
+
+        // Avoid ever pushing the nil Node as a future candidate by
+        // marking it as used already
+
+        examined << Node();
+        
+        // Use counter to iterate, so that when additional elements
+        // pushed onto the end of state.desired will be iterated over
+
+        for (int i = 0; i < state.candidates.size(); ++i) {
+
+            Node node = state.candidates[i];
+
+            QObject *parentObject = 0;
+            Node parent = parentOf(node);
+            if (m_fp & FollowParent) {
+//                parentObject = loadSingle(state, parent);
+            } else {
+                //!!! no -- whether this is correct or not (or present or not) may depend on the order in which the nodes are listed in candidates -- we _must_ make sure they're listed in the "correct" (tree traversal) order -- no node having a parent dependency on a node that appears after it -- _and_ we must guarantee to have no interest in loading anything not in the candidates list
+//                parentObject = state.map.value(parent);
+            }
+            
+        }
+    }
+
 
     QObject *load(NodeObjectMap &map, NodeSet &examined, const Node &n,
                   QString classHint = "");
