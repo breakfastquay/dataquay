@@ -533,10 +533,16 @@ ObjectLoader::D::propertyNodeToObject(NodeObjectMap &map, NodeSet &examined,
         bool shouldLoad = false;
         if (m_fp & FollowObjectProperties) {
             if (!examined.contains(pnode)) {
+                DEBUG << "Not in examined set: loading now" << endl;
                 shouldLoad = true;
+            } else {
+                DEBUG << "Found in examined set, not retrying" << endl;
             }
         } else if (map.contains(pnode)) { // we know map.value(pnode) == 0
+            DEBUG << "In map with null value: loading now" << endl;
             shouldLoad = true;
+        } else {
+            DEBUG << "Not in map and FollowObjectProperties not set: not loading" << endl;
         }
         if (shouldLoad) {
             QString classHint;
@@ -547,6 +553,8 @@ ObjectLoader::D::propertyNodeToObject(NodeObjectMap &map, NodeSet &examined,
             load(map, examined, pnode, classHint);
             o = map.value(pnode);
         }
+    } else {
+        DEBUG << "Not an object node, ignoring" << endl;
     }
 
     return o;
