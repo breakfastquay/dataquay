@@ -49,6 +49,68 @@
 
 namespace Dataquay {
 
+/*
+ * The various sets and maps that get passed around are:
+ *
+ * NodeObjectMap &map -- keeps track of node-object mappings for nodes
+ * that are being loaded, and also for any other nodes that the
+ * calling code is interested in (this map belongs to it, we just
+ * update it).  We can refer to this to find out the object for a
+ * given node, but it's reliable only when we know that we have just
+ * loaded that node ourselves -- otherwise the value may be stale,
+ * left over from previous work.  (However, we will still use it if we
+ * need that node for an object property and FollowObjectProperties is
+ * not set so we aren't loading afresh.)
+ *
+ * NodeSet &examined -- the set of all nodes we have seen and loaded
+ * (or started to load) so far.  Used solely to avoid infinite
+ * recursions.
+ *
+ * What we need:
+ *
+ * NodeObjectMap as above.
+ *
+ * Something to list which nodes we need to load. This is populated
+ * from the Node or Nodes passed in, and then we traverse the tree
+ * using the follow-properties adding nodes as appropriate.
+ *
+ * Something to list which nodes we have tried to load.  This is our
+ * current examined set.  Or do we just remove from the to-load list?
+ * 
+ * Workflow: something like --
+ * 
+ * - Receive list A of the nodes the customer particularly wants
+ *
+ * - Receive node-object map B from customer for updating (and for our
+ *   reference, as soon as we know that a particular node has been
+ *   updated)
+ *
+ * - Construct set C of nodes to load, initially empty
+ *
+ * - Traverse list A; for each node:
+ *   - add node to set C
+ *   - push parent on end of A if FollowParent and parent property
+ *     is present and parent is not in C
+ *   - push prior sibling on end of A if FollowSiblings and follows 
+ *     property is present and sibling is not in C
+ *   - likewise for children
+ *   - likewise for each property node if FollowObjectProperties
+ *     and node is not in C
+ *
+ * Now we really need a version D of set C which is in tree traversal
+ * order -- roots first...
+ *
+ * - Traverse D; for each node:
+ *   - load node, recursing to parent and siblings if necessary,
+ *     but do not set any properties
+ *
+ * - Traverse D; for each node:
+ *   - load properties
+ * 
+ * But we still need the examined set to avoid repeating ourselves
+ * where an object is actually un-loadable?
+ */
+
 class ObjectLoader::D
 {
     typedef QSet<Node> NodeSet;
