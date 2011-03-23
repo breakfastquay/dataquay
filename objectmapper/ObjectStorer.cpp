@@ -523,6 +523,7 @@ ObjectStorer::D::store(ObjectNodeMap &map, ObjectSet &examined, QObject *o)
     
     QObject *parent = o->parent();
     Uri parentUri(m_tm.getRelationshipPrefix().toString() + "parent");
+    Uri followsUri(m_tm.getRelationshipPrefix().toString() + "follows");
 
     if (!parent) {
 
@@ -546,8 +547,6 @@ ObjectStorer::D::store(ObjectNodeMap &map, ObjectSet &examined, QObject *o)
         if (pn != Node()) {
 
             replacePropertyNodes(node, parentUri, pn);
-
-            Uri followsUri(m_tm.getRelationshipPrefix().toString() + "follows");
 
             // write (references to) siblings (they wouldn't be
             // meaningful if the parent was absent)
@@ -644,9 +643,18 @@ ObjectStorer::D::store(ObjectNodeMap &map, ObjectSet &examined, QObject *o)
                 examined.insert(c);
             }
         }
+        QObject *previous = 0;
         foreach (QObject *c, toFollow) {
-            DEBUG << "store: FollowChildren is set, writing child of " << node << endl;
             store(map, examined, c);
+            Node cn = map.value(c);
+            DEBUG << "store: FollowChildren is set, wrote child " << cn << " of " << node << endl;
+            if (previous) {
+                Node prevNode = map.value(previous);
+                replacePropertyNodes(cn, followsUri, prevNode);
+            } else {
+                m_s->remove(Triple(cn, followsUri, Node()));
+            }
+            previous = c;
         }
     }
 
