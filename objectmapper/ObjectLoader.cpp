@@ -228,6 +228,13 @@ public:
 */
 
         map = state.map;
+
+        DEBUG << "reload: map contains:" << endl;
+        for (NodeObjectMap::iterator i = map.begin();
+             i != map.end(); ++i) {
+            DEBUG << i.key() << " -> " << i.value() << endl;
+        }
+
     }
 
     QObjectList loadType(Uri type) {
@@ -305,6 +312,8 @@ private:
             examined << node;
 
             if (!nodeHasTypeInStore(node)) {
+                DEBUG << "Node " << node << " has no type in store, can't load, setting to 0 in map" << endl;
+                delete state.map.value(node);
                 state.map.insert(node, 0);
                 state.loaded << node;
                 continue;
@@ -395,25 +404,62 @@ private:
     }
         
     Nodes potentialPropertyNodesOf(Node node) {
-        //!!! needs to cope at least with sequences as well
+        //!!! what to do about nodes that end up in candidates and so are loaded, but are never actually needed?
         Nodes nn;
         Triples tt = m_s->match(Triple(node, Node(), Node()));
         foreach (Triple t, tt) {
-            if (nodeHasTypeInStore(t.a)) {
-                nn << t.a;
+            if (nodeHasTypeInStore(t.c)) {
+                nn << t.c;
+            } else {
+                Nodes sequence = sequenceStartingAt(t.c);
+                foreach (Node sn, sequence) {
+                    if (nodeHasTypeInStore(sn)) {
+                        nn << sn;
+                    }
+                }
             }
         }
         return nn;
     }
 
+    Nodes sequenceStartingAt(Node node) {
+
+        Nodes nn;
+        Triple t;
+
+        Node itr = node;
+        Node nil = m_s->expand("rdf:nil");
+        
+        while ((t = m_s->matchFirst(Triple(itr, "rdf:first", Node())))
+               != Triple()) {
+
+            nn << t.c;
+
+            t = m_s->matchFirst(Triple(itr, "rdf:rest", Node()));
+            if (t == Triple()) break;
+
+            itr = t.c;
+            if (itr == nil) break;
+        }
+
+        if (!nn.empty()) {
+            DEBUG << "sequenceStartingAt " << node << " has " << nn.size() << " item(s)" << endl;
+        }
+
+        return nn;
+    }
+
     void load(LoadState &state) {
         foreach (Node node, state.candidates) {
+            DEBUG << "load: calling load(" << node << ")" << endl;
             load(state, node);
         }
         foreach (Node node, state.loaded) {
+            DEBUG << "load: calling loadPropertiesFor(" << node << ")" << endl;
             loadPropertiesFor(state, node);
         }
         foreach (Node node, state.loaded) {
+            DEBUG << "load: calling callLoadCallbacks(" << node << ")" << endl;
             callLoadCallbacks(state, node);
         }
     }
@@ -448,6 +494,8 @@ private:
 
     QObject *loadSingle(LoadState &state, Node node, QObject *parentObject) {
 
+        DEBUG << "loadSingle: " << node << " (parent = " << parentObject << ")" << endl;
+
     //!!! document the implications of this -- e.g. that if
     //!!! multiple objects have properties with the same node in
     //!!! the RDF, they will be given the same object instance --
@@ -456,11 +504,15 @@ private:
     //!!! than the objects that have the properties
 
         if (state.loaded.contains(node)) {
+            DEBUG << "already loaded: returning existing value" << endl;
             return state.map.value(node);
         }
 
         QObject *o = allocateObject(node, parentObject);
-        
+
+        DEBUG << "Setting object " << o << " to map for node " << node << endl;
+
+        delete state.map.value(node);
         state.map.insert(node, o);
         state.loaded << node;
 
@@ -615,6 +667,9 @@ ObjectLoader::D::loadPropertiesFor(LoadState &state, Node node)
             }
         }
 
+        DEBUG << "For property " << pname << " of " << node << " have "
+              << pnodes.size() << " node(s)" << endl;
+
         if (!haveProperty && m_ap == IgnoreAbsentProperties) continue;
 
         QVariant value;
@@ -633,11 +688,13 @@ ObjectLoader::D::loadPropertiesFor(LoadState &state, Node node)
             }
 
             if (defaultsObject) {
+                DEBUG << "Resetting property " << pname << " to default" << endl;
                 value = defaultsObject->property(pnba.data());
             }
 
         } else {
             QString typeName = property.typeName();
+            DEBUG << "Setting property " << pname << " of type " << typeName << endl;
             value = propertyNodeListToVariant(state, typeName, pnodes);
         }
 
@@ -803,9 +860,6 @@ ObjectLoader::D::propertyNodeToVariant(LoadState &state,
 QObject *
 ObjectLoader::D::propertyNodeToObject(LoadState &state, Node pnode)
 {
-    DEBUG << "propertyNodeToObject: object for node "
-          << pnode << " is not (yet) in map" << endl;
-
     QObject *o = 0;
 
     if (pnode.type == Node::URI || pnode.type == Node::Blank) {
@@ -823,20 +877,15 @@ QVariantList
 ObjectLoader::D::propertyNodeToList(LoadState &state, 
                                     QString typeName, Node pnode)
 {
+    Nodes sequence = sequenceStartingAt(pnode);
+
     QVariantList list;
-    Triple t;
 
-    while ((t = m_s->matchFirst(Triple(pnode, "rdf:first", Node())))
-           != Triple()) {
+    foreach (Node node, sequence) {
 
-        Node fnode = t.c;
-
-        DEBUG << "propertyNodeToList: pnode " << pnode << ", fnode "
-              << fnode << endl;
-
-        Nodes fnodes;
-        fnodes << fnode;
-        QVariant value = propertyNodeListToVariant(state, typeName, fnodes);
+        Nodes vnodes;
+        vnodes << node;
+        QVariant value = propertyNodeListToVariant(state, typeName, vnodes);
 
         if (value.isValid()) {
             DEBUG << "Found value: " << value << endl;
@@ -844,15 +893,9 @@ ObjectLoader::D::propertyNodeToList(LoadState &state,
         } else {
             DEBUG << "propertyNodeToList: Invalid value in list, skipping" << endl;
         }
-        
-        t = m_s->matchFirst(Triple(pnode, "rdf:rest", Node()));
-        if (t == Triple()) break;
-
-        pnode = t.c;
-        if (pnode == m_s->expand("rdf:nil")) break;
     }
 
-    DEBUG << "propertyNodeToList: list has " << list.size() << " items" << endl;
+    DEBUG << "propertyNodeToList: list has " << list.size() << " item(s)" << endl;
     return list;
 }
 
@@ -907,6 +950,8 @@ ObjectLoader::D::allocateObject(Node node, QObject *parent)
     if (node.type == Node::URI) {
         o->setProperty("uri", QVariant::fromValue(m_s->expand(node.value)));
     }
+
+    DEBUG << "Made object: " << o << endl;
 
     return o;
 }
