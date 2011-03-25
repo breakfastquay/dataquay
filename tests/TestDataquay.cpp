@@ -1517,6 +1517,7 @@ testObjectMapper()
     cerr << "Testing single custom object store..." << endl;
 
     A *a = new A(o);
+    a->setProperty("uri", QVariant::fromValue<Uri>(Uri(":A_first_with_timer")));
     a->setRef(t);
     Uri auri = storer.store(a);
     cerr << "Stored A-object as " << auri << endl;
@@ -1543,11 +1544,13 @@ testObjectMapper()
     cerr << "Testing object network store and recall..." << endl;
     
     B *b = new B(o);
+    // This B must have neither object name nor URI, it's checked for later
     b->setA(a);
 
     bool circular = true;
 
     C *c = new C;
+    c->setObjectName("C with strings and floats and other Cs");
     QStringList strings;
     strings << "First string";
     strings << "Second string";

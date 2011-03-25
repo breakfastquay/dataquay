@@ -325,6 +325,24 @@ public:
               << " change(s) in transaction" << endl;
         //!!! reload objects
 
+        DEBUG << "ObjectMapper: before sync, node-object map contains:" << endl;
+        for (ObjectLoader::NodeObjectMap::iterator i = m_n.nodeObjectMap.begin();
+             i != m_n.nodeObjectMap.end(); ++i) {
+            QString n;
+            QObject *o = i.value();
+            if (o) n = o->objectName();
+            DEBUG << i.key() << " -> " << i.value() << " [" << n << "]" << endl;
+        }
+
+        DEBUG << "ObjectMapper: before sync, object-node map contains:" << endl;
+        for (ObjectStorer::ObjectNodeMap::iterator i = m_n.objectNodeMap.begin();
+             i != m_n.objectNodeMap.end(); ++i) {
+            QString n;
+            QObject *o = i.key();
+            if (o) n = o->objectName();
+            DEBUG << i.key() << " [" << n << "] -> " << i.value() << endl;
+        }
+
         //!!! if an object has been effectively deleted from the
         //!!! store, we can't know that without querying the store to
         //!!! discover whether any triples remain -- so we should let
@@ -349,6 +367,15 @@ public:
         // unchanged (since the last commit call) m_n.objectNodeMap
         // from it
         syncMap(m_n.objectNodeMap, m_n.nodeObjectMap);
+
+        DEBUG << "ObjectMapper: after sync, object-node map contains:" << endl;
+        for (ObjectStorer::ObjectNodeMap::iterator i = m_n.objectNodeMap.begin();
+             i != m_n.objectNodeMap.end(); ++i) {
+            QString n;
+            QObject *o = i.key();
+            if (o) n = o->objectName();
+            DEBUG << i.key() << " [" << n << "] -> " << i.value() << endl;
+        }
 
         m_inReload = false;
         DEBUG << "ObjectMapper::transactionCommitted done" << endl;

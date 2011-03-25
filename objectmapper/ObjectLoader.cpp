@@ -114,15 +114,45 @@ namespace Dataquay {
  * where an object is actually un-loadable?
  */
 
+/*
+ * We should construct a new object when:
+ *
+ * - a node in desired does not appear in map at all
+ *
+ * - a node called for as parent or object property does not appear in
+ *   map and the relevant follows policy is set
+ *
+ * - ??? a node's parent changes?
+ *
+ * We should reload properties for an object node when:
+ * 
+ * - the node is in desired
+ *
+ * - the node has just been loaded
+ *
+ * - any others??
+ *
+ * We should delete an object when:
+ * 
+ * - ??
+ *
+ * Cycles are only a problem when loading objects -- not when setting
+ * properties.  So we need to ensure that all objects that will need
+ * to be loaded for object properties or parents etc are identified
+ * before we start loading, then we load relationship tree (no
+ * cycles), then we load property objects, then we go through setting
+ * properties on the appropriate objects.
+ */
+
 class ObjectLoader::D
 {
     typedef QSet<Node> NodeSet;
 
 public:
     struct LoadState {
-        Nodes desired;
-        Nodes candidates;
-        NodeSet loaded;
+        Nodes requested;
+        NodeSet toAllocate;
+        NodeSet toPopulate;
         NodeObjectMap map;
     };
 
@@ -172,7 +202,7 @@ public:
 
     QObject *load(Node node) {
         LoadState state;
-        state.desired << node;
+        state.requested << node;
         collect(state);
         load(state);
         return state.map.value(node);
@@ -181,7 +211,7 @@ public:
     void reload(Nodes nodes, NodeObjectMap &map) {
         
         LoadState state;
-        state.desired = nodes;
+        state.requested = nodes;
         state.map = map;
         collect(state);
         load(state);        
@@ -293,24 +323,36 @@ private:
 
     void collect(LoadState &state) {
 
-        state.candidates = state.desired;
-
-        NodeSet examined;
+        Nodes candidates = state.requested;
+        NodeSet visited;
 
         // Avoid ever pushing the nil Node as a future candidate by
         // marking it as used already
 
-        examined << Node();
+        visited << Node();
         
         // Use counter to iterate, so that when additional elements
         // pushed onto the end of state.desired will be iterated over
 
-        for (int i = 0; i < state.candidates.size(); ++i) {
-        
-            Node node = state.candidates[i];
+        for (int i = 0; i < candidates.size(); ++i) {
 
-            examined << node;
+            Node node = candidates[i];
 
+            visited << node;
+
+            if (!state.map.contains(node)) {
+
+                state.toAllocate.insert(node);
+                state.toPopulate.insert(node);
+
+            } else if (i < state.requested.size()) {
+                
+                // This is one of the requested nodes, which were at
+                // the start of the candidates list
+
+                state.toPopulate.insert(node);
+            }
+/*!!! need this in another location
             if (!nodeHasTypeInStore(node)) {
                 DEBUG << "Node " << node << " has no type in store, can't load, setting to 0 in map" << endl;
                 delete state.map.value(node);
@@ -318,7 +360,7 @@ private:
                 state.loaded << node;
                 continue;
             }
-
+*/
             Nodes relatives;
 
             if (m_fp & FollowParent) {
@@ -335,15 +377,27 @@ private:
             }
                 
             foreach (Node r, relatives) {
-                if (!examined.contains(r)) {
-                    state.candidates << r;
+                if (!visited.contains(r)) {
+                    candidates << r;
                 }
             }
         }
 
-        DEBUG << "ObjectLoader: collect: desired = "
-              << state.desired.size() << ", candidates = "
-              << state.candidates.size() << endl;
+        DEBUG << "ObjectLoader: collect: requested = "
+              << state.requested.size() << ", toAllocate = "
+              << state.toAllocate.size() << ", toPopulate = "
+              << state.toPopulate.size() << endl;
+
+        DEBUG << "Requested:";
+        foreach (Node n, state.requested) DEBUG << n;
+
+        DEBUG << "toAllocate:";
+        foreach (Node n, state.toAllocate) DEBUG << n;
+
+        DEBUG << "toPopulate:";
+        foreach (Node n, state.toPopulate) DEBUG << n;
+
+        DEBUG << endl;
     }
 
     bool nodeHasTypeInStore(Node node) {
@@ -450,30 +504,62 @@ private:
     }
 
     void load(LoadState &state) {
-        foreach (Node node, state.candidates) {
-            DEBUG << "load: calling load(" << node << ")" << endl;
-            load(state, node);
+        foreach (Node node, state.toAllocate) {
+            DEBUG << "load: calling allocate(" << node << ")" << endl;
+            allocate(state, node);
         }
-        foreach (Node node, state.loaded) {
-            DEBUG << "load: calling loadPropertiesFor(" << node << ")" << endl;
-            loadPropertiesFor(state, node);
+        foreach (Node node, state.toPopulate) {
+            DEBUG << "load: calling populate(" << node << ")" << endl;
+            populate(state, node);
         }
-        foreach (Node node, state.loaded) {
+        foreach (Node node, state.toPopulate) {
             DEBUG << "load: calling callLoadCallbacks(" << node << ")" << endl;
             callLoadCallbacks(state, node);
         }
     }
 
-    void load(LoadState &state, Node node) {
+    void allocate(LoadState &state, Node node) {
 
-        if (state.loaded.contains(node)) return;
+        //!!! too many of these tests, some must be redundant
+        if (!state.toAllocate.contains(node)) return;
 
         QObject *parentObject = parentObjectOf(state, node);
+
+        allocate(state, node, parentObject);
+    }
+
+    QObject *parentObjectOf(LoadState &state, Node node) {
+        
+        Node parent = parentOf(node);
+        QObject *parentObject = 0;
+
+        if (parent != Node()) {
+            allocate(state, parent);
+            parentObject = state.map.value(parent);
+        }
+
+        return parentObject;
+    }
+
+    void allocate(LoadState &state, Node node, QObject *parentObject) {
+
+        //!!! too many of these tests, some must be redundant
+        if (!state.toAllocate.contains(node)) return;
+
+        if (!nodeHasTypeInStore(node)) {
+            DEBUG << "Node " << node << " has no type in store, can't load, setting to 0 in map" << endl;
+            delete state.map.value(node); //!!! what if it had child nodes?
+            state.map.insert(node, 0);
+            state.toAllocate.remove(node);
+            state.toPopulate.remove(node);
+            return;
+        }
 
         if (m_fp & FollowSiblings) {
             Nodes siblings = orderedSiblingsOf(node);
             foreach (Node s, siblings) {
-                loadSingle(state, s, parentObject);
+                //!!! but we want to do this without recursing again to siblings
+                allocate(state, s, parentObject);
             }
         }
 
@@ -482,7 +568,7 @@ private:
         if (m_fp & FollowChildren) {
             Nodes children = orderedChildrenOf(node);
             foreach (Node c, children) {
-                loadSingle(state, c, o);
+                allocate(state, c, o);
             }
         }
     }
@@ -492,6 +578,7 @@ private:
         return loadSingle(state, node, parentObject);
     }
 
+    //!!! not the best name for this function perhaps
     QObject *loadSingle(LoadState &state, Node node, QObject *parentObject) {
 
         DEBUG << "loadSingle: " << node << " (parent = " << parentObject << ")" << endl;
@@ -503,8 +590,9 @@ private:
     //!!! lifetime of these objects managed by something other
     //!!! than the objects that have the properties
 
-        if (state.loaded.contains(node)) {
-            DEBUG << "already loaded: returning existing value" << endl;
+        //!!! too many of these tests, some must be redundant
+        if (!state.toAllocate.contains(node)) {
+            DEBUG << "already loaded: returning existing value (" << state.map.value(node) << ")" << endl;
             return state.map.value(node);
         }
 
@@ -512,31 +600,27 @@ private:
 
         DEBUG << "Setting object " << o << " to map for node " << node << endl;
 
-        delete state.map.value(node);
-        state.map.insert(node, o);
-        state.loaded << node;
-
-        return o;
-    }
-
-    QObject *parentObjectOf(LoadState &state, Node node) {
-        
-        Node parent = parentOf(node);
-        QObject *parentObject = 0;
-
-        if (parent != Node()) {
-            if ((m_fp & FollowParent) || state.desired.contains(parent)) {
-                load(state, parent);
-            }
-            parentObject = state.map.value(parent);
+        QObject *old = state.map.value(node);
+        if (o != old) {
+            DEBUG << "Deleting old object " << old << endl;
+            delete old;
         }
 
-        return parentObject;
+        state.map.insert(node, o);
+        state.toAllocate.remove(node);
+
+        QObject *x = state.map.value(node);
+        DEBUG << "New value is " << x << endl;
+
+        return o;
     }
 
     void callLoadCallbacks(LoadState &state, Node node) {
 
         QObject *o = state.map.value(node);
+
+        DEBUG << "callLoadCallbacks: " << node << " -> " << o << endl;
+
         if (!o) return;
 
         foreach (LoadCallback *cb, m_loadCallbacks) {
@@ -561,7 +645,7 @@ private:
 
     void callLoadCallbacks(NodeObjectMap &map, Node node, QObject *o);
 */
-    void loadPropertiesFor(LoadState &, Node node);
+    void populate(LoadState &, Node node);
     QVariant propertyNodeListToVariant(LoadState &, QString typeName, Nodes pnodes);
     QObject *propertyNodeToObject(LoadState &, Node pnode);
     QVariant propertyNodeToVariant(LoadState &, QString typeName, Node pnode);
@@ -628,7 +712,7 @@ ObjectLoader::D::load(NodeObjectMap &map, NodeSet &examined, const Node &n,
 }
 */
 void
-ObjectLoader::D::loadPropertiesFor(LoadState &state, Node node)
+ObjectLoader::D::populate(LoadState &state, Node node)
 {
     QObject *o = state.map.value(node);
     if (!o) return;
@@ -863,9 +947,9 @@ ObjectLoader::D::propertyNodeToObject(LoadState &state, Node pnode)
     QObject *o = 0;
 
     if (pnode.type == Node::URI || pnode.type == Node::Blank) {
-        if (state.candidates.contains(pnode)) {
+//!!!        if (state.candidates.contains(pnode)) {
             o = loadSingle(state, pnode);
-        }
+//        }
     } else {
         DEBUG << "Not an object node, ignoring" << endl;
     }
