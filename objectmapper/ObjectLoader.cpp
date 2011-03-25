@@ -134,7 +134,7 @@ namespace Dataquay {
  *
  * We should delete an object when:
  * 
- * - ??
+ * - a node in desired is in the map but not in the store
  *
  * Cycles are only a problem when loading objects -- not when setting
  * properties.  So we need to ensure that all objects that will need
@@ -142,6 +142,9 @@ namespace Dataquay {
  * before we start loading, then we load relationship tree (no
  * cycles), then we load property objects, then we go through setting
  * properties on the appropriate objects.
+ *
+ *!!! latest trouble: We probably want to set properties on an object
+ *    before we attach its children. Is this possible here?
  */
 
 class ObjectLoader::D
@@ -350,17 +353,16 @@ private:
                 // This is one of the requested nodes, which were at
                 // the start of the candidates list
 
+                if (!nodeHasTypeInStore(node)) {
+                    DEBUG << "Node " << node << " has no type in store, can't load, setting to 0 in map" << endl;
+                    delete state.map.value(node);
+                    state.map.insert(node, 0);
+                    continue;
+                }
+
                 state.toPopulate.insert(node);
             }
-/*!!! need this in another location
-            if (!nodeHasTypeInStore(node)) {
-                DEBUG << "Node " << node << " has no type in store, can't load, setting to 0 in map" << endl;
-                delete state.map.value(node);
-                state.map.insert(node, 0);
-                state.loaded << node;
-                continue;
-            }
-*/
+
             Nodes relatives;
 
             if (m_fp & FollowParent) {
@@ -518,16 +520,6 @@ private:
         }
     }
 
-    void allocate(LoadState &state, Node node) {
-
-        //!!! too many of these tests, some must be redundant
-        if (!state.toAllocate.contains(node)) return;
-
-        QObject *parentObject = parentObjectOf(state, node);
-
-        allocate(state, node, parentObject);
-    }
-
     QObject *parentObjectOf(LoadState &state, Node node) {
         
         Node parent = parentOf(node);
@@ -541,11 +533,21 @@ private:
         return parentObject;
     }
 
-    void allocate(LoadState &state, Node node, QObject *parentObject) {
+    void allocate(LoadState &state, Node node) {
 
         //!!! too many of these tests, some must be redundant
         if (!state.toAllocate.contains(node)) return;
 
+        QObject *parentObject = parentObjectOf(state, node);
+
+        allocate(state, node, parentObject);
+    }
+
+    void allocate(LoadState &state, Node node, QObject *parentObject) {
+
+        //!!! too many of these tests, some must be redundant
+        if (!state.toAllocate.contains(node)) return;
+/*
         if (!nodeHasTypeInStore(node)) {
             DEBUG << "Node " << node << " has no type in store, can't load, setting to 0 in map" << endl;
             delete state.map.value(node); //!!! what if it had child nodes?
@@ -554,12 +556,12 @@ private:
             state.toPopulate.remove(node);
             return;
         }
-
+*/
         if (m_fp & FollowSiblings) {
             Nodes siblings = orderedSiblingsOf(node);
             foreach (Node s, siblings) {
-                //!!! but we want to do this without recursing again to siblings
-                allocate(state, s, parentObject);
+                //!!! Hmm. Do we want to recurse to children of siblings if FollowChildren is set? Trouble is we don't want to recurse to siblings of siblings (that would lead to a cycle)
+                loadSingle(state, s, parentObject);
             }
         }
 
