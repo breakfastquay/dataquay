@@ -106,6 +106,12 @@ Uri::checkComplete() const
 #endif
 }
 
+void
+Uri::makeHash() 
+{
+    m_hash = qHash(m_uri);
+}
+
 QString
 Uri::scheme() const
 {
@@ -115,7 +121,7 @@ Uri::scheme() const
 }
 
 bool
-Uri::operator==(const Uri &u) const
+Uri::urisEqual(const Uri &u) const
 {
     const QString &other = u.m_uri;
     int len = length();
@@ -155,7 +161,7 @@ QTextStream &operator<<(QTextStream &out, const Uri &u) {
 
 unsigned int qHash(const Dataquay::Uri &u)
 {
-    return qHash(u.toString());
+    return u.hash();
 }
 
 
