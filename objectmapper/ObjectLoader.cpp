@@ -147,7 +147,15 @@ namespace Dataquay {
  *    before we attach its children. Is this possible here? Set simple
  *    properties before doing child nodes... hm, but that means doing
  *    so in load rather than populate, and the set of nodes being
- *    loaded is smaller than the set being populated
+ *    loaded is smaller than the set being initialised
+ *
+ * Current terminology: 
+ * - requested: nodes the customer asked to be loaded or reloaded
+ * - toAllocate: nodes whose objects will need to be constructed (if possible)
+ * - toInitialise: nodes pending the first (literal) properties set
+ * - toPopulate: nodes pending the full properties set
+ * (we separate out initialise and populate for convenience of users,
+ * so we get basic properties set before children are attached)
  */
 
 class ObjectLoader::D
@@ -158,6 +166,7 @@ public:
     struct LoadState {
         Nodes requested;
         NodeSet toAllocate;
+        NodeSet toInitialise;
         NodeSet toPopulate;
         NodeObjectMap map;
     };
@@ -348,8 +357,13 @@ private:
 
             if (!state.map.contains(node)) {
 
-                state.toAllocate.insert(node);
-                state.toPopulate.insert(node);
+                if (!nodeHasTypeInStore(node)) {
+                    continue;
+                } else {
+                    state.toAllocate.insert(node);
+                    state.toInitialise.insert(node);
+                    state.toPopulate.insert(node);
+                } 
 
             } else if (i < state.requested.size()) {
                 
@@ -357,12 +371,15 @@ private:
                 // the start of the candidates list
 
                 if (!nodeHasTypeInStore(node)) {
-                    DEBUG << "Node " << node << " has no type in store, can't load, setting to 0 in map" << endl;
+                    DEBUG << "Node " << node
+                          << " has no type in store, deleting and resetting"
+                          << endl;
                     delete state.map.value(node);
                     state.map.insert(node, 0);
                     continue;
                 }
 
+                state.toInitialise.insert(node);
                 state.toPopulate.insert(node);
             }
 
@@ -388,16 +405,21 @@ private:
             }
         }
 
-        DEBUG << "ObjectLoader: collect: requested = "
-              << state.requested.size() << ", toAllocate = "
-              << state.toAllocate.size() << ", toPopulate = "
-              << state.toPopulate.size() << endl;
+        DEBUG << "ObjectLoader: collect: "
+              << "requested = " << state.requested.size()
+              << ", toAllocate = " << state.toAllocate.size()
+              << ", toInitialise = " << state.toInitialise.size()
+              << ", toPopulate = " << state.toPopulate.size()
+              << endl;
 
         DEBUG << "Requested:";
         foreach (Node n, state.requested) DEBUG << n;
 
         DEBUG << "toAllocate:";
         foreach (Node n, state.toAllocate) DEBUG << n;
+
+        DEBUG << "toInitialise:";
+        foreach (Node n, state.toInitialise) DEBUG << n;
 
         DEBUG << "toPopulate:";
         foreach (Node n, state.toPopulate) DEBUG << n;
@@ -513,6 +535,10 @@ private:
             DEBUG << "load: calling allocate(" << node << ")" << endl;
             allocate(state, node);
         }
+        foreach (Node node, state.toInitialise) {
+            DEBUG << "load: calling initialise(" << node << ")" << endl;
+            initialise(state, node);
+        }
         foreach (Node node, state.toPopulate) {
             DEBUG << "load: calling populate(" << node << ")" << endl;
             populate(state, node);
@@ -556,7 +582,7 @@ private:
             delete state.map.value(node); //!!! what if it had child nodes?
             state.map.insert(node, 0);
             state.toAllocate.remove(node);
-            state.toPopulate.remove(node);
+            state.toInitialise.remove(node);
             return;
         }
 */
@@ -569,6 +595,10 @@ private:
         }
 
         QObject *o = loadSingle(state, node, parentObject);
+
+        if (state.toInitialise.contains(node)) {
+            initialise(state, node);
+        }
 
         if (m_fp & FollowChildren) {
             Nodes children = orderedChildrenOf(node);
@@ -650,7 +680,16 @@ private:
 
     void callLoadCallbacks(NodeObjectMap &map, Node node, QObject *o);
 */
+    void initialise(LoadState &, Node node);
     void populate(LoadState &, Node node);
+
+    enum PropertyLoadType {
+        LoadAllProperties,
+        LoadLiteralProperties,
+        LoadNonLiteralProperties
+    };
+    void loadProperties(LoadState &, Node node, PropertyLoadType);
+
     QVariant propertyNodeListToVariant(LoadState &, QString typeName, Nodes pnodes);
     QObject *propertyNodeToObject(LoadState &, Node pnode);
     QVariant propertyNodeToVariant(LoadState &, QString typeName, Node pnode);
@@ -716,8 +755,24 @@ ObjectLoader::D::load(NodeObjectMap &map, NodeSet &examined, const Node &n,
     return o;
 }
 */
+
+void
+ObjectLoader::D::initialise(LoadState &state, Node node)
+{
+    loadProperties(state, node, LoadLiteralProperties);
+    state.toInitialise.remove(node);
+}
+
 void
 ObjectLoader::D::populate(LoadState &state, Node node)
+{
+    loadProperties(state, node, LoadNonLiteralProperties);
+    state.toPopulate.remove(node);
+}
+
+void
+ObjectLoader::D::loadProperties(LoadState &state, Node node,
+                                PropertyLoadType loadType)
 {
     QObject *o = state.map.value(node);
     if (!o) return;
@@ -756,6 +811,18 @@ ObjectLoader::D::populate(LoadState &state, Node node)
             }
         }
 
+        if (loadType != LoadAllProperties) {
+            bool literal = true;
+            foreach (Node n, pnodes) {
+                if (n.type != Node::Literal) {
+                    literal = false;
+                    break;
+                }
+            }
+            if ( literal && (loadType == LoadNonLiteralProperties)) continue;
+            if (!literal && (loadType == LoadLiteralProperties)) continue;
+        }
+        
         DEBUG << "For property " << pname << " of " << node << " have "
               << pnodes.size() << " node(s)" << endl;
 
