@@ -56,6 +56,46 @@ class QVariant;
 namespace Dataquay
 {
 
+class ImmutableString
+{
+public:
+    ImmutableString() {
+        makeHash();
+    }
+
+    ImmutableString(const QString &s) : m_hash(0), m_s(s) {
+        makeHash();
+    }
+
+    ~ImmutableString() {
+    }
+
+    inline QString toString() const { return m_s; }
+    inline int length() const { return m_s.length(); }
+    inline unsigned int hash() const { return m_hash; }
+
+    inline bool operator==(const ImmutableString &is) const {
+        if (m_hash != is.m_hash) return false;
+        else return stringsEqual(is);
+    }
+    inline bool operator!=(const ImmutableString &is) const {
+        return !operator==(is);
+    }
+    inline bool operator<(const ImmutableString &is) const {
+        return m_s < is.m_s;
+    }
+    inline bool operator>(const ImmutableString &is) const {
+        return is < *this;
+    }
+
+private:
+    bool stringsEqual(const ImmutableString &) const;
+    void makeHash();
+    unsigned int m_hash;
+    QString m_s;
+};
+
+
 /**
  * Uri represents a single URI.  It is a very thin immutable wrapper
  * around a string.  Its purpose is to allow us to distinguish between
@@ -95,38 +135,39 @@ public:
      * Store::expand() instead.  This constructor is intentionally
      * marked explicit; no silent conversion is available.
      */
-    explicit Uri(const QString &s) : m_hash(0), m_uri(s) {
+    explicit Uri(const QString &s) : m_uri(s) {
 #ifndef NDEBUG
 	checkComplete();
 #endif
-        makeHash();
+    }
+
+    explicit Uri(const ImmutableString &s) : m_uri(s) {
+#ifndef NDEBUG
+	checkComplete();
+#endif
     }
 
     /**
      * Construct a URI from the given QUrl, which is expected to
      * contain a complete well-formed URI.
      */
-    explicit Uri(const QUrl &u) : m_hash(0), m_uri(u.toString()) {
+    explicit Uri(const QUrl &u) : m_uri(u.toString()) {
 #ifndef NDEBUG
 	checkComplete();
 #endif
-        makeHash();
     }
 
     ~Uri() {
     }
 
-    inline QString toString() const { return m_uri; }
-    inline QUrl toUrl() const { return QUrl(m_uri); }
+    inline QString toString() const { return m_uri.toString(); }
+    inline QUrl toUrl() const { return QUrl(m_uri.toString()); }
     inline int length() const { return m_uri.length(); }
-    inline unsigned int hash() const { return m_hash; }
+    inline unsigned int hash() const { return m_uri.hash(); }
 
     QString scheme() const;
 
-    inline bool operator==(const Uri &u) const {
-        if (m_hash != u.m_hash) return false;
-        else return urisEqual(u);
-    }
+    inline bool operator==(const Uri &u) const { return m_uri == u.m_uri; }
     inline bool operator!=(const Uri &u) const { return !operator==(u); }
     inline bool operator<(const Uri &u) const { return m_uri < u.m_uri; }
     inline bool operator>(const Uri &u) const { return u < *this; }
@@ -138,9 +179,7 @@ public:
 private:
     void checkComplete() const;
     bool urisEqual(const Uri &) const;
-    void makeHash();
-    unsigned int m_hash;
-    QString m_uri;
+    ImmutableString m_uri;
 };
 
 typedef QList<Uri> UriList;

@@ -71,7 +71,7 @@ public:
      * Construct a node with no node type (used for example as an
      * undefined node when pattern matching a triple).
      */
-    Node() : type(Nothing), value() { }
+    Node() : m_type(Nothing), m_value() { }
 
     /**
      * Construct a node with a URI node type and the given URI.
@@ -86,29 +86,40 @@ public:
      * to represent URIs that may be local or namespace prefixed, and
      * Uri to represent expanded or canonical URIs.)
      */
-    Node(Uri u) : type(URI), value(u.toString()) { }
+    Node(Uri u) : m_type(URI), m_value(u.toString()) { }
 
     /**
      * Construct a node with the given node type and value, and with
      * no defined datatype.
      */
-    Node(Type t, QString v) : type(t), value(v) { }
+    Node(Type t, QString v) : m_type(t), m_value(v) { }
 
     /**
      * Construct a node with the given node type, value, and datatype.
      */
-    Node(Type t, QString v, Uri dt) : type(t), value(v), datatype(dt) { }
+    Node(Type t, QString v, Uri dt) : m_type(t), m_value(v), m_datatype(dt) { }
 
     Node(const Node &n) :
-        type(n.type), value(n.value), datatype(n.datatype) {
+        m_type(n.m_type), m_value(n.m_value), m_datatype(n.m_datatype) {
     }
 
     Node &operator=(const Node &n) {
-        type = n.type; value = n.value; datatype = n.datatype;
+        m_type = n.m_type; m_value = n.m_value; m_datatype = n.m_datatype;
         return *this;
     }
 
     ~Node() { }
+
+    Type type() const { return m_type; }
+    QString value() const { return m_value.toString(); }
+    Uri datatype() const { return m_datatype; }
+
+    //!!! or should this class be immutable?
+    void setType(Type t) { m_type = t; }
+    void setValue(QString s) { m_value = s; }
+    void setDatatype(Uri d) { m_datatype = d; }
+
+    unsigned int hash() const;
 
     /**
      * Convert a QVariant to a Node.
@@ -167,9 +178,9 @@ public:
     QVariant toVariant(int metaTypeId) const;
 
     bool operator<(const Node &n) const {
-        if (type != n.type) return type < n.type;
-        if (value != n.value) return value < n.value;
-        if (datatype != n.datatype) return datatype < n.datatype;
+        if (m_type != n.m_type) return m_type < n.m_type;
+        if (m_value != n.m_value) return m_value < n.m_value;
+        if (m_datatype != n.m_datatype) return m_datatype < n.m_datatype;
         return false;
     }
 
@@ -235,9 +246,10 @@ public:
      */
     static QString getVariantTypeName(Uri datatype);
     
-    Type type;
-    QString value;
-    Uri datatype;
+private:
+    Type m_type;
+    ImmutableString m_value;
+    Uri m_datatype;
 };
 
 /**

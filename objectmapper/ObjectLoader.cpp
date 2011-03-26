@@ -157,7 +157,7 @@ public:
         
         Triples candidates = m_s->match(Triple(Node(), "a", typeNode));
         foreach (Triple t, candidates) {
-            if (t.c.type != Node::URI) continue;
+            if (t.c.type() != Node::URI) continue;
             nodes.push_back(t.a);
         }
 
@@ -360,7 +360,7 @@ ObjectLoader::D::loadProperties(NodeObjectMap &map, NodeSet &examined, QObject *
                   << property.typeName() << " (" << property.userType()
                   << ") to value of type " << value.type() 
                   << " and value " << value
-                  << " from (first) node " << pnodes[0].value
+                  << " from (first) node " << pnodes[0].value()
                   << endl;
             DEBUG << "loadProperties: If the RDF datatype is correct, check "
                   << "[1] that the datatype is known to Dataquay::Node for "
@@ -479,15 +479,15 @@ ObjectLoader::D::propertyNodeToVariant(NodeObjectMap &map, NodeSet &examined,
 
     bool acceptDefault = true;
 
-    if (pnode.type == Node::URI && typeName != Uri::metaTypeName()) {
+    if (pnode.type() == Node::URI && typeName != Uri::metaTypeName()) {
 
         DEBUG << "ObjectLoader::propertyNodeListToVariant: "
               << "Non-URI property is target for RDF URI, converting" << endl;
         
         acceptDefault = false;
 
-    } else if (pnode.type == Node::Literal &&
-               pnode.datatype == Uri() && // no datatype
+    } else if (pnode.type() == Node::Literal &&
+               pnode.datatype() == Uri() && // no datatype
                typeName != QMetaType::typeName(QMetaType::QString)) {
 
         DEBUG << "ObjectLoader::propertyNodeListToVariant: "
@@ -529,7 +529,7 @@ ObjectLoader::D::propertyNodeToObject(NodeObjectMap &map, NodeSet &examined,
     DEBUG << "propertyNodeToObject: object for node "
           << pnode << " is not (yet) in map" << endl;
 
-    if (pnode.type == Node::URI || pnode.type == Node::Blank) {
+    if (pnode.type() == Node::URI || pnode.type() == Node::Blank) {
         bool shouldLoad = false;
         if (m_fp & FollowObjectProperties) {
             if (!examined.contains(pnode)) {
@@ -597,7 +597,7 @@ ObjectLoader::D::getClassNameForNode(Node node, QString classHint,
     if (po) typeUri = po->getObjectType();
     else {
         Triple t = m_s->matchFirst(Triple(node, "a", Node()));
-        if (t.c.type == Node::URI) typeUri = Uri(t.c.value);
+        if (t.c.type() == Node::URI) typeUri = Uri(t.c.value());
     }
 
     QString className;
@@ -647,14 +647,14 @@ ObjectLoader::D::allocateObject(NodeObjectMap &map, Node node, QObject *parent,
 
     QString className = getClassNameForNode(node, classHint, po);
     
-    DEBUG << "Making object " << node.value << " of type "
+    DEBUG << "Making object " << node.value() << " of type "
           << className << " with parent " << parent << endl;
 
     o = m_ob->build(className, parent);
     if (!o) throw ConstructionFailedException(className);
 	
-    if (node.type == Node::URI) {
-        o->setProperty("uri", QVariant::fromValue(m_s->expand(node.value)));
+    if (node.type() == Node::URI) {
+        o->setProperty("uri", QVariant::fromValue(m_s->expand(node.value())));
     }
 
     map.insert(node, o);

@@ -50,6 +50,24 @@
 namespace Dataquay
 {
 
+void
+ImmutableString::makeHash() 
+{
+    m_hash = qHash(m_s);
+}
+
+bool
+ImmutableString::stringsEqual(const ImmutableString &is) const
+{
+    const QString &other = is.m_s;
+    int len = length();
+    if (len != other.length()) return false;
+    for (int i = len - 1; i >= 0; --i) {
+	if (m_s.at(i) != other.at(i)) return false;
+    }
+    return true;
+}
+
 class UriRegistrar {
 public:
     static UriRegistrar *instance() {
@@ -106,30 +124,12 @@ Uri::checkComplete() const
 #endif
 }
 
-void
-Uri::makeHash() 
-{
-    m_hash = qHash(m_uri);
-}
-
 QString
 Uri::scheme() const
 {
-    int index = m_uri.indexOf(':');
+    int index = m_uri.toString().indexOf(':');
     if (index < 0) return "";
-    return m_uri.left(index);
-}
-
-bool
-Uri::urisEqual(const Uri &u) const
-{
-    const QString &other = u.m_uri;
-    int len = length();
-    if (len != other.length()) return false;
-    for (int i = len - 1; i >= 0; --i) {
-	if (m_uri.at(i) != other.at(i)) return false;
-    }
-    return true;
+    return m_uri.toString().left(index);
 }
 
 bool

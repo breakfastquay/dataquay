@@ -102,8 +102,8 @@ public:
     void removeObject(Node n) {
         Triples triples = m_s->match(Triple(n, Node(), Node()));
         foreach (Triple t, triples) {
-            if (t.b.type == Node::URI) {
-                removeOldPropertyNodes(n, Uri(t.b.value));
+            if (t.b.type() == Node::URI) {
+                removeOldPropertyNodes(n, Uri(t.b.value()));
             }
         }
         m_s->remove(Triple(Node(), Node(), n));
@@ -116,14 +116,14 @@ public:
             map.insert(o, Node());
         }
         Node node = store(map, examined, o);
-        if (node.type != Node::URI) {
+        if (node.type() != Node::URI) {
             // This shouldn't happen (see above)
             DEBUG << "ObjectStorer::store: Stored object node "
                   << node << " is not a URI node" << endl;
             std::cerr << "WARNING: ObjectStorer::store: No URI for stored object!" << std::endl;
             return Uri();
         } else {
-            return Uri(node.value);
+            return Uri(node.value());
         }
     }
 
@@ -284,7 +284,7 @@ ObjectStorer::D::storeProperties(ObjectNodeMap &map, ObjectSet &examined, QObjec
         }
 
         if (store) {
-            DEBUG << "For object " << node.value << " (" << o << ") writing property " << pname << " of type " << property.userType() << endl;
+            DEBUG << "For object " << node.value() << " (" << o << ") writing property " << pname << " of type " << property.userType() << endl;
         }
 
         Uri puri;
@@ -332,7 +332,7 @@ ObjectStorer::D::removeUnusedBlankNode(Node node)
 
     foreach (Triple t, tails) {
         DEBUG << "... recursing to list tail" << endl;
-        if (t.c.type == Node::Blank) {
+        if (t.c.type() == Node::Blank) {
             removeUnusedBlankNode(t.c);
         }
     }
@@ -345,7 +345,7 @@ ObjectStorer::D::removeOldPropertyNodes(Node node, Uri propertyUri)
     Triples m(m_s->match(t));
     foreach (t, m) {
         m_s->remove(t);
-        if (t.c.type == Node::Blank && t.c != node) {
+        if (t.c.type() == Node::Blank && t.c != node) {
             removeUnusedBlankNode(t.c);
         }
     }

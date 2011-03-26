@@ -109,9 +109,9 @@ public:
     bool remove(Triple t) {
         QMutexLocker locker(&m_librdfLock);
         DEBUG << "BasicStore::remove: " << t << endl;
-        if (t.a.type == Node::Nothing || 
-            t.b.type == Node::Nothing ||
-            t.c.type == Node::Nothing) {
+        if (t.a.type() == Node::Nothing || 
+            t.b.type() == Node::Nothing ||
+            t.c.type() == Node::Nothing) {
             Triples tt = doMatch(t);
             if (tt.empty()) return false;
             DEBUG << "BasicStore::remove: Removing " << tt.size() << " triple(s)" << endl;
@@ -231,7 +231,7 @@ public:
         for (ResultSet::const_iterator i = rs.begin(); i != rs.end(); ++i) {
             Dictionary::const_iterator j = i->find(bindingName);
             if (j == i->end()) continue;
-            if (j->type == Node::Nothing) continue;
+            if (j->type() == Node::Nothing) continue;
             return *j;
         }
         return Node();
@@ -578,6 +578,7 @@ private:
     }
 
     librdf_uri *uriToLrdfUri(Uri uri) const {
+        DEBUG << "Uri is " << uri << endl;
         librdf_uri *luri = librdf_new_uri
             (m_w.getWorld(),
              (const unsigned char *)uri.toString().toUtf8().data());
@@ -593,37 +594,37 @@ private:
 
     librdf_node *nodeToLrdfNode(Node v) const { // called with m_librdfLock held
         librdf_node *node = 0;
-        switch (v.type) {
+        switch (v.type()) {
         case Node::Nothing:
             return 0;
         case Node::Blank: {
-            QByteArray b = v.value.toUtf8();
+            QByteArray b = v.value().toUtf8();
             const unsigned char *bident = (const unsigned char *)b.data();
             node = librdf_new_node_from_blank_identifier(m_w.getWorld(), bident);
             if (!node) throw RDFException
                            ("Failed to construct node from blank identifier",
-                            v.value);
+                            v.value());
         }
             break;
         case Node::URI: {
-            Uri value = expand(v.value);
+            Uri value = expand(v.value());
             librdf_uri *uri = uriToLrdfUri(value);
-            if (!uri) throw RDFException("Failed to construct URI from value ", v.value);
+            if (!uri) throw RDFException("Failed to construct URI from value ", v.value());
             node = librdf_new_node_from_uri(m_w.getWorld(), uri);
             if (!node) throw RDFException("Failed to construct node from URI");
         }
             break;
         case Node::Literal: {
-            QByteArray b = v.value.toUtf8();
+            QByteArray b = v.value().toUtf8();
             const unsigned char *literal = (const unsigned char *)b.data();
-            if (v.datatype != Uri()) {
-                Uri dtu = v.datatype;
+            if (v.datatype() != Uri()) {
+                Uri dtu = v.datatype();
                 librdf_uri *type_uri = uriToLrdfUri(dtu);
                 node = librdf_new_node_from_typed_literal
                     (m_w.getWorld(), literal, 0, type_uri);
                 if (!node) throw RDFException
                                ("Failed to construct node from literal of type ",
-                                v.datatype);
+                                v.datatype());
             } else {
                 node = librdf_new_node_from_literal
                     (m_w.getWorld(), literal, 0, 0);
@@ -643,29 +644,30 @@ private:
 
         if (librdf_node_is_resource(node)) {
 
-            v.type = Node::URI;
+            v.setType(Node::URI);
             librdf_uri *uri = librdf_node_get_uri(node);
-            v.value = lrdfUriToUri(uri).toString();
+            v.setValue(lrdfUriToUri(uri).toString());
 
         } else if (librdf_node_is_literal(node)) {
 
-            v.type = Node::Literal;
+            v.setType(Node::Literal);
             const char *s = (const char *)librdf_node_get_literal_value(node);
-            if (s) v.value = QString::fromUtf8(s);
+            if (s) v.setValue(QString::fromUtf8(s));
             librdf_uri *type_uri = librdf_node_get_literal_value_datatype_uri(node);
-            if (type_uri) v.datatype = lrdfUriToUri(type_uri);
+            if (type_uri) v.setDatatype(lrdfUriToUri(type_uri));
             
         } else if (librdf_node_is_blank(node)) {
-
-            v.type = Node::Blank;
+            
+            v.setType(Node::Blank);
             const char *s = (const char *)librdf_node_get_blank_identifier(node);
-            if (s) v.value = s;
+            if (s) v.setValue(s);
         }
 
         return v;
     }
 
     librdf_statement *tripleToStatement(Triple t) const {
+        DEBUG << "Triple = " << t << endl;
         librdf_node *na = nodeToLrdfNode(t.a);
         librdf_node *nb = nodeToLrdfNode(t.b);
         librdf_node *nc = nodeToLrdfNode(t.c);

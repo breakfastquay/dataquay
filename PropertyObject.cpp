@@ -89,7 +89,7 @@ PropertyObject::getObjectType() const
 {
     Triple t = m_store->matchFirst(Triple(m_node, "a", Node()));
     if (t != Triple()) {
-        return Uri(t.c.value);
+        return Uri(t.c.value());
     } else {
         return Uri();
     }
@@ -101,7 +101,7 @@ PropertyObject::getObjectType(Transaction *tx) const
     Store *s = getStore(tx);
     Triple t = s->matchFirst(Triple(m_node, "a", Node()));
     if (t != Triple()) {
-        return Uri(t.c.value);
+        return Uri(t.c.value());
     } else {
         return Uri();
     }
@@ -212,7 +212,7 @@ PropertyObject::getPropertyNames() const
     QStringList properties;
     Triples ts = m_store->match(Triple(m_node, Node(), Node()));
     for (int i = 0; i < ts.size(); ++i) {
-        QString propertyUri = ts[i].b.value;
+        QString propertyUri = ts[i].b.value();
         if (propertyUri.startsWith(m_pfx)) {
             properties.push_back(propertyUri.remove(0, m_pfx.length()));
         }
@@ -227,7 +227,7 @@ PropertyObject::getPropertyNames(Transaction *tx) const
     QStringList properties;
     Triples ts = s->match(Triple(m_node, Node(), Node()));
     for (int i = 0; i < ts.size(); ++i) {
-        QString propertyUri = ts[i].b.value;
+        QString propertyUri = ts[i].b.value();
         if (propertyUri.startsWith(m_pfx)) {
             properties.push_back(propertyUri.remove(0, m_pfx.length()));
         }
@@ -422,10 +422,10 @@ CacheingPropertyObject::getObjectType() const
 {
     encache();
     Uri key = m_po.getStore(NoTransaction)->expand("a");
-    if (!m_cache.contains(key) || m_cache[key][0].type != Node::URI) {
+    if (!m_cache.contains(key) || m_cache[key][0].type() != Node::URI) {
         return Uri();
     }
-    return Uri(m_cache[key][0].value);
+    return Uri(m_cache[key][0].value());
 }
 
 bool
@@ -544,8 +544,8 @@ CacheingPropertyObject::encache() const
         ->match(Triple(m_po.getNode(), Node(), Node()));
 
     for (int i = 0; i < ts.size(); ++i) {
-        if (ts[i].b.type != Node::URI) continue; // shouldn't happen, but
-        m_cache[Uri(ts[i].b.value)].push_back(ts[i].c);
+        if (ts[i].b.type() != Node::URI) continue; // shouldn't happen, but
+        m_cache[Uri(ts[i].b.value())].push_back(ts[i].c);
     }
 
     m_cached = true;

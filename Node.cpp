@@ -278,15 +278,15 @@ Node::fromVariant(const QVariant &v)
     if (a->getDatatype(id, datatype)) {
         
         Node n;
-        n.type = Literal;
-        n.datatype = datatype;
+        n.m_type = Literal;
+        n.m_datatype = datatype;
 
         VariantEncoder *encoder = a->getEncoder(id);
 
         if (encoder) {
-            n.value = encoder->fromVariant(v);
+            n.m_value = encoder->fromVariant(v);
         } else {
-            n.value = v.toString();
+            n.m_value = v.toString();
         }
 
         return n;
@@ -299,9 +299,9 @@ Node::fromVariant(const QVariant &v)
         ds << v;
         
         Node n;
-        n.type = Literal;
-        n.datatype = encodedVariantTypeURI;
-        n.value = QString::fromAscii(b.toPercentEncoding());        
+        n.m_type = Literal;
+        n.m_datatype = encodedVariantTypeURI;
+        n.m_value = QString::fromAscii(b.toPercentEncoding());        
         return n;
     }
 }
@@ -309,23 +309,24 @@ Node::fromVariant(const QVariant &v)
 QVariant
 Node::toVariant() const
 {
-    if (type == URI) {
-        return QVariant::fromValue(Uri(value));
+    if (m_type == URI) {
+        return QVariant::fromValue(Uri(m_value));
     }
 
-    if (type == Nothing || type == Blank) {
+    if (m_type == Nothing || m_type == Blank) {
         return QVariant();
     }
 
-    if (datatype == Uri()) {
-        return QVariant::fromValue<QString>(value);
+    if (m_datatype == Uri()) {
+        return QVariant::fromValue<QString>(m_value.toString());
     }
     
-    if (datatype == encodedVariantTypeURI) {
+    if (m_datatype == encodedVariantTypeURI) {
         // Opaque encoding used for "unknown" types.  If this is
         // encoding is in use, we must decode from it even if the type
         // is actually known
-        QByteArray benc = value.toAscii();
+
+        QByteArray benc = m_value.toString().toAscii();
         QByteArray b = QByteArray::fromPercentEncoding(benc);
         QDataStream ds(&b, QIODevice::ReadOnly);
         QVariant v;
@@ -334,25 +335,25 @@ Node::toVariant() const
     }
 
     DatatypeMetatypeAssociation *a = DatatypeMetatypeAssociation::instance();
-    int id = a->getMetatypeId(datatype);
+    int id = a->getMetatypeId(m_datatype);
         
     if (id > 0) {
         
-        VariantEncoder *encoder = a->getEncoder(datatype);
+        VariantEncoder *encoder = a->getEncoder(m_datatype);
 
         if (encoder) {
-            return encoder->toVariant(value);
+            return encoder->toVariant(m_value.toString());
         } else {
             // datatype present, but no encoder: can do nothing
             // interesting with this, convert as string
-            return QVariant::fromValue<QString>(value);
+            return QVariant::fromValue<QString>(m_value.toString());
         }
         
     } else {
         
         // unknown datatype, but not "unknown type" encoding;
         // convert as a string
-        return QVariant::fromValue<QString>(value);
+        return QVariant::fromValue<QString>(m_value.toString());
     }
 }
 
@@ -370,18 +371,18 @@ Node::toVariant(int metatype) const
         return QVariant();
     }
 
-    return encoder->toVariant(value);
+    return encoder->toVariant(m_value.toString());
 }
 
 bool
 operator==(const Node &a, const Node &b)
 {
-    if (a.type == Node::Nothing &&
-        b.type == Node::Nothing) return true;
-    if (a.type == b.type &&
-        a.value == b.value &&
-        a.datatype == b.datatype) return true;
-    return false;
+    if (a.type() == Node::Nothing &&
+        b.type() == Node::Nothing) return true;
+    if (a.type() != b.type() ||
+        a.value() != b.value() ||
+        a.datatype() != b.datatype()) return false;
+    return true;
 }
 
 bool
@@ -393,40 +394,44 @@ operator!=(const Node &a, const Node &b)
 QDataStream &
 operator<<(QDataStream &out, const Node &n)
 {
-    return out << (int)n.type << n.value << n.datatype;
+    return out << (int)n.type() << n.value() << n.datatype();
 }
 
 QDataStream &
 operator>>(QDataStream &in, Node &n)
 {
     int t;
-    in >> t >> n.value >> n.datatype;
-    n.type = (Node::Type)t;
+    QString v;
+    Uri dt;
+    in >> t >> v >> dt;
+    n.setType((Node::Type)t);
+    n.setValue(v);
+    n.setDatatype(dt);
     return in;
 }
 
 std::ostream &
 operator<<(std::ostream &out, const Node &n)
 {
-    switch (n.type) {
+    switch (n.type()) {
     case Node::Nothing:
         out << "[]";
         break;
     case Node::URI:
-        if (n.value.contains("://") || n.value.startsWith('#')) {
-            out << "<" << n.value.toStdString() << ">";
-        } else if (n.value == "") {
+        if (n.value().contains("://") || n.value().startsWith('#')) {
+            out << "<" << n.value().toStdString() << ">";
+        } else if (n.value() == "") {
             out << "[empty-uri]";
         } else {
-            out << n.value.toStdString();
+            out << n.value().toStdString();
         }
         break;
     case Node::Literal:
-        out << "\"" << n.value.toStdString() << "\"";
-        if (n.datatype != Uri()) out << "^^" << n.datatype;
+        out << "\"" << n.value().toStdString() << "\"";
+        if (n.datatype() != Uri()) out << "^^" << n.datatype();
         break;
     case Node::Blank:
-        out << "[blank " << n.value.toStdString() << "]";
+        out << "[blank " << n.value().toStdString() << "]";
         break;
     }
     return out;
@@ -435,28 +440,43 @@ operator<<(std::ostream &out, const Node &n)
 QTextStream &
 operator<<(QTextStream &out, const Node &n)
 {
-    switch (n.type) {
+    switch (n.type()) {
     case Node::Nothing:
         out << "[]";
         break;
     case Node::URI:
-        if (n.value.contains("://") || n.value.startsWith('#')) {
-            out << "<" << n.value << ">";
-        } else if (n.value == "") {
+        if (n.value().contains("://") || n.value().startsWith('#')) {
+            out << "<" << n.value() << ">";
+        } else if (n.value() == "") {
             out << "[empty-uri]";
         } else {
-            out << n.value;
+            out << n.value();
         }
         break;
     case Node::Literal:
-        out << "\"" << n.value << "\"";
-        if (n.datatype != Uri()) out << "^^" << n.datatype;
+        out << "\"" << n.value() << "\"";
+        if (n.datatype() != Uri()) out << "^^" << n.datatype();
         break;
     case Node::Blank:
-        out << "[blank " << n.value << "]";
+        out << "[blank " << n.value() << "]";
         break;
     }
     return out;
+}
+
+unsigned int
+Node::hash() const
+{
+    switch (m_type) {
+    case Dataquay::Node::URI:
+        return m_value.hash();
+    case Dataquay::Node::Literal:
+        return m_value.hash() + m_datatype.hash();
+    case Dataquay::Node::Blank:
+        return m_value.hash();
+    default:
+        return qHash("");
+    }
 }
 
 }
@@ -464,16 +484,7 @@ operator<<(QTextStream &out, const Node &n)
 unsigned int
 qHash(const Dataquay::Node &n)
 {
-    switch (n.type) {
-    case Dataquay::Node::URI:
-        return qHash(n.value);
-    case Dataquay::Node::Literal:
-        return qHash(n.value + n.datatype.toString());
-    case Dataquay::Node::Blank:
-        return qHash(n.value);
-    default:
-        return qHash("");
-    }
+    return n.hash();
 }
 
 

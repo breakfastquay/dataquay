@@ -372,9 +372,9 @@ public:
             // change set
             Triples tt;
             bool wild = false;
-            if (t.a.type == Node::Nothing || 
-                t.b.type == Node::Nothing ||
-                t.c.type == Node::Nothing) {
+            if (t.a.type() == Node::Nothing || 
+                t.b.type() == Node::Nothing ||
+                t.c.type() == Node::Nothing) {
                 tt = m_td->match(m_tx, t);
                 wild = true;
             } else {

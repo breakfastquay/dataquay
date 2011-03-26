@@ -85,9 +85,9 @@ void
 dump(Triples t)
 {
     for (Triples::const_iterator i = t.begin(); i != t.end(); ++i) {
-        cerr << "(" << i->a.type << ":" << i->a.value << ") ";
-        cerr << "(" << i->b.type << ":" << i->b.value << ") ";
-        cerr << "(" << i->c.type << ":" << i->c.value << ") ";
+        cerr << "(" << i->a.type() << ":" << i->a.value() << ") ";
+        cerr << "(" << i->b.type() << ":" << i->b.value() << ") ";
+        cerr << "(" << i->c.type() << ":" << i->c.value() << ") ";
         cerr << endl;
     }
 }
@@ -387,7 +387,7 @@ testBasicStore()
             cerr << "Failed to query expected number of properties about Fred's some-uri-or-other" << endl;
             return false;
         }
-        Uri someUri(triples[0].c.value);
+        Uri someUri(triples[0].c.value());
         if (someUri.toString() != "http://breakfastquay.com/rdf/person/fred") {
             cerr << "Fred's some-uri-or-other is not what we expected (it is "
                  << someUri.toString() << ")" << endl;
@@ -459,8 +459,8 @@ testBasicStore()
 
             Node v = store.queryFirst(q, "a");
             QString expected = base + "alice";
-            if (v.type != Node::URI || v.value != expected) {
-                cerr << "getFirstResult returned wrong result (expected URI of <" << expected << ">, got type " << v.type << " and value " << v.value << ")" << endl;
+            if (v.type() != Node::URI || v.value() != expected) {
+                cerr << "getFirstResult returned wrong result (expected URI of <" << expected << ">, got type " << v.type() << " and value " << v.value() << ")" << endl;
                 return false;
             }
         }
@@ -587,9 +587,9 @@ testDatatypes()
     }
 
     Node n0 = Node::fromVariant(v);
-    if (n0.datatype != n.datatype) {
+    if (n0.datatype() != n.datatype()) {
         cerr << "String variant converted to node has unexpected non-nil datatype "
-             << n0.datatype << endl;
+             << n0.datatype() << endl;
         return false;
     }
 
@@ -605,7 +605,7 @@ testDatatypes()
     t.c = Node();
     Triple t0(store.matchFirst(t));
     n0 = t.c;
-    if (n0.datatype != n.datatype) {
+    if (n0.datatype() != n.datatype()) {
         cerr << "Failed to retrieve expected nil datatype" << endl;
         return false;
     }
@@ -620,9 +620,9 @@ testDatatypes()
     }
 
     n0 = Node::fromVariant(v);
-    if (n0.datatype != n.datatype) {
+    if (n0.datatype() != n.datatype()) {
         cerr << "Long integer variant converted to node has unexpected datatype "
-             << n0.datatype.toString().toStdString() << " (expected " << n.datatype.toString().toStdString() << ")" << endl;
+             << n0.datatype().toString().toStdString() << " (expected " << n.datatype().toString().toStdString() << ")" << endl;
         return false;
     }
 
@@ -638,10 +638,10 @@ testDatatypes()
     t.c = Node();
     t0 = store.matchFirst(t);
     n0 = t0.c;
-    if (n0.datatype != n.datatype) {
+    if (n0.datatype() != n.datatype()) {
         cerr << "Failed to retrieve expected integer datatype (found instead <"
-             << n0.datatype.toString().toStdString() << "> for value \""
-             << n0.value.toStdString() << "\")" << endl;
+             << n0.datatype().toString().toStdString() << "> for value \""
+             << n0.value().toStdString() << "\")" << endl;
         return false;
     }
 
@@ -684,9 +684,9 @@ testDatatypes()
     n = Node::fromVariant(svv);
 
 //!!! no -- the type is actually encodedVariantTypeURI from Node.cpp, and this is what we should expect -- but it's not public! we can't test it -- fix this
-//    if (n.datatype != Uri()) {
+//    if (n.datatype() != Uri()) {
 //        cerr << "Node converted from unknown type has unexpected datatype <" 
-//             << n.datatype.toString().toStdString() << "> (expected nil)" << endl;
+//             << n.datatype().toString().toStdString() << "> (expected nil)" << endl;
 //        return false;
 //    }
 
@@ -702,10 +702,10 @@ testDatatypes()
     t.c = Node();
     t0 = store.matchFirst(t);
     n0 = t0.c;
-    if (n0.datatype != n.datatype) {
+    if (n0.datatype() != n.datatype()) {
         cerr << "Failed to retrieve expected unknown-type datatype (found instead <"
-             << n0.datatype.toString().toStdString() << "> for value \""
-             << n0.value.toStdString() << "\")" << endl;
+             << n0.datatype().toString().toStdString() << "> for value \""
+             << n0.value().toStdString() << "\")" << endl;
         return false;
     }
 
@@ -763,9 +763,9 @@ testDatatypes()
 
     n = Node::fromVariant(nsvv);
 
-    if (n.datatype != nsvDtUri) {
+    if (n.datatype() != nsvDtUri) {
         cerr << "Node converted from custom type has unexpected datatype <" 
-             << n.datatype.toString().toStdString() << "> (expected <"
+             << n.datatype().toString().toStdString() << "> (expected <"
              << nsvDtUri.toString().toStdString() << ")" << endl;
         return false;
     }
@@ -782,10 +782,10 @@ testDatatypes()
     t.c = Node();
     t0 = store.matchFirst(t);
     n0 = t0.c;
-    if (n0.datatype != n.datatype) {
+    if (n0.datatype() != n.datatype()) {
         cerr << "Failed to retrieve expected custom-type datatype (found instead <"
-             << n0.datatype.toString().toStdString() << "> for value \""
-             << n0.value.toStdString() << "\")" << endl;
+             << n0.datatype().toString().toStdString() << "> for value \""
+             << n0.value().toStdString() << "\")" << endl;
         return false;
     }
 
@@ -801,7 +801,7 @@ testDatatypes()
     // the node isn't ideal, since we'd have to do it in more than one
     // step (i.e. looking up what the datatype was supposed to be)
 
-    n0.datatype = Uri();
+    n0.datatype() = Uri();
 
     // first test without prompting
     v0 = n0.toVariant();
@@ -1316,13 +1316,13 @@ compare(Triples t1, Triples t2)
     QMap<Triple, int> s1;
     QMap<Triple, int> s2;
     foreach (Triple t, t1) {
-        if (t.a.type == Node::Blank) t.a.value = "";
-        if (t.c.type == Node::Blank) t.c.value = "";
+        if (t.a.type() == Node::Blank) t.a.setValue("");
+        if (t.c.type() == Node::Blank) t.c.setValue("");
         s1[t] = 1;
     }
     foreach (Triple t, t2) {
-        if (t.a.type == Node::Blank) t.a.value = "";
-        if (t.c.type == Node::Blank) t.c.value = "";
+        if (t.a.type() == Node::Blank) t.a.setValue("");
+        if (t.c.type() == Node::Blank) t.c.setValue("");
         s2[t] = 1;
     }
     if (s1 == s2) return true;
@@ -1641,7 +1641,7 @@ testObjectMapper()
         cerr << "Wrong number of QObject type nodes in store (found " << test.size() << ", expected 1)" << endl;
         return false;
     }
-    if (test[0].a.type != Node::URI) {
+    if (test[0].a.type() != Node::URI) {
         cerr << "QObject type node in store lacks URI (node is " << test[0].a << ")" << endl;
         return false;
     }
@@ -1651,7 +1651,7 @@ testObjectMapper()
         cerr << "Wrong number of QTimer type nodes in store (found " << test.size() << ", expected 1)" << endl;
         return false;
     }
-    if (test[0].a.type != Node::URI) {
+    if (test[0].a.type() != Node::URI) {
         cerr << "QTimer type node in store lacks URI (node is " << test[0].a << ")" << endl;
         return false;
     }
@@ -1661,7 +1661,7 @@ testObjectMapper()
         cerr << "Wrong number of parents for QTimer in store (found " << test.size() << ", expected 1)" << endl;
         return false;
     }
-    if (test[0].c.type != Node::URI) {
+    if (test[0].c.type() != Node::URI) {
         cerr << "Parent of QTimer in store lacks URI (node is " << test[0].c << ")" << endl;
         return false;
     }
@@ -1680,8 +1680,8 @@ testObjectMapper()
     }
     int blankCount = 0, uriCount = 0;
     foreach (Triple t, test) {
-        if (t.a.type == Node::URI) uriCount++;
-        else if (t.a.type == Node::Blank) blankCount++;
+        if (t.a.type() == Node::URI) uriCount++;
+        else if (t.a.type() == Node::Blank) blankCount++;
     }
     if (blankCount != 1 || uriCount != 1) {
         cerr << "Unexpected distribution of URI and blank A-type nodes in store (expected 1 and 1, got " << blankCount << " and " << uriCount << ")" << endl;
@@ -1694,7 +1694,7 @@ testObjectMapper()
         return false;
     }
     foreach (Triple t, test) {
-        if (t.a.type != Node::Blank) {
+        if (t.a.type() != Node::Blank) {
             cerr << "B-type node in store is not expected blank node" << endl;
             return false;
         }
@@ -1706,7 +1706,7 @@ testObjectMapper()
         return false;
     }
     foreach (Triple t, test) {
-        if (t.a.type != Node::Blank) {
+        if (t.a.type() != Node::Blank) {
             cerr << "C-type node in store is not expected blank node" << endl;
             return false;
         }
@@ -1729,14 +1729,14 @@ testObjectMapper()
              << rs.size() << " (expected 1)" << endl;
         return false;
     }
-    if (rs[0]["bn"].type != Node::Literal ||
-        rs[0]["bn"].value != "b0") {
-        cerr << "Name of B-type object from query on stored objects is incorrect (expected b0, got " << rs[0]["bn"].value << ")" << endl;
+    if (rs[0]["bn"].type() != Node::Literal ||
+        rs[0]["bn"].value() != "b0") {
+        cerr << "Name of B-type object from query on stored objects is incorrect (expected b0, got " << rs[0]["bn"].value() << ")" << endl;
         return false;
     }
-    if (rs[0]["pn"].type != Node::Literal ||
-        rs[0]["pn"].value != "Test Object") {
-        cerr << "Name of parent object from query on stored objects is incorrect (expected Test Object, got " << rs[0]["pn"].value << ")" << endl;
+    if (rs[0]["pn"].type() != Node::Literal ||
+        rs[0]["pn"].value() != "Test Object") {
+        cerr << "Name of parent object from query on stored objects is incorrect (expected Test Object, got " << rs[0]["pn"].value() << ")" << endl;
         return false;
     }
 
@@ -1811,7 +1811,7 @@ testObjectMapper()
     mapper.commit();
     
     t = ts.matchFirst(Triple(n, "property:string", Node()));
-    if (t.c.value != "Lone string") {
+    if (t.c.value() != "Lone string") {
         cerr << "Incorrect node " << t.c << " in store for property that ObjectMapper should have committed" << endl;
         return false;
     }
@@ -1819,7 +1819,7 @@ testObjectMapper()
     c->setString("New lone string");
     
     t = ts.matchFirst(Triple(n, "property:string", Node()));
-    if (t.c.value != "Lone string") {
+    if (t.c.value() != "Lone string") {
         cerr << "Incorrect node " << t.c << " in store for property that ObjectMapper should not have re-committed" << endl;
         return false;
     }
@@ -1827,7 +1827,7 @@ testObjectMapper()
     mapper.commit();
     
     t = ts.matchFirst(Triple(n, "property:string", Node()));
-    if (t.c.value != "New lone string") {
+    if (t.c.value() != "New lone string") {
         cerr << "Incorrect node " << t.c << " in store for property that ObjectMapper should have re-committed" << endl;
         return false;
     }
