@@ -86,6 +86,7 @@ public:
      * Construct an empty (invalid, null) URI.
      */
     Uri() {
+        makeHash();
     }
 
     /**
