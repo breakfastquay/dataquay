@@ -144,7 +144,10 @@ namespace Dataquay {
  * properties on the appropriate objects.
  *
  *!!! latest trouble: We probably want to set properties on an object
- *    before we attach its children. Is this possible here?
+ *    before we attach its children. Is this possible here? Set simple
+ *    properties before doing child nodes... hm, but that means doing
+ *    so in load rather than populate, and the set of nodes being
+ *    loaded is smaller than the set being populated
  */
 
 class ObjectLoader::D
