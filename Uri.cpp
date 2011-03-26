@@ -115,10 +115,11 @@ void
 Uri::checkComplete() const
 {
 #ifndef NDEBUG
-    if (!m_uri.isEmpty() && m_uri[0] != '#' &&
-	!m_uri.contains(QRegExp("^[a-zA-Z]+://")) &&
-        !m_uri.startsWith("file:")) { // file uri may be relative: file:x.wav
-	std::cerr << "WARNING: URI <" << m_uri.toStdString()
+    QString s = m_uri.toString();
+    if (!s.isEmpty() && s[0] != '#' &&
+	!s.contains(QRegExp("^[a-zA-Z]+://")) &&
+        !s.startsWith("file:")) { // file uri may be relative: file:x.wav
+	std::cerr << "WARNING: URI <" << s.toStdString()
 		  << "> is not complete; lacks scheme" << std::endl;
     }
 #endif

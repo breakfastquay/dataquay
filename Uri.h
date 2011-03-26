@@ -63,7 +63,7 @@ public:
         makeHash();
     }
 
-    ImmutableString(const QString &s) : m_hash(0), m_s(s) {
+    ImmutableString(const QString &s) : m_s(s) {
         makeHash();
     }
 
@@ -178,7 +178,6 @@ public:
     
 private:
     void checkComplete() const;
-    bool urisEqual(const Uri &) const;
     ImmutableString m_uri;
 };
 

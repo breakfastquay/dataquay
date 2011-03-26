@@ -801,7 +801,7 @@ testDatatypes()
     // the node isn't ideal, since we'd have to do it in more than one
     // step (i.e. looking up what the datatype was supposed to be)
 
-    n0.datatype() = Uri();
+    n0.setDatatype(Uri());
 
     // first test without prompting
     v0 = n0.toVariant();
