@@ -129,9 +129,9 @@ public:
     
     /**
      * Examine each of the nodes passed in, and if there is no
-     * corresponding node in the node-object map, load the node as a
+     * corresponding object in the node-object map, load the node as a
      * new QObject and place it in the map; if there is a
-     * corresponding node in the node-object map, update it with
+     * corresponding object in the node-object map, update it with
      * current properties from the store.  If a node is passed in that
      * does not exist in the store, delete any object associated with
      * it from the map.

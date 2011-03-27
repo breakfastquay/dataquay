@@ -31,8 +31,7 @@
     authorization.
 */
 
-#include "TestObjects.h"
-
+#include "../Node.h"
 #include "../BasicStore.h"
 #include "../PropertyObject.h"
 #include "../TransactionalStore.h"
@@ -46,6 +45,8 @@
 #include "../objectmapper/ObjectMapperExceptions.h"
 #include "../RDFException.h"
 #include "../Debug.h"
+
+#include "TestObjects.h"
 
 #include <QStringList>
 #include <QTimer>
@@ -1563,10 +1564,8 @@ testObjectMapper()
     c->setFloats(floats);
     QList<B *> blist;
     B *b0 = new B;
-    if (1) {
-        cerr << "(Including circular graph test)" << endl;
-        b0->setA(a);
-    }
+    cerr << "(Including circular graph test)" << endl;
+    b0->setA(a);
     b0->setObjectName("b0");
     B *b1 = new B;
     A *a1 = new A;
@@ -1923,6 +1922,70 @@ testObjectMapper()
 
     }
     
+
+    // Another very specific one involving cycles -- an object that is
+    // referred to as a property of its own parent.  On loading
+    // through the child with follow-parent set, we should find that
+    // the object has the correct parent and that the parent refers to
+    // the correct object in its property (and not that the loader has
+    // instantiated the child without a parent in order to fill the
+    // parent's property in a recursive call while instantiating the
+    // parent for the child)
+
+    Node child(store.getUniqueUri(":child_"));
+    Node parent(store.getUniqueUri(":parent_"));
+    store.add(Triple(child, "a", store.expand("type:A")));
+    store.add(Triple(child, "rel:parent", parent));
+    store.add(Triple(parent, "a", store.expand("type:B")));
+    store.add(Triple(parent, "property:aref", child));
+    store.save("test-object-mapper-4.ttl");
+    loader.setFollowPolicy(ObjectLoader::FollowObjectProperties |
+                           ObjectLoader::FollowParent);
+    ObjectLoader::NodeObjectMap testMap;
+    loader.reload(Nodes() << child, testMap);
+    
+    if (testMap.size() != 2) {
+        cerr << "Incorrect number of nodes in map (" << testMap.size() 
+             << ", expected 2) after loading parent-refers-to-child circular graph" << endl;
+        return false;
+    }
+    if (!testMap.contains(parent) || !testMap.contains(child)) {
+        cerr << "Parent and/or child node missing from map after loading parent-refers-to-child circular graph" << endl;
+        return false;
+    }
+    if (!testMap.value(parent) || !testMap.value(child)) {
+        cerr << "Parent and/or child object missing from map after loading parent-refers-to-child circular graph" << endl;
+        return false;
+    }
+    if (!qobject_cast<A*>(testMap.value(child))) {
+        cerr << "Child has wrong type in map after loading parent-refers-to-child circular graph" << endl;
+        return false;
+    }
+    if (!qobject_cast<B*>(testMap.value(parent))) {
+        cerr << "Parent has wrong type in map after loading parent-refers-to-child circular graph" << endl;
+        return false;
+    }
+    if (testMap.value(child)->parent() != testMap.value(parent)) {
+        cerr << "Child has wrong parent (" << testMap.value(child)->parent()
+             << ", expected " << testMap.value(parent) << ") in map after loading parent-refers-to-child circular graph" << endl;
+        return false;
+    }
+    if (testMap.value(parent)->children().size() != 1) {
+        cerr << "Parent has wrong number of children (" << testMap.value(parent)->children().size()
+             << ", expected 1) in map after loading parent-refers-to-child circular graph" << endl;
+        return false;
+    }
+    if (testMap.value(parent)->children()[0] != testMap.value(child)) {
+        cerr << "Parent has wrong child (" << testMap.value(parent)->children()[0]
+             << ", expected " << testMap.value(child) << ") in map after loading parent-refers-to-child circular graph" << endl;
+        return false;
+    }
+    if (qobject_cast<B*>(testMap.value(parent))->getA() != testMap.value(child)) {
+        cerr << "Parent has wrong value for Aref property ("
+             << qobject_cast<B*>(testMap.value(parent))->getA()
+             << ", expected " << testMap.value(child) << ") in map after loading parent-refers-to-child circular graph" << endl;
+        return false;
+    }
 
     std::cerr << "testObjectMapper done" << std::endl;
     return true;
