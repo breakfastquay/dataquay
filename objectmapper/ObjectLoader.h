@@ -37,6 +37,7 @@
 #include "../Node.h"
 
 #include <QHash>
+#include <QPointer>
 
 class QObject;
 
@@ -60,7 +61,7 @@ class ObjectLoader
 {
 public:
     /// Map from RDF node to object
-    typedef QHash<Node, QObject *> NodeObjectMap;
+    typedef QHash<Node, QPointer<QObject> > NodeObjectMap;
 
     /**
      * Create an ObjectLoader ready to load objects from the given RDF
@@ -128,9 +129,9 @@ public:
     
     /**
      * Examine each of the nodes passed in, and if there is no
-     * corresponding node in the node-object map, load the node as a
+     * corresponding object in the node-object map, load the node as a
      * new QObject and place it in the map; if there is a
-     * corresponding node in the node-object map, update it with
+     * corresponding object in the node-object map, update it with
      * current properties from the store.  If a node is passed in that
      * does not exist in the store, delete any object associated with
      * it from the map.
@@ -170,6 +171,9 @@ public:
      * which will be called after each object is loaded.
      */
     void addLoadCallback(LoadCallback *callback);
+
+private slots:
+    void objectDestroyed(QObject *);
 
 private:
     ObjectLoader(const ObjectLoader &);

@@ -103,7 +103,7 @@ public:
         Triples triples = m_s->match(Triple(n, Node(), Node()));
         foreach (Triple t, triples) {
             if (t.b.type() == Node::URI) {
-                removeOldPropertyNodes(n, Uri(t.b.value()));
+                removePropertyNodes(n, Uri(t.b.value()));
             }
         }
         m_s->remove(Triple(Node(), Node(), n));
@@ -169,7 +169,9 @@ private:
 
     void storeProperties(ObjectNodeMap &map, ObjectSet &examined, QObject *o, Node node);
     void removeUnusedBlankNode(Node node);
-    void removeOldPropertyNodes(Node node, Uri propertyUri);
+    void removePropertyNodes(Node node, Uri propertyUri, QSet<Node> *retain = 0);
+    void replacePropertyNodes(Node node, Uri propertyUri, Node newValue);
+    void replacePropertyNodes(Node node, Uri propertyUri, Nodes newValues);
     Nodes variantToPropertyNodeList(ObjectNodeMap &map, ObjectSet &examined, QVariant v);
     Node objectToPropertyNode(ObjectNodeMap &map, ObjectSet &examined, QObject *o);
     Node listToPropertyNode(ObjectNodeMap &map, ObjectSet &examined, QVariantList list);
@@ -292,19 +294,59 @@ ObjectStorer::D::storeProperties(ObjectNodeMap &map, ObjectSet &examined, QObjec
             puri = po.getPropertyUri(pname);
         }
 
-        removeOldPropertyNodes(node, puri);
-
         if (store) {
-            Nodes pnodes = variantToPropertyNodeList(map, examined, value);
 
-            Triple t(node, puri, Node());
-            for (int j = 0; j < pnodes.size(); ++j) {
-                t.c = pnodes[j];
-                m_s->add(t);
-            }
+            Nodes pnodes = variantToPropertyNodeList(map, examined, value);
+            replacePropertyNodes(node, puri, pnodes);
+
+        } else {
+
+            removePropertyNodes(node, puri);
         }
     }
 }            
+            
+void
+ObjectStorer::D::removePropertyNodes(Node node, Uri propertyUri, QSet<Node> *retain) 
+{
+    Triple t(node, propertyUri, Node());
+    Triples m(m_s->match(t));
+    foreach (t, m) {
+        if (retain && retain->contains(t.c)) {
+            retain->remove(t.c);
+        } else {
+            m_s->remove(t);
+            if (t.c.type() == Node::Blank && t.c != node) {
+                removeUnusedBlankNode(t.c);
+            }
+        }
+    }
+}
+
+void
+ObjectStorer::D::replacePropertyNodes(Node node, Uri propertyUri, Node newValue)
+{
+    QSet<Node> nodeSet;
+    nodeSet << newValue;
+    removePropertyNodes(node, propertyUri, &nodeSet);
+    // nodeSet now contains only those nodes whose triples need to be
+    // added, i.e. those not present as our properties before
+    if (!nodeSet.empty()) {
+        m_s->add(Triple(node, propertyUri, newValue));
+    }
+}
+
+void
+ObjectStorer::D::replacePropertyNodes(Node node, Uri propertyUri, Nodes newValues)
+{
+    QSet<Node> nodeSet = QSet<Node>::fromList(newValues);
+    removePropertyNodes(node, propertyUri, &nodeSet);
+    // nodeSet now contains only those nodes whose triples need to be
+    // added, i.e. those not present as our properties before
+    foreach (Node pn, nodeSet) {
+        m_s->add(Triple(node, propertyUri, pn));
+    }
+}
 
 void
 ObjectStorer::D::removeUnusedBlankNode(Node node)
@@ -333,19 +375,6 @@ ObjectStorer::D::removeUnusedBlankNode(Node node)
     foreach (Triple t, tails) {
         DEBUG << "... recursing to list tail" << endl;
         if (t.c.type() == Node::Blank) {
-            removeUnusedBlankNode(t.c);
-        }
-    }
-}
-            
-void
-ObjectStorer::D::removeOldPropertyNodes(Node node, Uri propertyUri) 
-{
-    Triple t(node, propertyUri, Node());
-    Triples m(m_s->match(t));
-    foreach (t, m) {
-        m_s->remove(t);
-        if (t.c.type() == Node::Blank && t.c != node) {
             removeUnusedBlankNode(t.c);
         }
     }
@@ -494,6 +523,7 @@ ObjectStorer::D::store(ObjectNodeMap &map, ObjectSet &examined, QObject *o)
     
     QObject *parent = o->parent();
     Uri parentUri(m_tm.getRelationshipPrefix().toString() + "parent");
+    Uri followsUri(m_tm.getRelationshipPrefix().toString() + "follows");
 
     if (!parent) {
 
@@ -516,10 +546,7 @@ ObjectStorer::D::store(ObjectNodeMap &map, ObjectSet &examined, QObject *o)
         Node pn = map.value(parent);
         if (pn != Node()) {
 
-            m_s->remove(Triple(node, parentUri, Node()));
-            m_s->add(Triple(node, parentUri, pn));
-
-            Uri followsUri(m_tm.getRelationshipPrefix().toString() + "follows");
+            replacePropertyNodes(node, parentUri, pn);
 
             // write (references to) siblings (they wouldn't be
             // meaningful if the parent was absent)
@@ -579,8 +606,7 @@ ObjectStorer::D::store(ObjectNodeMap &map, ObjectSet &examined, QObject *o)
 
                 Node sn = map.value(previous);
                 if (sn != Node()) {
-                    m_s->remove(Triple(node, followsUri, Node()));
-                    m_s->add(Triple(node, followsUri, sn));
+                    replacePropertyNodes(node, followsUri, sn);
                 } else {
                     if (m_fp & FollowSiblings) {
                         std::cerr << "Internal error: FollowSiblings set, but previous sibling has not been written" << std::endl;
@@ -617,9 +643,18 @@ ObjectStorer::D::store(ObjectNodeMap &map, ObjectSet &examined, QObject *o)
                 examined.insert(c);
             }
         }
+        QObject *previous = 0;
         foreach (QObject *c, toFollow) {
-            DEBUG << "store: FollowChildren is set, writing child of " << node << endl;
             store(map, examined, c);
+            Node cn = map.value(c);
+            DEBUG << "store: FollowChildren is set, wrote child " << cn << " of " << node << endl;
+            if (previous) {
+                Node prevNode = map.value(previous);
+                replacePropertyNodes(cn, followsUri, prevNode);
+            } else {
+                m_s->remove(Triple(cn, followsUri, Node()));
+            }
+            previous = c;
         }
     }
 
