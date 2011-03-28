@@ -73,8 +73,7 @@ public:
 
 }
 
-// For use only within Dataquay namespace
-#define DEBUG NoDebug()
+#define DEBUG ::Dataquay::NoDebug()
 
 #endif /* !NDEBUG */
 
