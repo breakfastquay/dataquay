@@ -117,7 +117,7 @@ namespace Dataquay {
 /*
  * We should construct a new object when:
  *
- * - a node in desired does not appear in map at all
+ * - a node in desired does not appear in map at all or is null in map
  *
  * - a node called for as parent or object property does not appear in
  *   map and the relevant follows policy is set
@@ -224,6 +224,8 @@ public:
     }
     
     void reload(Nodes nodes, NodeObjectMap &map) {
+
+        DEBUG << "reload: " << nodes << endl;
         
         LoadState state;
         state.requested = nodes;
@@ -355,7 +357,7 @@ private:
 
             visited << node;
 
-            if (!state.map.contains(node)) {
+            if (!state.map.contains(node) || state.map.value(node) == 0) {
 
                 if (!nodeHasTypeInStore(node)) {
                     continue;
