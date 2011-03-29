@@ -164,11 +164,19 @@ class ObjectLoader::D
 
 public:
     struct LoadState {
+
+        LoadState() : loadFlags(0) { }
+
         Nodes requested;
         NodeSet toAllocate;
         NodeSet toInitialise;
         NodeSet toPopulate;
         NodeObjectMap map;
+
+        enum LoadFlags {
+            IgnoreUnknownTypes = 1 << 0,
+        };
+        unsigned int loadFlags;
     };
 
     D(ObjectLoader *m, Store *s) :
@@ -230,58 +238,12 @@ public:
         LoadState state;
         state.requested = nodes;
         state.map = map;
+        state.loadFlags = LoadState::IgnoreUnknownTypes;
+
         collect(state);
         load(state);        
 
-/*
-        NodeSet examined;
-
-        foreach (Node n, nodes) {
-            if (!map.contains(n)) {
-                map.insert(n, 0);
-            }
-        }
-
-        foreach (Node n, nodes) {
-            QObject *o = 0;
-            QObject *existing = map.value(n);
-            try {
-                if (existing) {
-                    // If there is something in the map for this node
-                    // already, we may want to delete it (if the
-                    // corresponding data has gone from the store).
-                    // But we won't be able to tell if that happens
-                    // unless we explicitly test for the node class
-                    // type now, because that test (which normally
-                    // happens in allocateObject) is circumvented if
-                    // there is an object already available in the
-                    // map.  So call this here, purely so we can catch
-                    // any UnknownTypeException that occurs
-                    getClassNameForNode(n);
-                }
-                o = load(map, examined, n);
-            } catch (UnknownTypeException) {
-                o = 0;
-            }
-            if (!o) {
-                if (existing) {
-                    DEBUG << "load: Node " << n
-                          << " no longer loadable, deleting object" << endl;
-                    delete existing;
-                }
-                map.remove(n);
-            }
-        }
-*/
-
         map = state.map;
-
-        DEBUG << "reload: map contains:" << endl;
-        for (NodeObjectMap::iterator i = map.begin();
-             i != map.end(); ++i) {
-            DEBUG << i.key() << " -> " << i.value() << endl;
-        }
-
     }
 
     QObjectList loadType(Uri type) {
@@ -303,7 +265,12 @@ public:
             nodes.push_back(t.a);
         }
 
-        reload(nodes, map);
+        LoadState state;
+        state.requested = nodes;
+        state.map = map;
+
+        collect(state);
+        load(state);
 
         QObjectList objects;
         foreach (Node n, nodes) {
@@ -319,7 +286,31 @@ public:
     }
 
     QObjectList loadAll(NodeObjectMap &map) {
-        return loadType(Node(), map);
+        
+        Nodes nodes;
+        
+        Triples candidates = m_s->match(Triple(Node(), "a", Node()));
+        foreach (Triple t, candidates) {
+            if (t.c.type != Node::URI) continue;
+            nodes.push_back(t.a);
+        }
+
+        LoadState state;
+        state.requested = nodes;
+        state.map = map;
+        state.loadFlags = LoadState::IgnoreUnknownTypes;
+
+        collect(state);
+        load(state);
+
+        map = state.map;
+
+        QObjectList objects;
+        foreach (Node n, nodes) {
+            QObject *o = map.value(n);
+            if (o) objects.push_back(o);
+        }
+        return objects;
     }
     
     void addLoadCallback(LoadCallback *cb) {
@@ -535,7 +526,19 @@ private:
     void load(LoadState &state) {
         foreach (Node node, state.toAllocate) {
             DEBUG << "load: calling allocate(" << node << ")" << endl;
-            allocate(state, node);
+            try {
+                allocate(state, node);
+            } catch (UnknownTypeException &e) {
+                if (state.loadFlags & LoadState::IgnoreUnknownTypes) {
+                    DEBUG << "load: IgnoreUnknownTypes is set, removing object of unknown type and continuing" << endl;
+                    delete state.map.value(node);
+                    state.map.insert(node, 0);
+                    state.toInitialise.remove(node);
+                    state.toPopulate.remove(node);
+                } else {
+                    throw;
+                }
+            }
         }
         foreach (Node node, state.toInitialise) {
             DEBUG << "load: calling initialise(" << node << ")" << endl;
