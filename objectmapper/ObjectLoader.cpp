@@ -416,6 +416,8 @@ private:
         foreach (Node n, state.toPopulate) DEBUG << n;
 
         DEBUG << endl;
+
+        std::cerr << "collect done" << std::endl;
     }
 
     bool nodeHasTypeInStore(Node node) {
@@ -538,18 +540,22 @@ private:
                 }
             }
         }
+        std::cerr << "allocate done" << std::endl;
         foreach (Node node, state.toInitialise) {
             DEBUG << "load: calling initialise(" << node << ")" << endl;
             initialise(state, node);
         }
+        std::cerr << "initialise done" << std::endl;
         foreach (Node node, state.toPopulate) {
             DEBUG << "load: calling populate(" << node << ")" << endl;
             populate(state, node);
         }
+        std::cerr << "populate done" << std::endl;
         foreach (Node node, state.toPopulate) {
             DEBUG << "load: calling callLoadCallbacks(" << node << ")" << endl;
             callLoadCallbacks(state, node);
         }
+        std::cerr << "load done" << std::endl;
     }
 
     QObject *parentObjectOf(LoadState &state, Node node) {

@@ -51,7 +51,7 @@ namespace Dataquay
 {
 
 void
-ImmutableString::makeHash() 
+ImmutableString::makeHash() const
 {
     m_hash = qHash(m_s);
 }

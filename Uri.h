@@ -59,12 +59,10 @@ namespace Dataquay
 class ImmutableString
 {
 public:
-    ImmutableString() {
-        makeHash();
+    ImmutableString() : m_hash(0) {
     }
 
-    ImmutableString(const QString &s) : m_s(s) {
-        makeHash();
+    ImmutableString(const QString &s) : m_hash(0), m_s(s) {
     }
 
     ~ImmutableString() {
@@ -72,10 +70,13 @@ public:
 
     inline QString toString() const { return m_s; }
     inline int length() const { return m_s.length(); }
-    inline unsigned int hash() const { return m_hash; }
+    inline unsigned int hash() const {
+        if (!m_hash) makeHash();
+        return m_hash;
+    }
 
     inline bool operator==(const ImmutableString &is) const {
-        if (m_hash != is.m_hash) return false;
+        if (hash() != is.hash()) return false;
         else return stringsEqual(is);
     }
     inline bool operator!=(const ImmutableString &is) const {
@@ -90,8 +91,8 @@ public:
 
 private:
     bool stringsEqual(const ImmutableString &) const;
-    void makeHash();
-    unsigned int m_hash;
+    void makeHash() const;
+    mutable unsigned int m_hash;
     QString m_s;
 };
 
