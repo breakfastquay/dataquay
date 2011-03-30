@@ -37,6 +37,7 @@
 #include "../Node.h"
 
 #include <QHash>
+#include <QPointer>
 
 class QObject;
 
@@ -49,9 +50,97 @@ class TypeMapping;
 /**
  * \class ObjectLoader ObjectLoader.h <dataquay/objectmapper/ObjectLoader.h>
  *
- * ObjectLoader can create and refresh objects based on the types and
- * relationships set out in a Store.  
- *!!!
+ * ObjectLoader constructs objects corresponding to nodes in the RDF
+ * store and sets properties on those objects corresponding to the
+ * node's RDF properties.  The class of each object is based on the
+ * node's RDF type.  TypeMapping is used to relate node types to
+ * object classes, and ObjectBuilder is used to construct the objects
+ * (which must be subclasses of QObject).
+ * 
+ * In addition to some specification of which nodes to load,
+ * ObjectLoader methods may also take a reference to a NodeObjectMap
+ * in which is stored the object corresponding to each loaded node.
+ * This map may be used by the caller as a persistent record of
+ * node-object relationships, as it is updated on each new
+ * ObjectLoader call with any unaffected nodes remaining unchanged in
+ * the map.
+ *
+ * By default, ObjectLoader loads only those objects passed in to each
+ * load() or reload() call.  ObjectLoader sets as many QObject
+ * properties on each object as possible, given the information
+ * available to it:
+ *
+ * \li Properties with non-object-type values will be assigned from
+ * RDF properties with literal value nodes, provided Node::toVariant
+ * is able to carry out the conversion from literal;
+ *
+ * \li Properties with object-type values will be assigned from RDF
+ * properties with URI value nodes, provided those URI nodes have
+ * corresponding objects available to ObjectLoader, i.e. also in the
+ * set being loaded or in the NodeObjectMap.  (However, see also
+ * FollowObjectProperties below.)
+ * 
+ * \li Properties whose value types are sequenced containers such as
+ * QList or std::vector will be assigned from RDF properties with
+ * sequence values, provided their container types have been
+ * registered with ContainerBuilder;
+ *
+ * \li Properties whose value types are set containers such as QSet
+ * will be assigned from the aggregation of all RDF properties with
+ * the appropriate subject and predicate, provided their container
+ * types have been registered with ContainerBuilder.
+ *
+ * Some behaviour can be adjusted using setFollowPolicy and
+ * setAbsentPropertyPolicy, as follows:
+ *
+ * \li \c FollowPolicy is a set of flags describing how ObjectLoader
+ * should recurse from each object to those related to it.  It can be
+ * used to cause ObjectLoader to load more objects than are explicitly
+ * requested.  The flag \c FollowObjectProperties causes objects to be
+ * loaded whenever they are required as the values of properties on
+ * other objects in the loaded set.  The flags \c FollowParent, \c
+ * FollowSiblings and \c FollowChildren cause object tree
+ * relationships to be followed up, using the "parent" and "follow"
+ * properties with the TypeMapping's relationship prefix to determine
+ * family relationships.
+ *
+ * \li \c AbsentPropertyPolicy determines how ObjectLoader handles
+ * properties of an object that have no definition in the RDF store.
+ * These properties are ignored if IgnoreAbsentProperties (the
+ * default) is set, but if ResetAbsentProperties is set ObjectLoader
+ * will attempt to reset each property to its default value based on
+ * the value found in a freshly-constructed default instance of the
+ * object class in question.
+ *
+ * The load procedure follows a defined order:
+ *
+ * \li The requested objects, and any relatives required by the
+ * FollowPolicy, are constructed with their default properties (no
+ * properties assigned from RDF yet).  If the FollowPolicy includes
+ * FollowParents or FollowSiblings, these will be followed before the
+ * current object is loaded; if FollowChildren, they will be followed
+ * afterwards;
+ *
+ * \li After all objects have been constructed, those properties that
+ * have "simple" RDF literal values are assigned for each object;
+ *
+ * \li After all "simple" properties have been assigned, any further
+ * properties are set (those with container and object types);
+ *
+ * \li Finally, any callbacks registered with addLoadCallback are
+ * called for each object that was loaded (i.e. any object that was
+ * either constructed or assigned to).
+ *
+ * Note that ObjectLoader always maintains a one-to-one correspondence
+ * between QObjects and the RDF nodes that it loads as QObjects.  In
+ * particular, where multiple objects have properties that refer to
+ * the same URI, no more than a single value object will be
+ * constructed and the same value object will be assigned to all of
+ * those objects' properties.  This implies that objects to be loaded
+ * using ObjectLoader should be designed so that they do not attempt
+ * to "own" (control lifecycle for) any other QObjects that appear as
+ * their properties.  Ownership must be maintained separately from the
+ * property relationship.
  *
  * ObjectLoader is re-entrant, but not thread-safe.
  */
@@ -60,7 +149,7 @@ class ObjectLoader
 {
 public:
     /// Map from RDF node to object
-    typedef QHash<Node, QObject *> NodeObjectMap;
+    typedef QHash<Node, QPointer<QObject> > NodeObjectMap;
 
     /**
      * Create an ObjectLoader ready to load objects from the given RDF
@@ -128,9 +217,9 @@ public:
     
     /**
      * Examine each of the nodes passed in, and if there is no
-     * corresponding node in the node-object map, load the node as a
+     * corresponding object in the node-object map, load the node as a
      * new QObject and place it in the map; if there is a
-     * corresponding node in the node-object map, update it with
+     * corresponding object in the node-object map, update it with
      * current properties from the store.  If a node is passed in that
      * does not exist in the store, delete any object associated with
      * it from the map.
@@ -170,6 +259,9 @@ public:
      * which will be called after each object is loaded.
      */
     void addLoadCallback(LoadCallback *callback);
+
+private slots:
+    void objectDestroyed(QObject *);
 
 private:
     ObjectLoader(const ObjectLoader &);
