@@ -49,92 +49,56 @@
 
 namespace Dataquay {
 
-/*
- * The various sets and maps that get passed around are:
- *
- * NodeObjectMap &map -- keeps track of node-object mappings for nodes
- * that are being loaded, and also for any other nodes that the
- * calling code is interested in (this map belongs to it, we just
- * update it).  We can refer to this to find out the object for a
- * given node, but it's reliable only when we know that we have just
- * loaded that node ourselves -- otherwise the value may be stale,
- * left over from previous work.  (However, we will still use it if we
- * need that node for an object property and FollowObjectProperties is
- * not set so we aren't loading afresh.)
- *
- * NodeSet &examined -- the set of all nodes we have seen and loaded
- * (or started to load) so far.  Used solely to avoid infinite
- * recursions.
- *
- * What we need:
- *
- * NodeObjectMap as above.
- *
- * Something to list which nodes we need to load. This is populated
- * from the Node or Nodes passed in, and then we traverse the tree
- * using the follow-properties adding nodes as appropriate.
- *
- * Something to list which nodes we have tried to load.  This is our
- * current examined set.  Or do we just remove from the to-load list?
- * 
- * Workflow: something like --
- * 
- * - Receive list A of the nodes the customer wants
- *
- * - Receive node-object map B from customer for updating (and for our
- *   reference, as soon as we know that a particular node has been
- *   updated)
- *
- * - Construct set C of nodes to load, initially empty
- *
- * - Traverse list A; for each node:
- *   - if node does not exist in store, set null in B and continue
- *   - add node to set C
- *   - push parent on end of A if FollowParent and parent property
- *     is present and parent is not in C
- *   - push prior sibling on end of A if FollowSiblings and follows 
- *     property is present and sibling is not in C
- *   - likewise for children
- *   - likewise for each property node if FollowObjectProperties
- *     and node is not in C
- *
- * Now we really need a version D of set C (or list A) which is in
- * tree traversal order -- roots first...
- *
- * - Traverse D; for each node:
- *   - load node, recursing to parent and siblings if necessary,
- *     but do not set any properties
- *   - put node value in B
- *
- * - Traverse D; for each node:
- *   - load properties, recursing if appropriate
- *   - call load callbacks
- * 
- * But we still need the examined set to avoid repeating ourselves
- * where an object is actually un-loadable?
- */
 
 /*
+ * Generally we pass around a LoadState object recording current
+ * progress and work still to do.  See LoadState for the terminology
+ * used.
+ *
+ * We have five phases:
+ *
+ * 1. Collect -- given the requested node set, fill the toAllocate,
+ * toInitialise, and toPopulate sets based on the FollowPolicy.
+ *
+ * 2. Allocate -- construct new nodes for those in toAllocate that are
+ * not yet in the map.  Recurse as appropriate to parent, siblings and
+ * children.  (toAllocate contains all the nodes we will need to load,
+ * including those we will recurse to when assigning properties for
+ * FollowObjectProperties policy later.)
+ * 
+ * 3. Initialise -- set the "literal" properties for each node in
+ * toInitialise
+ *
+ * 4. Populate -- set all remaining properties for each node in
+ * toPopulate
+ *
+ * 5. Callbacks -- call any registered load callbacks for each node
+ *
+ *!!! Originally we separated out initialise and populate for the
+ * convenience of users, in order to get basic definitional properties
+ * set before attaching objects as children or properties.  However,
+ * this doesn't really hold in practice because we must attach
+ * children before the initialise phase.  Is there still value in it?
+ * Is there any harm in it?
+ *
+ * Notes
+ *  
  * We should construct a new object when:
  *
- * - a node in desired does not appear in map at all or is null in map
+ * - a node in requested does not appear in map or is null in map
  *
  * - a node called for as parent or object property does not appear in
  *   map and the relevant follows policy is set
  *
- * - ??? a node's parent changes?
- *
  * We should reload properties for an object node when:
  * 
- * - the node is in desired
+ * - the node is in requested
  *
  * - the node has just been loaded
  *
- * - any others??
- *
  * We should delete an object when:
  * 
- * - a node in desired is in the map but not in the store
+ * - a node in requested is in the map but not in the store
  *
  * Cycles are only a problem when loading objects -- not when setting
  * properties.  So we need to ensure that all objects that will need
@@ -142,20 +106,6 @@ namespace Dataquay {
  * before we start loading, then we load relationship tree (no
  * cycles), then we load property objects, then we go through setting
  * properties on the appropriate objects.
- *
- *!!! latest trouble: We probably want to set properties on an object
- *    before we attach its children. Is this possible here? Set simple
- *    properties before doing child nodes... hm, but that means doing
- *    so in load rather than populate, and the set of nodes being
- *    loaded is smaller than the set being initialised
- *
- * Current terminology: 
- * - requested: nodes the customer asked to be loaded or reloaded
- * - toAllocate: nodes whose objects will need to be constructed (if possible)
- * - toInitialise: nodes pending the first (literal) properties set
- * - toPopulate: nodes pending the full properties set
- * (we separate out initialise and populate for convenience of users,
- * so we get basic properties set before children are attached)
  */
 
 class ObjectLoader::D
@@ -167,13 +117,23 @@ public:
 
         LoadState() : loadFlags(0) { }
 
+        /// Nodes the customer has explicitly asked to load or reload
         Nodes requested;
+
+        /// Nodes whose objects will need to be constructed if possible
         NodeSet toAllocate;
+
+        /// Nodes pending the first (literal) property assignment
         NodeSet toInitialise;
+
+        /// Nodes pending the full property assignment
         NodeSet toPopulate;
+
+        /// All known node-object correspondences, to be updated as we go
         NodeObjectMap map;
 
         enum LoadFlags {
+            /// Do not throw exception if RDF type unknown (for loadAll etc)
             IgnoreUnknownTypes = 1 << 0,
         };
         unsigned int loadFlags;
@@ -581,16 +541,7 @@ private:
 
         //!!! too many of these tests, some must be redundant
         if (!state.toAllocate.contains(node)) return;
-/*
-        if (!nodeHasTypeInStore(node)) {
-            DEBUG << "Node " << node << " has no type in store, can't load, setting to 0 in map" << endl;
-            delete state.map.value(node); //!!! what if it had child nodes?
-            state.map.insert(node, 0);
-            state.toAllocate.remove(node);
-            state.toInitialise.remove(node);
-            return;
-        }
-*/
+
         if (m_fp & FollowSiblings) {
             Nodes siblings = orderedSiblingsOf(node);
             foreach (Node s, siblings) {
@@ -622,13 +573,6 @@ private:
     QObject *loadSingle(LoadState &state, Node node, QObject *parentObject) {
 
         DEBUG << "loadSingle: " << node << " (parent = " << parentObject << ")" << endl;
-
-    //!!! document the implications of this -- e.g. that if
-    //!!! multiple objects have properties with the same node in
-    //!!! the RDF, they will be given the same object instance --
-    //!!! so it is generally a good idea to have "ownership" and
-    //!!! lifetime of these objects managed by something other
-    //!!! than the objects that have the properties
 
         //!!! too many of these tests, some must be redundant
         if (!state.toAllocate.contains(node)) {
@@ -669,22 +613,10 @@ private:
         }
     }
 
-/*
-
-
-    QObject *load(NodeObjectMap &map, NodeSet &examined, const Node &n,
-                  QString classHint = "");
-*/
-
     QString getClassNameForNode(Node node);
 
     QObject *allocateObject(Node node, QObject *parent);
-/*
-    QObject *loadSingle(NodeObjectMap &map, NodeSet &examined, Node node, QObject *parent,
-                        QString classHint, CacheingPropertyObject *po);
 
-    void callLoadCallbacks(NodeObjectMap &map, Node node, QObject *o);
-*/
     void initialise(LoadState &, Node node);
     void populate(LoadState &, Node node);
 
@@ -700,66 +632,6 @@ private:
     QVariant propertyNodeToVariant(LoadState &, QString typeName, Node pnode);
     QVariantList propertyNodeToList(LoadState &, QString typeName, Node pnode);
 };
-/*
-QObject *
-ObjectLoader::D::load(NodeObjectMap &map, NodeSet &examined, const Node &n,
-                      QString classHint)
-{
-    DEBUG << "load: Examining " << n << endl;
-
-    if (m_fp != FollowNone) {
-        examined.insert(n);
-    }
-
-    CacheingPropertyObject po(m_s, m_tm.getPropertyPrefix().toString(), n);
-
-    if (m_fp & FollowSiblings) {
-        //!!! actually, wouldn't this mean query all siblings and follow all of those? as on store? but do we _ever_ actually want this behaviour?
-        QString followsProp = m_tm.getRelationshipPrefix().toString() + "follows";
-        if (po.hasProperty(followsProp)) {
-            Node fn = po.getPropertyNode(followsProp);
-            //!!! highly inefficient if we are last of many siblings
-            if (!examined.contains(fn)) {
-                try {
-                    load(map, examined, fn);
-                } catch (UnknownTypeException) {
-                    //!!!
-                }
-            }
-        }
-    }
-
-    QObject *parent = 0;
-    QString parentProp = m_tm.getRelationshipPrefix().toString() + "parent";
-    if (po.hasProperty(parentProp)) {
-        Node pn = po.getPropertyNode(parentProp);
-        try {
-            if (m_fp & FollowParent) {
-                if (!examined.contains(pn)) {
-                    DEBUG << "load: FollowParent is set, loading parent of " << n << endl;
-                    load(map, examined, pn);
-                }
-            } else if (map.contains(pn) && map.value(pn) == 0) {
-                DEBUG << "load: Parent of node " << n << " has not been loaded yet, loading it" << endl;
-                load(map, examined, pn);
-            }
-        } catch (UnknownTypeException) {
-            //!!!
-        }
-        parent = map.value(pn);
-    }
-
-    //!!! and FollowChildren... (cf loadTree)
-
-    //!!! NB. as this stands, if the RDF is "wrong" containing the
-    //!!! wrong type for a property of this, we will fail the whole
-    //!!! thing with an UnknownTypeException -- is that the right
-    //!!! thing to do? consider
-
-    QObject *o = loadSingle(map, examined, n, parent, classHint, &po);
-    return o;
-}
-*/
 
 void
 ObjectLoader::D::initialise(LoadState &state, Node node)
@@ -1024,9 +896,7 @@ ObjectLoader::D::propertyNodeToObject(LoadState &state, Node pnode)
     QObject *o = 0;
 
     if (pnode.type == Node::URI || pnode.type == Node::Blank) {
-//!!!        if (state.candidates.contains(pnode)) {
-            o = loadSingle(state, pnode);
-//        }
+        o = loadSingle(state, pnode);
     } else {
         DEBUG << "Not an object node, ignoring" << endl;
     }
@@ -1116,36 +986,7 @@ ObjectLoader::D::allocateObject(Node node, QObject *parent)
 
     return o;
 }
-/*
-QObject *
-ObjectLoader::D::loadSingle(NodeObjectMap &map, NodeSet &examined,
-                            Node node, QObject *parent,
-                            QString classHint, CacheingPropertyObject *po)
-{
-    DEBUG << "loadSingle: " << node << endl;
 
-    QObject *o = map.value(node);
-    if (!o) {
-        o = allocateObject(map, node, parent, classHint, po);
-    }
-
-    loadProperties(map, examined, o, node, po);
-
-    callLoadCallbacks(map, node, o);
-
-    return o;
-}
-
-void
-ObjectLoader::D::callLoadCallbacks(NodeObjectMap &map, Node node, QObject *o)
-{
-    foreach (LoadCallback *cb, m_loadCallbacks) {
-        //!!! this doesn't really work out -- the callback doesn't know whether we're loading a single object or a graph; it may load any number of other related objects into the map, and if we were only supposed to load a single object, we won't know what to do with them afterwards (at the moment we just leak them)
-
-        cb->loaded(m_m, map, node, o);
-    }
-}
-*/
 ObjectLoader::ObjectLoader(Store *s) :
     m_d(new D(this, s))
 { }
