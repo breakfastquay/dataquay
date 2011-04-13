@@ -1,4 +1,14 @@
 
+Changes in Dataquay 0.4 since the previous version 0.3:
+
+ * Many fixes to ObjectMapper API, including a more formal approach
+   to circular dependencies and formalising the object loading order
+
+ * Add method to commit a transaction on a connection and
+   simultaneously receive the set of changes
+
+ * Move save() to the Store interface from the BasicStore concrete
+   class, and provide isolated save() in TransactionalStore
 
 Changes in Dataquay 0.3 since the previous version 0.2:
 
