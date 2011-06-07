@@ -26,7 +26,7 @@ HEADERS += BasicStore.h \
            objectmapper/ObjectStorer.h \
            objectmapper/TypeMapping.h
            
-SOURCES += BasicStore.cpp \
+SOURCES += BasicStoreSord.cpp \
            Connection.cpp \
            Node.cpp \
            PropertyObject.cpp \

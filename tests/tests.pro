@@ -11,7 +11,7 @@ PRE_TARGETDEPS += ../libdataquay.a
 OBJECTS_DIR = o
 MOC_DIR = o
 
-LIBS += -ldataquay -lraptor -lrasqal -lrdf
+LIBS += ../libdataquay.a -L/usr/local/lib -lsord-0 -lserd-0
 
 HEADERS += TestObjects.h
 SOURCES += TestDataquay.cpp

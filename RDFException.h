@@ -85,6 +85,22 @@ public:
 };
 
 /**
+ * \class RDFUnsupportedError RDFException.h <dataquay/RDFException.h>
+ *
+ * RDFUnsupportedError is an exception that results from an attempt to
+ * use a feature that is not supported or not configured in the
+ * current build.
+ */
+class RDFUnsupportedError : virtual public RDFException
+{
+public:
+    RDFUnsupportedError(QString message, QString data = "") throw() :
+        RDFException(message, data) { }
+    RDFUnsupportedError(QString message, Uri data) throw() :
+        RDFException(message, data) { }
+};
+
+/**
  * \class RDFTransactionError RDFException.h <dataquay/RDFException.h>
  *
  * RDFTransactionError is an exception that results from incorrect use
