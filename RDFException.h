@@ -53,20 +53,21 @@ namespace Dataquay
 class RDFException : virtual public std::exception
 {
 public:
-    RDFException(QString message) throw() : m_message(message) { }
+    RDFException(QString message) throw() :
+        m_message(strdup(message.toLocal8Bit().data())) { }
     RDFException(QString message, QString data) throw() {
-        m_message = QString("%1 [with string \"%2\"]").arg(message).arg(data);
+        m_message = strdup(QString("%1 [with string \"%2\"]").arg(message).arg(data).toLocal8Bit().data());
     }
     RDFException(QString message, Uri uri) throw() {
-        m_message = QString("%1 [with URI <%2>]").arg(message).arg(uri.toString());
+        m_message = strdup(QString("%1 [with URI <%2>]").arg(message).arg(uri.toString()).toLocal8Bit().data());
     }
     virtual ~RDFException() throw() { }
     virtual const char *what() const throw() {
-        return m_message.toLocal8Bit().data();
+        return m_message;
     }
     
 protected:
-    QString m_message;
+    const char *m_message;
 };
 
 /**

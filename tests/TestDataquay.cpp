@@ -1735,32 +1735,35 @@ testObjectMapper()
 
     // We should be able to do a more sophisticated query to ensure
     // the relationships are right:
-    ResultSet rs = store.query(
-        " SELECT ?bn ?pn WHERE { "
-        "   ?b a type:B ; "
-        "      property:objectName ?bn ; "
-        "      property:aref ?a . "
-        "   ?a a type:A ; "
-        "      rel:parent ?p . "
-        "   ?p property:objectName ?pn . "
-        " } "
-        );
-    if (rs.size() != 1) {
-        cerr << "Query on stored objects returns unexpected number of replies "
-             << rs.size() << " (expected 1)" << endl;
-        return false;
+    try {
+        ResultSet rs = store.query(
+            " SELECT ?bn ?pn WHERE { "
+            "   ?b a type:B ; "
+            "      property:objectName ?bn ; "
+            "      property:aref ?a . "
+            "   ?a a type:A ; "
+            "      rel:parent ?p . "
+            "   ?p property:objectName ?pn . "
+            " } "
+            );
+        if (rs.size() != 1) {
+            cerr << "Query on stored objects returns unexpected number of replies "
+                 << rs.size() << " (expected 1)" << endl;
+            return false;
+        }
+        if (rs[0]["bn"].type != Node::Literal ||
+            rs[0]["bn"].value != "b0") {
+            cerr << "Name of B-type object from query on stored objects is incorrect (expected b0, got " << rs[0]["bn"].value << ")" << endl;
+            return false;
+        }
+        if (rs[0]["pn"].type != Node::Literal ||
+            rs[0]["pn"].value != "Test Object") {
+            cerr << "Name of parent object from query on stored objects is incorrect (expected Test Object, got " << rs[0]["pn"].value << ")" << endl;
+            return false;
+        }
+    } catch (RDFUnsupportedError &e) {
+        cerr << "Query threw RDFUnsupportedError: " << e.what() << endl;
     }
-    if (rs[0]["bn"].type != Node::Literal ||
-        rs[0]["bn"].value != "b0") {
-        cerr << "Name of B-type object from query on stored objects is incorrect (expected b0, got " << rs[0]["bn"].value << ")" << endl;
-        return false;
-    }
-    if (rs[0]["pn"].type != Node::Literal ||
-        rs[0]["pn"].value != "Test Object") {
-        cerr << "Name of parent object from query on stored objects is incorrect (expected Test Object, got " << rs[0]["pn"].value << ")" << endl;
-        return false;
-    }
-
 
     if (!testReloadability(store)) {
         cerr << "Reloadability test for custom object network store and recall failed" 

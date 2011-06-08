@@ -188,9 +188,11 @@ public:
         if (!checkComplete(statement)) {
             throw RDFException("Failed to test for triple (statement is incomplete)");
         }
-        if (!sord_find(m_model, statement)) {
+        SordIter *itr = sord_find(m_model, statement);
+        if (!itr) {
             return false;
         } else {
+            sord_iter_free(itr);
             return true;
         }
     }
@@ -447,8 +449,6 @@ public:
         SerdNode bn = serd_node_from_string(SERD_URI, (uint8_t *)bb.data());
         SerdEnv *env = serd_env_new(&bn);
 
-        SerdReader *reader = sord_new_reader(m_model, env, SERD_TURTLE, NULL);
-
         QString fileUri = url.toString();
 
         // serd_uri_to_path doesn't like the brief file:blah
@@ -460,10 +460,75 @@ public:
             fileUri = fileUri.right(fileUri.length()-5);
         }
 
-        if (serd_reader_read_file
-            (reader, (const uint8_t *)fileUri.toLocal8Bit().data())) {
-            throw RDFException("Failed to import model from URL",
-                               url.toString());
+        if (idm == ImportPermitDuplicates) {
+
+            // No special handling for duplicates, do whatever the
+            // underlying engine does
+
+            SerdReader *reader = sord_new_reader(m_model, env, SERD_TURTLE, NULL);
+
+            if (serd_reader_read_file
+                (reader, (const uint8_t *)fileUri.toLocal8Bit().data())) {
+                serd_reader_free(reader);
+                throw RDFException("Failed to import model from URL",
+                                   url.toString());
+            }
+
+            serd_reader_free(reader);
+
+        } else {
+
+            // ImportFailOnDuplicates and ImportIgnoreDuplicates:
+            // import into a separate model and transfer across
+
+            SordModel *im = sord_new(m_w.getWorld(), 0, false); // no index
+            
+            SerdReader *reader = sord_new_reader(im, env, SERD_TURTLE, NULL);
+
+            if (serd_reader_read_file
+                (reader, (const uint8_t *)fileUri.toLocal8Bit().data())) {
+                serd_reader_free(reader);
+                sord_free(im);
+                throw RDFException("Failed to import model from URL",
+                                   url.toString());
+            }
+
+            serd_reader_free(reader);
+
+            SordQuad templ;
+            tripleToStatement(Triple(), templ);
+
+            if (idm == ImportFailOnDuplicates) {
+
+                SordIter *itr = sord_find(im, templ);
+                while (!sord_iter_end(itr)) {
+                    SordQuad q;
+                    sord_iter_get(itr, q);
+                    SordIter *existing = sord_find(m_model, q);
+                    if (existing) {
+                        sord_iter_free(existing);
+                        sord_iter_free(itr);
+                        sord_free(im);
+                        throw RDFDuplicateImportException("Duplicate statement encountered on import in ImportFailOnDuplicates mode");
+                    }
+                    sord_iter_next(itr);
+                }
+                sord_iter_free(itr);
+            }
+            
+            SordIter *itr = sord_find(im, templ);
+            while (!sord_iter_end(itr)) {
+                SordQuad q;
+                sord_iter_get(itr, q);
+                SordIter *existing = 0;
+                if (idm != ImportFailOnDuplicates) { // (already tested if so)
+                    existing = sord_find(m_model, q);
+                }
+                if (!existing) sord_add(m_model, q);
+                else sord_iter_free(existing);
+                sord_iter_next(itr);
+            }
+            sord_iter_free(itr);
         }
 
 	serd_env_foreach(env, addPrefixSink, this);
@@ -646,7 +711,9 @@ private:
         if (!checkComplete(statement)) {
             throw RDFException("Failed to add triple (statement is incomplete)");
         }
-        if (sord_find(m_model, statement)) {
+        SordIter *itr = sord_find(m_model, statement);
+        if (itr) {
+            sord_iter_free(itr);
             return false;
         }
         sord_add(m_model, statement);
@@ -659,9 +726,11 @@ private:
         if (!checkComplete(statement)) {
             throw RDFException("Failed to remove triple (statement is incomplete)");
         }
-        if (!sord_find(m_model, statement)) {
+        SordIter *itr = sord_find(m_model, statement);
+        if (!itr) {
             return false;
         }
+        sord_iter_free(itr);
         sord_remove(m_model, statement);
         return true;
     }
@@ -770,6 +839,10 @@ private:
     }
 
     bool checkComplete(const SordQuad q) const {
+        if (!q[0] || !q[1] || !q[2]) {
+            std::cerr << "BasicStore::checkComplete: WARNING: RDF statement contains one or more NULL nodes" << std::endl;
+            return false;
+        }
         if ((sord_node_get_type(q[0]) == SORD_URI ||
              sord_node_get_type(q[0]) == SORD_BLANK) &&
             (sord_node_get_type(q[1]) == SORD_URI)) {

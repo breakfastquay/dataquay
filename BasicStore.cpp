@@ -447,7 +447,8 @@ public:
                 while (!librdf_stream_end(stream)) {
                     librdf_statement *current = librdf_stream_get_object(stream);
                     if (!current) continue;
-                    if (!librdf_model_contains_statement(m_model, current)) {
+                    if (idm == ImportFailOnDuplicates || // (already tested if so)
+                        !librdf_model_contains_statement(m_model, current)) {
                         librdf_model_add_statement(m_model, current);
                     }
                     librdf_stream_next(stream);
