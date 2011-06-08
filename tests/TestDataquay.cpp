@@ -451,18 +451,23 @@ testBasicStore()
 
             cerr << "Testing query..." << endl;
 
-            results = store.query(q);
-            if (results.size() != 1) {
-                cerr << "Query produced wrong number of results (expected 1, got " << results.size() << ")" << endl;
-                cerr << "Query was: " << q << endl;
-                return false;
-            }
+            try {
 
-            Node v = store.queryFirst(q, "a");
-            QString expected = base + "alice";
-            if (v.type != Node::URI || v.value != expected) {
-                cerr << "getFirstResult returned wrong result (expected URI of <" << expected << ">, got type " << v.type << " and value " << v.value << ")" << endl;
-                return false;
+                results = store.query(q);
+                if (results.size() != 1) {
+                    cerr << "Query produced wrong number of results (expected 1, got " << results.size() << ")" << endl;
+                    cerr << "Query was: " << q << endl;
+                    return false;
+                }
+
+                Node v = store.queryFirst(q, "a");
+                QString expected = base + "alice";
+                if (v.type != Node::URI || v.value != expected) {
+                    cerr << "getFirstResult returned wrong result (expected URI of <" << expected << ">, got type " << v.type << " and value " << v.value << ")" << endl;
+                    return false;
+                }
+            } catch (RDFUnsupportedError &e) {
+                cerr << "Query threw RDFUnsupportedError: " << e.what() << endl;
             }
         }
 
@@ -492,11 +497,15 @@ testBasicStore()
         }
 
         if (haveBaseUri) {
-            results = store.query(q);
-            if (results.size() != 0) {
-                cerr << "Query (after removing statement) produced wrong number of results (expected 0, got " << results.size() << ")" << endl;
-                cerr << "Query was: " << q << endl;
-                return false;
+            try {
+                results = store.query(q);
+                if (results.size() != 0) {
+                    cerr << "Query (after removing statement) produced wrong number of results (expected 0, got " << results.size() << ")" << endl;
+                    cerr << "Query was: " << q << endl;
+                    return false;
+                }
+            } catch (RDFUnsupportedError &e) {
+                cerr << "Query threw RDFUnsupportedError: " << e.what() << endl;
             }
         }
     
@@ -531,18 +540,22 @@ testBasicStore()
         if (haveBaseUri) {
             cerr << "Testing query on loaded store..." << endl;
 
-            results = store2->query(q);
-            if (results.size() != 1) {
-                cerr << "Query (after export/import) produced wrong number of results (expected 1, got " << results.size() << ")" << endl;
-                cerr << "Query was: " << q << endl;
-                return false;
-            }
+            try {
+                results = store2->query(q);
+                if (results.size() != 1) {
+                    cerr << "Query (after export/import) produced wrong number of results (expected 1, got " << results.size() << ")" << endl;
+                    cerr << "Query was: " << q << endl;
+                    return false;
+                }
 
-            results = store.query(q);
-            if (results.size() != 0) {
-                cerr << "Query (on original store after prior import/export) produced wrong number of results (expected 0, got " << results.size() << ")" << endl;
-                cerr << "Query was: " << q << endl;
-                return false;
+                results = store.query(q);
+                if (results.size() != 0) {
+                    cerr << "Query (on original store after prior import/export) produced wrong number of results (expected 0, got " << results.size() << ")" << endl;
+                    cerr << "Query was: " << q << endl;
+                    return false;
+                }
+            } catch (RDFUnsupportedError &e) {
+                cerr << "Query threw RDFUnsupportedError: " << e.what() << endl;
             }
         }
     
@@ -554,11 +567,17 @@ testBasicStore()
             store.import(QUrl("file:test2.ttl"),
                          BasicStore::ImportIgnoreDuplicates);
 
-            results = store.query(q);
-            if (results.size() != 1) {
-                cerr << "Query (on original store after importing from additional store) produced wrong number of results (expected 1, got " << results.size() << ")" << endl;
-                cerr << "Query was: " << q << endl;
-                return false;
+            try {
+                //!!! we really should do this test somehow (e.g. via
+                //!!! match) even in the absence of query
+                results = store.query(q);
+                if (results.size() != 1) {
+                    cerr << "Query (on original store after importing from additional store) produced wrong number of results (expected 1, got " << results.size() << ")" << endl;
+                    cerr << "Query was: " << q << endl;
+                    return false;
+                }
+            } catch (RDFUnsupportedError &e) {
+                cerr << "Query threw RDFUnsupportedError: " << e.what() << endl;
             }
         }
     }

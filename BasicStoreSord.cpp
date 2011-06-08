@@ -229,13 +229,13 @@ public:
 
     ResultSet query(QString sparql) const {
         throw RDFUnsupportedError
-            ("SPARQL queries are not supported with Sord back-end",
+            ("SPARQL queries are not supported with Sord backend",
              sparql);
     }
 
     Node queryFirst(QString sparql, QString bindingName) const {
         throw RDFUnsupportedError
-            ("SPARQL queries are not supported with Sord back-end",
+            ("SPARQL queries are not supported with Sord backend",
              sparql);
     }
 
@@ -390,6 +390,44 @@ public:
         }
     }
 
+    void addPrefixOnImport(QString pfx, Uri uri) {
+
+        DEBUG << "namespace: " << pfx << " -> " << uri << endl;
+
+        if (pfx == "" && uri != Uri("#")) {
+            // base uri
+            if (m_baseUri == Uri("#")) {
+                std::cerr << "BasicStore::import: NOTE: Loading file into store with no base URI; setting base URI to <" << uri.toString().toStdString() << "> from file" << std::endl;
+                m_baseUri = uri;
+                m_prefixes[""] = m_baseUri;
+            } else {
+                if (uri != m_baseUri) {
+                    std::cerr << "BasicStore::import: NOTE: Base URI of loaded file differs from base URI of store (<" << uri.toString().toStdString() << "> != <" << m_baseUri.toString().toStdString() << ">)" << std::endl;
+                }
+            }
+        }
+
+        // don't call addPrefix; it tries to lock the mutex,
+        // and anyway we want to add the prefix only if it
+        // isn't already there (to avoid surprisingly changing
+        // a prefix in unusual cases, or changing the base URI)
+        if (m_prefixes.find(pfx) == m_prefixes.end()) {
+            m_prefixes[pfx] = uri;
+        }
+    }
+
+    static SerdStatus addPrefixSink(void *handle,
+                                    const SerdNode *name,
+                                    const SerdNode *uri) {
+
+        D *d = (D *)handle;
+
+        QString qpfx(QString::fromUtf8((const char *)name->buf, name->n_bytes));
+        Uri quri(QString::fromUtf8((const char *)uri->buf, uri->n_bytes));
+
+        d->addPrefixOnImport(qpfx, quri);
+    }
+
     void import(QUrl url, ImportDuplicatesMode idm, QString format) {
 
         QMutexLocker wlocker(&m_backendLock);
@@ -427,6 +465,8 @@ public:
             throw RDFException("Failed to import model from URL",
                                url.toString());
         }
+
+	serd_env_foreach(env, addPrefixSink, this);
 
 /*!!!
         librdf_uri *luri = uriToSordUri(Uri(url));
