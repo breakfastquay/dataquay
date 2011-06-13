@@ -70,11 +70,17 @@ public:
     }
 
     QString getNewString() const {
-        return
+        QString s =
             QString::fromLocal8Bit
             (QCryptographicHash::hash(QString("%1").arg(random()).toLocal8Bit(),
                                       QCryptographicHash::Sha1).toHex())
             .left(12);
+        // This may be used as the whole of a name in some contexts,
+        // so it must not start with a digit
+        if (s[0].isDigit()) {
+            s = "x" + s.right(s.length()-1);
+        }
+        return s;
     }
     
     void collision() const {
@@ -188,13 +194,10 @@ public:
         if (!checkComplete(statement)) {
             throw RDFException("Failed to test for triple (statement is incomplete)");
         }
-        SordIter *itr = sord_find(m_model, statement);
-        if (!itr) {
+        if (!sord_contains(m_model, statement)) {
             return false;
-        } else {
-            sord_iter_free(itr);
-            return true;
         }
+        return true;
     }
     
     Triples match(Triple t) const {
@@ -504,9 +507,7 @@ public:
                 while (!sord_iter_end(itr)) {
                     SordQuad q;
                     sord_iter_get(itr, q);
-                    SordIter *existing = sord_find(m_model, q);
-                    if (existing) {
-                        sord_iter_free(existing);
+                    if (sord_contains(m_model, q)) {
                         sord_iter_free(itr);
                         sord_free(im);
                         throw RDFDuplicateImportException("Duplicate statement encountered on import in ImportFailOnDuplicates mode");
@@ -520,12 +521,10 @@ public:
             while (!sord_iter_end(itr)) {
                 SordQuad q;
                 sord_iter_get(itr, q);
-                SordIter *existing = 0;
-                if (idm != ImportFailOnDuplicates) { // (already tested if so)
-                    existing = sord_find(m_model, q);
+                if (idm == ImportFailOnDuplicates || // (already tested if so)
+                    !sord_contains(m_model, q)) {
+                    sord_add(m_model, q);
                 }
-                if (!existing) sord_add(m_model, q);
-                else sord_iter_free(existing);
                 sord_iter_next(itr);
             }
             sord_iter_free(itr);
@@ -711,9 +710,7 @@ private:
         if (!checkComplete(statement)) {
             throw RDFException("Failed to add triple (statement is incomplete)");
         }
-        SordIter *itr = sord_find(m_model, statement);
-        if (itr) {
-            sord_iter_free(itr);
+        if (sord_contains(m_model, statement)) {
             return false;
         }
         sord_add(m_model, statement);
@@ -726,11 +723,9 @@ private:
         if (!checkComplete(statement)) {
             throw RDFException("Failed to remove triple (statement is incomplete)");
         }
-        SordIter *itr = sord_find(m_model, statement);
-        if (!itr) {
+        if (!sord_contains(m_model, statement)) {
             return false;
         }
-        sord_iter_free(itr);
         sord_remove(m_model, statement);
         return true;
     }
