@@ -39,6 +39,9 @@
 
 #include "Uri.h"
 
+#include <cstring>
+#include <cstdlib>
+
 namespace Dataquay
 {
 
@@ -61,13 +64,24 @@ public:
     RDFException(QString message, Uri uri) throw() {
         m_message = strdup(QString("%1 [with URI <%2>]").arg(message).arg(uri.toString()).toLocal8Bit().data());
     }
-    virtual ~RDFException() throw() { }
+    RDFException(const RDFException &e) throw() {
+        m_message = strdup(e.m_message);
+    }
+    RDFException &operator=(const RDFException &e) throw() {
+        if (&e == this) return *this;
+        free(m_message);
+        m_message = strdup(e.m_message);
+        return *this;
+    }
+    virtual ~RDFException() throw() {
+        free(m_message);
+    }
     virtual const char *what() const throw() {
         return m_message;
     }
     
 protected:
-    const char *m_message;
+    char *m_message;
 };
 
 /**

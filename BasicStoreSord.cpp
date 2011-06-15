@@ -197,6 +197,7 @@ public:
         if (!sord_contains(m_model, statement)) {
             return false;
         }
+        freeStatement(statement);
         return true;
     }
     
@@ -431,6 +432,8 @@ public:
         Uri quri(QString::fromUtf8((const char *)uri->buf, uri->n_bytes));
 
         d->addPrefixOnImport(qpfx, quri);
+
+        return SERD_SUCCESS;
     }
 
     void import(QUrl url, ImportDuplicatesMode idm, QString format) {
@@ -473,6 +476,7 @@ public:
             if (serd_reader_read_file
                 (reader, (const uint8_t *)fileUri.toLocal8Bit().data())) {
                 serd_reader_free(reader);
+                serd_env_free(env);
                 throw RDFException("Failed to import model from URL",
                                    url.toString());
             }
@@ -492,6 +496,7 @@ public:
                 (reader, (const uint8_t *)fileUri.toLocal8Bit().data())) {
                 serd_reader_free(reader);
                 sord_free(im);
+                serd_env_free(env);
                 throw RDFException("Failed to import model from URL",
                                    url.toString());
             }
@@ -509,7 +514,9 @@ public:
                     sord_iter_get(itr, q);
                     if (sord_contains(m_model, q)) {
                         sord_iter_free(itr);
+                        freeStatement(templ);
                         sord_free(im);
+                        serd_env_free(env);
                         throw RDFDuplicateImportException("Duplicate statement encountered on import in ImportFailOnDuplicates mode");
                     }
                     sord_iter_next(itr);
@@ -528,9 +535,12 @@ public:
                 sord_iter_next(itr);
             }
             sord_iter_free(itr);
+            freeStatement(templ);
+            sord_free(im);
         }
 
 	serd_env_foreach(env, addPrefixSink, this);
+        serd_env_free(env);
 
 /*!!!
         librdf_uri *luri = uriToSordUri(Uri(url));
@@ -678,6 +688,7 @@ private:
         }
         ~World() {
             QMutexLocker locker(&m_mutex);
+            DEBUG << "~World: About to lower refcount from " << m_refcount << endl;
             if (--m_refcount == 0) {
                 DEBUG << "Freeing world" << endl;
                 sord_world_free(m_world);
@@ -714,6 +725,7 @@ private:
             return false;
         }
         sord_add(m_model, statement);
+        freeStatement(statement);
         return true;
     }
 
@@ -727,6 +739,7 @@ private:
             return false;
         }
         sord_remove(m_model, statement);
+        freeStatement(statement);
         return true;
     }
 
@@ -826,6 +839,13 @@ private:
         q[3] = 0;
     }
 
+    void freeStatement(SordQuad q) const {
+        // Not for removing statements from the store
+        for (int i = 0; i < 4; ++i) {
+            sord_node_free(m_w.getWorld(), (SordNode *)q[i]);
+        }
+    }
+
     Triple statementToTriple(const SordQuad q) const {
         Triple triple(sordNodeToNode(q[0]),
                       sordNodeToNode(q[1]),
@@ -874,6 +894,7 @@ private:
             sord_iter_next(itr);
         }
         sord_iter_free(itr);
+        freeStatement(templ);
         return results;
     }
 };

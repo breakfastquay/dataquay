@@ -1409,6 +1409,16 @@ testReloadability(BasicStore &s0)
         return false;
     }
 
+    cerr << "(Note: objects loaded from prior and stored to \"a\" are:" << endl;
+    foreach (QObject *o, objects) {
+        cerr << o << " [parent " << o->parent() << ", name " << o->objectName() << "]" << endl;
+    }
+    cerr << "\n... objects loaded from \"a\" to be stored to \"b\" are:" << endl;
+    foreach (QObject *o, newObjects) {
+        cerr << o << " [parent " << o->parent() << ", name " << o->objectName() << "]" << endl;
+    }
+    cerr << ")" << endl;
+
     BasicStore s2;
     ObjectStorer m2(&s2);
     m2.setFollowPolicy(m1.getFollowPolicy());
@@ -1424,6 +1434,13 @@ testReloadability(BasicStore &s0)
     if (!compare(t1, t2)) {
         return false;
     }
+
+    // delete the objects we loaded -- but carefully as some are
+    // children of others
+    QObjectList toDelete;
+    foreach (QObject *o, objects) if (!o->parent()) toDelete.push_back(o);
+    foreach (QObject *o, newObjects) if (!o->parent()) toDelete.push_back(o);
+    foreach (QObject *o, toDelete) delete o;
 
     //!!! test whether s1 and s2 are equal and whether newParent has all the same children as parent
     return true;
@@ -1494,6 +1511,7 @@ testObjectMapper()
 
     ObjectBuilder::getInstance()->registerClass<QTimer, QObject>();
 
+    delete recalled;
     recalled = loader.load(turi);
     if (!recalled) {
         cerr << "Failed to recall object" << endl;
@@ -1544,6 +1562,7 @@ testObjectMapper()
 
     cerr << "Testing single custom object recall..." << endl;
 
+    delete recalled;
     recalled = loader.load(auri);
     if (!recalled) {
         cerr << "Failed to recall A-object" << endl;
@@ -1615,6 +1634,16 @@ testObjectMapper()
                            ObjectStorer::FollowChildren);
     ObjectStorer::ObjectNodeMap map;
     storer.store(o, map);
+
+/*
+    {
+        cerr << "About to save. Statements in store are:" << endl;
+        Triples all = store.match(Triple());
+        foreach (Triple t, all) {
+            cerr << t << endl;
+        }
+    }
+*/
 
     store.save("test-object-mapper-2.ttl");
 
@@ -1908,6 +1937,7 @@ testObjectMapper()
     delete b2;
     delete c1;
     delete c2;
+    delete recalled;
 
     mapper.commit();
   
