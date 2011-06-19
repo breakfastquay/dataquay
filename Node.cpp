@@ -301,7 +301,7 @@ Node::fromVariant(const QVariant &v)
         Node n;
         n.type = Literal;
         n.datatype = encodedVariantTypeURI;
-        n.value = QString::fromAscii(b.toPercentEncoding());        
+        n.value = QString::fromAscii(qCompress(b).toBase64());        
         return n;
     }
 }
@@ -326,7 +326,7 @@ Node::toVariant() const
         // encoding is in use, we must decode from it even if the type
         // is actually known
         QByteArray benc = value.toAscii();
-        QByteArray b = QByteArray::fromPercentEncoding(benc);
+        QByteArray b = qUncompress(QByteArray::fromBase64(benc));
         QDataStream ds(&b, QIODevice::ReadOnly);
         QVariant v;
         ds >> v;
