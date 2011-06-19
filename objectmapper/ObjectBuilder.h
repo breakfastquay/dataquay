@@ -163,8 +163,31 @@ public:
     }
 
     /**
+     * Register type T, a subclass of QObject, as an interface (a pure
+     * virtual class) and pointerName to be the meta type name for
+     * pointers to type T, such that QVariant can be used to store
+     * such pointers.
+     *
+     * For example, registerClass<Command>("Command*") declares that
+     * Command is a subclass of QObject that may not be built directly
+     * but that "Command*" has been registered (using
+     * qRegisterMetaType) as the meta type name for
+     * pointer-to-QAction.
+     *
+     * A subsequent call to ObjectBuilder::extract("Command*", v)
+     * would extract a pointer of type Command* from the QVariant v.
+     */
+    template <typename T>
+    void registerInterface(QString pointerName) {
+        QString className = T::staticMetaObject.className();
+        m_cpmap[className] = pointerName;
+        m_pcmap[pointerName] = className;
+        registerExtractor<T>(pointerName);
+    }
+
+    /**
      * Return true if the class whose class name (according to its
-     * meta object) is className has been registered.
+     * meta object) is className has been registered for building.
      */
     bool knows(QString className) {
         return m_builders.contains(className);
@@ -192,7 +215,8 @@ public:
     /**
      * Return true if the class whose pointer has meta-type name
      * pointerName has been registered with that pointer name
-     * (i.e. using one of the registerClass(pointerName) methods).
+     * (i.e. using one of the registerClass(pointerName) methods or
+     * registerInterface).
      */
     bool canExtract(QString pointerName) {
         return m_extractors.contains(pointerName);
@@ -201,7 +225,8 @@ public:
     /**
      * Return true if the class whose pointer has meta-type name
      * pointerName has been registered with that pointer name
-     * (i.e. using one of the registerClass(pointerName) methods).
+     * (i.e. using one of the registerClass(pointerName) methods or
+     * registerInterface).
      */
     bool canInject(QString pointerName) {
         return m_extractors.contains(pointerName);
@@ -209,9 +234,9 @@ public:
 
     /**
      * Provided the given pointerName has been registered using one of
-     * the registerClass(pointerName) methods, take the given variant
-     * containing that pointer type and extract and return the
-     * pointer.
+     * the registerClass(pointerName) methods or registerInterface,
+     * take the given variant containing that pointer type and extract
+     * and return the pointer.
      */
     QObject *extract(QString pointerName, QVariant &v) {
         if (!canExtract(pointerName)) return 0;
@@ -220,8 +245,9 @@ public:
 
     /**
      * Provided the given pointerName has been registered using one of
-     * the registerClass(pointerName) methods, take the given pointer
-     * and stuff it into a variant, returning the result.
+     * the registerClass(pointerName) methods or registerInterface,
+     * take the given pointer and stuff it into a variant, returning
+     * the result.
      */
     QVariant inject(QString pointerName, QObject *p) {
         if (!canInject(pointerName)) return QVariant();
