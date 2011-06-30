@@ -104,6 +104,8 @@ public:
     Node addBlankNode();
     Uri expand(QString uri) const;
     void save(QString filename) const;
+    void import(QUrl url, ImportDuplicatesMode idm, QString format = "");
+    Features getSupportedFeatures() const;
 
 public slots:
     /**

@@ -1038,6 +1038,14 @@ BasicStore::load(QUrl url, QString format)
     return s;
 }
 
+BasicStore::Features
+BasicStore::getSupportedFeatures() const
+{
+    Features fs;
+    fs << ModifyFeature;
+    return fs;
+}
+
 }
 
 

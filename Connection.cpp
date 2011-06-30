@@ -58,6 +58,8 @@ public:
     Node addBlankNode();
     Uri expand(QString uri) const;
     void save(QString filename) const;
+    void import(QUrl url, ImportDuplicatesMode idm, QString format);
+    Features getSupportedFeatures() const;
     
     void commit();
     ChangeSet commitAndObtain();
@@ -212,6 +214,18 @@ Connection::D::save(QString filename) const
     getStore()->save(filename);
 }
 
+void
+Connection::D::import(QUrl url, ImportDuplicatesMode idm, QString format)
+{
+    getStore()->import(url, idm, format);
+}
+
+Connection::Features
+Connection::D::getSupportedFeatures() const
+{
+    return getStore()->getSupportedFeatures();
+}
+
 Connection::Connection(TransactionalStore *ts) :
     m_d(new D(ts))
 {
@@ -303,6 +317,18 @@ void
 Connection::save(QString filename) const
 {
     return m_d->save(filename);
+}
+
+void
+Connection::import(QUrl url, ImportDuplicatesMode idm, QString format)
+{
+    return m_d->import(url, idm, format);
+}
+
+Connection::Features
+Connection::getSupportedFeatures() const
+{
+    return m_d->getSupportedFeatures();
 }
 
 void 
