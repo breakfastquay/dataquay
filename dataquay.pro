@@ -30,6 +30,7 @@ SOURCES += BasicStoreSord.cpp \
            Connection.cpp \
            Node.cpp \
            PropertyObject.cpp \
+           Store.cpp \
            Transaction.cpp \
            TransactionalStore.cpp \
            Triple.cpp \

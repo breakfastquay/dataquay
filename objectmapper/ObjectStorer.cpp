@@ -252,8 +252,7 @@ ObjectStorer::D::storeProperties(ObjectNodeMap &map, ObjectSet &examined, QObjec
         QMetaProperty property = o->metaObject()->property(i);
 
         if (!property.isStored() ||
-            !property.isReadable() ||
-            !property.isWritable()) {
+            !property.isReadable()) {
             continue;
         }
 

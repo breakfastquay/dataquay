@@ -189,5 +189,8 @@ protected:
 
 }
 
+QDataStream &operator<<(QDataStream &out, const Dataquay::ChangeType &);
+QDataStream &operator>>(QDataStream &in, Dataquay::ChangeType &);
+
 #endif
 
