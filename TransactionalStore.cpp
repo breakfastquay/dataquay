@@ -532,13 +532,23 @@ public:
     }
 
     void import(QUrl url, ImportDuplicatesMode idm, QString format) {
-        BasicStore *bs = BasicStore::load(url, format);
-        Triples ts = bs->match(Triple());
-        foreach (Triple t, ts) {
-            bool duplicate = !add(t);
-            if (idm == ImportFailOnDuplicates && duplicate) {
-                throw RDFDuplicateImportException("Duplicate statement encountered on import in ImportFailOnDuplicates mode");
+        check();
+        BasicStore *bs = 0;
+        try {
+            bs = BasicStore::load(url, format);
+            Triples ts = bs->match(Triple());
+            foreach (Triple t, ts) {
+                bool added = m_td->add(m_tx, t);
+                if (idm == ImportFailOnDuplicates && !added) {
+                    throw RDFDuplicateImportException("Duplicate statement encountered on import in ImportFailOnDuplicates mode");
+                }
             }
+            delete bs;
+            bs = 0;
+        } catch (RDFException &) {
+            delete bs;
+            abandon();
+            throw;
         }
     }
 

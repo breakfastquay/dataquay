@@ -73,6 +73,7 @@ public:
     /**
      * Empty the store of triples.  Prefixes that have been added with
      * addPrefix are unaffected.
+     *!!! hoist to Store()?
      */
     void clear();
 

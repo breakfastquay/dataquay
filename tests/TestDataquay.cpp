@@ -936,6 +936,37 @@ testImportOptions()
         return false;
     }
 
+    // Save and import are implemented in TransactionalStore as well
+
+    TransactionalStore ts(&store);
+    Connection c(&ts);
+    c.remove(Triple());
+    
+    try {
+        c.import(QUrl("file:test3.ttl"), BasicStore::ImportIgnoreDuplicates);
+        c.import(QUrl("file:test3.ttl"), BasicStore::ImportIgnoreDuplicates);
+        {
+            Connection c2(&ts);
+            int n = c2.match(Triple()).size();
+            if (n != 0) {
+                cerr << "Transactional integrity failure in import: found " << n << " triple(s) in unrelated connection" << endl;
+                return false;
+            }
+        }
+        c.commit();
+        {
+            Connection c2(&ts);
+            int n = c2.match(Triple()).size();
+            if (n != triples.size()) {
+                cerr << "Failure in TransactionalStore::import: found " << n << " triple(s), expected " << triples.size() << endl;
+                return false;
+            }
+        }
+    } catch (RDFDuplicateImportException) {
+        cerr << "Wrongly caught RDFDuplicateImportException when importing duplicate store with ImportIgnoreDuplicates" << endl;
+        return false;
+    }        
+
     return true;
 }
     
