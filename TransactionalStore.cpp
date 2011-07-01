@@ -32,6 +32,7 @@
 */
 
 #include "TransactionalStore.h"
+#include "BasicStore.h"
 #include "RDFException.h"
 #include "Debug.h"
 
@@ -207,12 +208,12 @@ public:
         Operation op(this, tx);
         m_store->save(filename);
     }
-
+/*!!!
     void import(Transaction *tx, QUrl url, ImportDuplicatesMode idm, QString format) {
         Operation op(this, tx);
         m_store->import(url, idm, format);
     }
-
+*/
     Features getSupportedFeatures() const {
         return m_store->getSupportedFeatures();
     }
@@ -530,7 +531,16 @@ public:
         }
     }
 
-    //!!! import -- with transaction!
+    void import(QUrl url, ImportDuplicatesMode idm, QString format) {
+        BasicStore *bs = BasicStore::load(url, format);
+        Triples ts = bs->match(Triple());
+        foreach (Triple t, ts) {
+            bool duplicate = !add(t);
+            if (idm == ImportFailOnDuplicates && duplicate) {
+                throw RDFDuplicateImportException("Duplicate statement encountered on import in ImportFailOnDuplicates mode");
+            }
+        }
+    }
 
     Features getSupportedFeatures() const {
         return m_td->getSupportedFeatures();
