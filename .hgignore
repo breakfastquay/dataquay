@@ -1,0 +1,5 @@
+syntax: glob
+
+re:^doc/html/
+re:^o/
+*.a
