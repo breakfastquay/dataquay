@@ -15,7 +15,8 @@ primary purpose is not related to RDF but that have ad-hoc RDF needs
 for metadata management.
 
 Dataquay does not include the datastore implementation itself; instead
-it is a wrapper around either the Redland or Sord datastore.
+it is a wrapper around either Redland (http://librdf.org) or Sord
+(http://drobilla.net/software/sord/).
 
 Dataquay provides these features:
 
@@ -58,6 +59,22 @@ Dataquay provides these features:
 
 You will need to have the Raptor, Rasqal and Redland libraries
 installed in order to build and use Dataquay.
+
+
+Choice of datastore
+-------------------
+
+Dataquay can be built against either Redland (http://librdf.org) or
+Sord (http://drobilla.net/software/sord/).  To use Redland, ensure
+USE_REDLAND is defined in the build; to use Sord, ensure USE_SORD is
+defined.  The choice is made at compile time: Dataquay does not have
+any module or plugin system.
+
+Which to choose?  Sord is smaller and simpler, Redland more complete.
+SPARQL queries and data loading from a remote (e.g. HTTP) resource are
+only available when using Redland.  For this reason, anyone packaging
+Dataquay for general use (e.g. in a Linux distribution) is advised to
+build with Redland.
 
 
 Compiling Dataquay
