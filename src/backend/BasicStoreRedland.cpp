@@ -31,6 +31,8 @@
     authorization.
 */
 
+#ifdef USE_REDLAND
+
 #include "BasicStore.h"
 #include "RDFException.h"
 
@@ -44,7 +46,7 @@
 #include <QCryptographicHash>
 #include <QReadWriteLock>
 
-#include "Debug.h"
+#include "../Debug.h"
 
 #include <cstdlib>
 #include <iostream>
@@ -70,6 +72,32 @@ public:
         if (m_storage) librdf_free_storage(m_storage);
     }
     
+    QString getNewString() const {
+        QString s =
+            QString::fromLocal8Bit
+            (QCryptographicHash::hash(QString("%1").arg(random()).toLocal8Bit(),
+                                      QCryptographicHash::Sha1).toHex())
+            .left(12);
+        // This may be used as the whole of a name in some contexts,
+        // so it must not start with a digit
+        if (s[0].isDigit()) {
+            s = "x" + s.right(s.length()-1);
+        }
+        return s;
+    }
+    
+    void collision() const {
+        // If we get a collision when generating a "random" string,
+        // seed the random number generator (it probably means the
+        // generator hasn't been seeded at all).  But only once.
+        static QMutex m;
+        static bool seeded = false;
+        static QMutexLocker l(&m);
+        if (!seeded) return;
+        srandom(time(0));
+        seeded = true;
+    }
+
     void setBaseUri(Uri baseUri) {
         QMutexLocker plocker(&m_prefixLock);
         m_baseUri = baseUri;
@@ -244,17 +272,12 @@ public:
         bool good = false;
         QString uri;
         while (!good) {
-            int n = base + m_counter;
-            m_counter++;
-            QString hashed =
-                QString::fromLocal8Bit
-                (QCryptographicHash::hash(QString("%1").arg(n).toLocal8Bit(),
-                                          QCryptographicHash::Sha1).toHex())
-                .left(12);
-            uri = prefix + hashed;
+            QString s = getNewString();
+            uri = prefix + s;
             Triples t =
                 doMatch(Triple(Node(Node::URI, uri), Node(), Node()), true);
             if (t.empty()) good = true;
+            else collision();
         }
         return expand(uri);
     }
@@ -447,7 +470,8 @@ public:
                 while (!librdf_stream_end(stream)) {
                     librdf_statement *current = librdf_stream_get_object(stream);
                     if (!current) continue;
-                    if (!librdf_model_contains_statement(m_model, current)) {
+                    if (idm == ImportFailOnDuplicates || // (already tested if so)
+                        !librdf_model_contains_statement(m_model, current)) {
                         librdf_model_add_statement(m_model, current);
                     }
                     librdf_stream_next(stream);
@@ -916,8 +940,17 @@ BasicStore::load(QUrl url, QString format)
     return s;
 }
 
+BasicStore::Features
+BasicStore::getSupportedFeatures() const
+{
+    Features fs;
+    fs << ModifyFeature << QueryFeature << RemoteImportFeature;
+    return fs;
 }
 
+}
+
+#endif
 
 
 		

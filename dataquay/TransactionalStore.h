@@ -132,15 +132,9 @@ public:
     Uri getUniqueUri(QString prefix) const;
     Node addBlankNode();
     Uri expand(QString uri) const;
-
-    /**
-     * Export the store to an RDF/TTL file with the given filename.
-     * The saved state of the store will be isolated from any pending
-     * transactions.  If the file already exists, it will if possible
-     * be overwritten.  May throw RDFException, FileOperationFailed,
-     * FailedToOpenFile, etc.
-     */
     void save(QString filename) const;
+    void import(QUrl url, ImportDuplicatesMode idm, QString format = "");
+    Features getSupportedFeatures() const;
 
 signals:
     /**
@@ -182,6 +176,8 @@ private:
         Node addBlankNode();
         Uri expand(QString uri) const;
         void save(QString filename) const;
+        void import(QUrl url, ImportDuplicatesMode idm, QString format = "");
+        Features getSupportedFeatures() const;
 
         // Transaction interface
         void commit();

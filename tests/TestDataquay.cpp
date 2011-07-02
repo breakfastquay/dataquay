@@ -31,20 +31,21 @@
     authorization.
 */
 
-#include "../Node.h"
-#include "../BasicStore.h"
-#include "../PropertyObject.h"
-#include "../TransactionalStore.h"
-#include "../Connection.h"
-#include "../objectmapper/ObjectLoader.h"
-#include "../objectmapper/ObjectStorer.h"
-#include "../objectmapper/ObjectMapper.h"
-#include "../objectmapper/TypeMapping.h"
-#include "../objectmapper/ObjectBuilder.h"
-#include "../objectmapper/ContainerBuilder.h"
-#include "../objectmapper/ObjectMapperExceptions.h"
-#include "../RDFException.h"
-#include "../Debug.h"
+#include <dataquay/Node.h>
+#include <dataquay/BasicStore.h>
+#include <dataquay/PropertyObject.h>
+#include <dataquay/TransactionalStore.h>
+#include <dataquay/Connection.h>
+#include <dataquay/objectmapper/ObjectLoader.h>
+#include <dataquay/objectmapper/ObjectStorer.h>
+#include <dataquay/objectmapper/ObjectMapper.h>
+#include <dataquay/objectmapper/TypeMapping.h>
+#include <dataquay/objectmapper/ObjectBuilder.h>
+#include <dataquay/objectmapper/ContainerBuilder.h>
+#include <dataquay/objectmapper/ObjectMapperExceptions.h>
+#include <dataquay/RDFException.h>
+
+#include "../src/Debug.h"
 
 #include "TestObjects.h"
 
@@ -451,18 +452,23 @@ testBasicStore()
 
             cerr << "Testing query..." << endl;
 
-            results = store.query(q);
-            if (results.size() != 1) {
-                cerr << "Query produced wrong number of results (expected 1, got " << results.size() << ")" << endl;
-                cerr << "Query was: " << q << endl;
-                return false;
-            }
+            try {
 
-            Node v = store.queryFirst(q, "a");
-            QString expected = base + "alice";
-            if (v.type != Node::URI || v.value != expected) {
-                cerr << "getFirstResult returned wrong result (expected URI of <" << expected << ">, got type " << v.type << " and value " << v.value << ")" << endl;
-                return false;
+                results = store.query(q);
+                if (results.size() != 1) {
+                    cerr << "Query produced wrong number of results (expected 1, got " << results.size() << ")" << endl;
+                    cerr << "Query was: " << q << endl;
+                    return false;
+                }
+
+                Node v = store.queryFirst(q, "a");
+                QString expected = base + "alice";
+                if (v.type != Node::URI || v.value != expected) {
+                    cerr << "getFirstResult returned wrong result (expected URI of <" << expected << ">, got type " << v.type << " and value " << v.value << ")" << endl;
+                    return false;
+                }
+            } catch (RDFUnsupportedError &e) {
+                cerr << "Query threw RDFUnsupportedError: " << e.what() << endl;
             }
         }
 
@@ -492,11 +498,15 @@ testBasicStore()
         }
 
         if (haveBaseUri) {
-            results = store.query(q);
-            if (results.size() != 0) {
-                cerr << "Query (after removing statement) produced wrong number of results (expected 0, got " << results.size() << ")" << endl;
-                cerr << "Query was: " << q << endl;
-                return false;
+            try {
+                results = store.query(q);
+                if (results.size() != 0) {
+                    cerr << "Query (after removing statement) produced wrong number of results (expected 0, got " << results.size() << ")" << endl;
+                    cerr << "Query was: " << q << endl;
+                    return false;
+                }
+            } catch (RDFUnsupportedError &e) {
+                cerr << "Query threw RDFUnsupportedError: " << e.what() << endl;
             }
         }
     
@@ -531,18 +541,22 @@ testBasicStore()
         if (haveBaseUri) {
             cerr << "Testing query on loaded store..." << endl;
 
-            results = store2->query(q);
-            if (results.size() != 1) {
-                cerr << "Query (after export/import) produced wrong number of results (expected 1, got " << results.size() << ")" << endl;
-                cerr << "Query was: " << q << endl;
-                return false;
-            }
+            try {
+                results = store2->query(q);
+                if (results.size() != 1) {
+                    cerr << "Query (after export/import) produced wrong number of results (expected 1, got " << results.size() << ")" << endl;
+                    cerr << "Query was: " << q << endl;
+                    return false;
+                }
 
-            results = store.query(q);
-            if (results.size() != 0) {
-                cerr << "Query (on original store after prior import/export) produced wrong number of results (expected 0, got " << results.size() << ")" << endl;
-                cerr << "Query was: " << q << endl;
-                return false;
+                results = store.query(q);
+                if (results.size() != 0) {
+                    cerr << "Query (on original store after prior import/export) produced wrong number of results (expected 0, got " << results.size() << ")" << endl;
+                    cerr << "Query was: " << q << endl;
+                    return false;
+                }
+            } catch (RDFUnsupportedError &e) {
+                cerr << "Query threw RDFUnsupportedError: " << e.what() << endl;
             }
         }
     
@@ -554,11 +568,17 @@ testBasicStore()
             store.import(QUrl("file:test2.ttl"),
                          BasicStore::ImportIgnoreDuplicates);
 
-            results = store.query(q);
-            if (results.size() != 1) {
-                cerr << "Query (on original store after importing from additional store) produced wrong number of results (expected 1, got " << results.size() << ")" << endl;
-                cerr << "Query was: " << q << endl;
-                return false;
+            try {
+                //!!! we really should do this test somehow (e.g. via
+                //!!! match) even in the absence of query
+                results = store.query(q);
+                if (results.size() != 1) {
+                    cerr << "Query (on original store after importing from additional store) produced wrong number of results (expected 1, got " << results.size() << ")" << endl;
+                    cerr << "Query was: " << q << endl;
+                    return false;
+                }
+            } catch (RDFUnsupportedError &e) {
+                cerr << "Query threw RDFUnsupportedError: " << e.what() << endl;
             }
         }
     }
@@ -916,6 +936,38 @@ testImportOptions()
         cerr << "Wrong number of triples in store after failed import: expected " << count << ", found " << triples.size() << endl;
         return false;
     }
+
+    // Save and import are implemented in TransactionalStore as well
+
+    TransactionalStore ts(&store);
+    Connection c(&ts);
+    c.remove(Triple());
+    c.commit();
+    
+    try {
+        c.import(QUrl("file:test3.ttl"), BasicStore::ImportIgnoreDuplicates);
+        c.import(QUrl("file:test3.ttl"), BasicStore::ImportIgnoreDuplicates);
+        {
+            Connection c2(&ts);
+            int n = c2.match(Triple()).size();
+            if (n != 0) {
+                cerr << "Transactional integrity failure in import: found " << n << " triple(s) in unrelated connection" << endl;
+                return false;
+            }
+        }
+        c.commit();
+        {
+            Connection c2(&ts);
+            int n = c2.match(Triple()).size();
+            if (n != triples.size()) {
+                cerr << "Failure in TransactionalStore::import: found " << n << " triple(s), expected " << triples.size() << endl;
+                return false;
+            }
+        }
+    } catch (RDFDuplicateImportException) {
+        cerr << "Wrongly caught RDFDuplicateImportException when importing duplicate store with ImportIgnoreDuplicates" << endl;
+        return false;
+    }        
 
     return true;
 }
@@ -1275,6 +1327,17 @@ testConnection()
             return false;
         }
 
+        // query on a different connection
+        {
+            Connection c2(&ts);
+            triples = c2.match(Triple());
+            n = triples.size();
+            if (n != 0) {
+                cerr << "Transactional isolation failure -- match() on separate connection during initial add returned " << n << " results (should have been 0)" << endl;
+                return false;
+            }
+        }
+
         c.add(Triple(":fred",
                      ":likes_to_think_his_age_is",
                      Node::fromVariant(QVariant(21.9))));
@@ -1390,6 +1453,16 @@ testReloadability(BasicStore &s0)
         return false;
     }
 
+    cerr << "(Note: objects loaded from prior and stored to \"a\" are:" << endl;
+    foreach (QObject *o, objects) {
+        cerr << o << " [parent " << o->parent() << ", name " << o->objectName() << "]" << endl;
+    }
+    cerr << "\n... objects loaded from \"a\" to be stored to \"b\" are:" << endl;
+    foreach (QObject *o, newObjects) {
+        cerr << o << " [parent " << o->parent() << ", name " << o->objectName() << "]" << endl;
+    }
+    cerr << ")" << endl;
+
     BasicStore s2;
     ObjectStorer m2(&s2);
     m2.setFollowPolicy(m1.getFollowPolicy());
@@ -1405,6 +1478,13 @@ testReloadability(BasicStore &s0)
     if (!compare(t1, t2)) {
         return false;
     }
+
+    // delete the objects we loaded -- but carefully as some are
+    // children of others
+    QObjectList toDelete;
+    foreach (QObject *o, objects) if (!o->parent()) toDelete.push_back(o);
+    foreach (QObject *o, newObjects) if (!o->parent()) toDelete.push_back(o);
+    foreach (QObject *o, toDelete) delete o;
 
     //!!! test whether s1 and s2 are equal and whether newParent has all the same children as parent
     return true;
@@ -1475,6 +1555,7 @@ testObjectMapper()
 
     ObjectBuilder::getInstance()->registerClass<QTimer, QObject>();
 
+    delete recalled;
     recalled = loader.load(turi);
     if (!recalled) {
         cerr << "Failed to recall object" << endl;
@@ -1525,6 +1606,7 @@ testObjectMapper()
 
     cerr << "Testing single custom object recall..." << endl;
 
+    delete recalled;
     recalled = loader.load(auri);
     if (!recalled) {
         cerr << "Failed to recall A-object" << endl;
@@ -1596,6 +1678,16 @@ testObjectMapper()
                            ObjectStorer::FollowChildren);
     ObjectStorer::ObjectNodeMap map;
     storer.store(o, map);
+
+/*
+    {
+        cerr << "About to save. Statements in store are:" << endl;
+        Triples all = store.match(Triple());
+        foreach (Triple t, all) {
+            cerr << t << endl;
+        }
+    }
+*/
 
     store.save("test-object-mapper-2.ttl");
 
@@ -1716,32 +1808,35 @@ testObjectMapper()
 
     // We should be able to do a more sophisticated query to ensure
     // the relationships are right:
-    ResultSet rs = store.query(
-        " SELECT ?bn ?pn WHERE { "
-        "   ?b a type:B ; "
-        "      property:objectName ?bn ; "
-        "      property:aref ?a . "
-        "   ?a a type:A ; "
-        "      rel:parent ?p . "
-        "   ?p property:objectName ?pn . "
-        " } "
-        );
-    if (rs.size() != 1) {
-        cerr << "Query on stored objects returns unexpected number of replies "
-             << rs.size() << " (expected 1)" << endl;
-        return false;
+    try {
+        ResultSet rs = store.query(
+            " SELECT ?bn ?pn WHERE { "
+            "   ?b a type:B ; "
+            "      property:objectName ?bn ; "
+            "      property:aref ?a . "
+            "   ?a a type:A ; "
+            "      rel:parent ?p . "
+            "   ?p property:objectName ?pn . "
+            " } "
+            );
+        if (rs.size() != 1) {
+            cerr << "Query on stored objects returns unexpected number of replies "
+                 << rs.size() << " (expected 1)" << endl;
+            return false;
+        }
+        if (rs[0]["bn"].type != Node::Literal ||
+            rs[0]["bn"].value != "b0") {
+            cerr << "Name of B-type object from query on stored objects is incorrect (expected b0, got " << rs[0]["bn"].value << ")" << endl;
+            return false;
+        }
+        if (rs[0]["pn"].type != Node::Literal ||
+            rs[0]["pn"].value != "Test Object") {
+            cerr << "Name of parent object from query on stored objects is incorrect (expected Test Object, got " << rs[0]["pn"].value << ")" << endl;
+            return false;
+        }
+    } catch (RDFUnsupportedError &e) {
+        cerr << "Query threw RDFUnsupportedError: " << e.what() << endl;
     }
-    if (rs[0]["bn"].type != Node::Literal ||
-        rs[0]["bn"].value != "b0") {
-        cerr << "Name of B-type object from query on stored objects is incorrect (expected b0, got " << rs[0]["bn"].value << ")" << endl;
-        return false;
-    }
-    if (rs[0]["pn"].type != Node::Literal ||
-        rs[0]["pn"].value != "Test Object") {
-        cerr << "Name of parent object from query on stored objects is incorrect (expected Test Object, got " << rs[0]["pn"].value << ")" << endl;
-        return false;
-    }
-
 
     if (!testReloadability(store)) {
         cerr << "Reloadability test for custom object network store and recall failed" 
@@ -1886,6 +1981,7 @@ testObjectMapper()
     delete b2;
     delete c1;
     delete c2;
+    delete recalled;
 
     mapper.commit();
   
@@ -2008,9 +2104,9 @@ main(int argc, char **argv)
 
     if (!Dataquay::Test::testBasicStore()) return 1;
     if (!Dataquay::Test::testDatatypes()) return 1;
-    if (!Dataquay::Test::testImportOptions()) return 1;
     if (!Dataquay::Test::testTransactionalStore()) return 1;
     if (!Dataquay::Test::testConnection()) return 1;
+    if (!Dataquay::Test::testImportOptions()) return 1;
     if (!Dataquay::Test::testObjectMapper()) return 1;
 
 //    if (!Dataquay::Test::testQtWidgets(argc, argv)) return 1;

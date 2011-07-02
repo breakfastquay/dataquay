@@ -31,17 +31,17 @@
     authorization.
 */
 
-#include "ObjectMapper.h"
+#include "objectmapper/ObjectMapper.h"
 
-#include "ObjectMapperExceptions.h"
-#include "ObjectMapperForwarder.h"
-#include "ObjectLoader.h"
-#include "ObjectStorer.h"
+#include "objectmapper/ObjectMapperExceptions.h"
+#include "objectmapper/ObjectMapperForwarder.h"
+#include "objectmapper/ObjectLoader.h"
+#include "objectmapper/ObjectStorer.h"
 
-#include "TypeMapping.h"
+#include "objectmapper/TypeMapping.h"
 
-#include "../TransactionalStore.h"
-#include "../Connection.h"
+#include "TransactionalStore.h"
+#include "Connection.h"
 
 #include "../Debug.h"
 

@@ -40,6 +40,7 @@
 #include <QHash>
 #include <QMap>
 #include <QPair>
+#include <QSet>
 
 namespace Dataquay
 {
@@ -50,7 +51,10 @@ typedef QHash<QString, Node> Dictionary;
 /// A list of Dictionary types, used to contain a sequence of query results.
 typedef QList<Dictionary> ResultSet;
 
-enum ChangeType { AddTriple, RemoveTriple };
+enum ChangeType {
+    AddTriple,
+    RemoveTriple
+};
 
 /// An add or remove operation specified by add/remove token and triple.
 typedef QPair<ChangeType, Triple> Change;
@@ -180,8 +184,93 @@ public:
     /** 
      * Export the store to an RDF/TTL file with the given filename.
      * If the file already exists, it will if possible be overwritten.
+     * May throw RDFException, FileOperationFailed, FailedToOpenFile,
+     * etc.
+     *
+     * Note that unlike import (which takes a URL argument), save
+     * takes a simple filename with no file:// prefix.
      */
     virtual void save(QString filename) const = 0;
+
+    /**
+     * ImportDuplicatesMode determines the outcome when an import
+     * operation encounters a triple in the imported data set that
+     * already exists in the store.
+     *
+     * ImportIgnoreDuplicates: Any duplicate of a triple that is
+     * already in the store is discarded without comment.
+     *
+     * ImportFailOnDuplicates: Import will fail with an
+     * RDFDuplicateImportException if any duplicate of a triple
+     * already in the store is found, and nothing will be imported.
+     *
+     * ImportPermitDuplicates: No tests for duplicate triples will be
+     * carried out, and the behaviour when duplicates are imported
+     * will depend on the underlying store implementation (which may
+     * merge them or store them as separate duplicate triples).  This
+     * is usually inadvisable: besides its unpredictability, this
+     * class does not generally handle duplicate triples well in other
+     * contexts.
+     */
+    enum ImportDuplicatesMode {
+        ImportIgnoreDuplicates,
+        ImportFailOnDuplicates,
+        ImportPermitDuplicates
+    };
+
+    /**
+     * Import the RDF document found at the given URL into the current
+     * store (in addition to its existing contents).  Its behaviour
+     * when a triple is encountered that already exists in the store
+     * is controlled by the ImportDuplicatesMode.
+     * 
+     * May throw RDFException.
+     *
+     * Note that the URL must be a URL, not just a filename
+     * (i.e. local files need the file: prefix).
+     *
+     * If format is specified, it will be taken as the RDF parse
+     * format (e.g. ntriples).  The set of supported format strings
+     * depends on the underlying RDF library configuration.  The
+     * default is to guess the format if possible.
+     */
+    virtual void import(QUrl url, ImportDuplicatesMode idm, QString format = "") = 0;
+
+    /**
+     * Feature defines the set of optional features a Store
+     * implementation may support.  Code that uses Store should check
+     * that the features it requires are available before trying to
+     * make use of them.
+     *
+     * ModifyFeature: The store can be modified (triples can be added
+     * to it).  All current Store implementations support this feature.
+     *
+     * QueryFeature: The store supports SPARQL queries through the
+     * query and queryFirst methods.  A store that does not support
+     * queries will throw RDFUnsupportedError when these functions are
+     * called.
+     *
+     * RemoteImportFeature: The store can import URLs that represent
+     * network resources as well as URLs referring to files on the
+     * local disc.  The extent to which this feature is actually
+     * available may also depend on the configuration of the
+     * underlying RDF library.  A store that does not support remote
+     * URLs will fail as if the resource was absent, when asked to
+     * load one.
+     */
+    enum Feature {
+        ModifyFeature,
+        QueryFeature,
+        RemoteImportFeature
+    };
+    
+    typedef QSet<Feature> Features;
+
+    /** 
+     * Retrieve the set of optional features supported by this Store
+     * implementation.
+     */
+    virtual Features getSupportedFeatures() const = 0;
 
 protected:
     virtual ~Store() { }

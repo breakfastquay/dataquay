@@ -39,6 +39,9 @@
 
 #include "Uri.h"
 
+#include <cstring>
+#include <cstdlib>
+
 namespace Dataquay
 {
 
@@ -53,20 +56,38 @@ namespace Dataquay
 class RDFException : virtual public std::exception
 {
 public:
-    RDFException(QString message) throw() : m_message(message) { }
-    RDFException(QString message, QString data) throw() {
-        m_message = QString("%1 [with string \"%2\"]").arg(message).arg(data);
+    RDFException(QString message) throw() : m_message(0) {
+        setMessage(message);
     }
-    RDFException(QString message, Uri uri) throw() {
-        m_message = QString("%1 [with URI <%2>]").arg(message).arg(uri.toString());
+    RDFException(QString message, QString data) throw() : m_message(0) {
+        setMessage(QString("%1 [with string \"%2\"]").arg(message).arg(data));
     }
-    virtual ~RDFException() throw() { }
+    RDFException(QString message, Uri uri) throw() : m_message(0) {
+        setMessage(QString("%1 [with URI <%2>]").arg(message).arg(uri.toString()));
+    }
+    RDFException(const RDFException &e) throw() {
+        m_message = strdup(e.m_message);
+    }
+    RDFException &operator=(const RDFException &e) throw() {
+        if (&e == this) return *this;
+        free(m_message);
+        m_message = strdup(e.m_message);
+        return *this;
+    }
+    virtual ~RDFException() throw() {
+        free(m_message);
+    }
     virtual const char *what() const throw() {
-        return m_message.toLocal8Bit().data();
+        return m_message;
     }
     
 protected:
-    QString m_message;
+    char *m_message;
+
+    void setMessage(QString m) {
+        if (m_message) free(m_message);
+        m_message = strdup(m.toLocal8Bit().data());
+    }
 };
 
 /**
@@ -81,6 +102,22 @@ public:
     RDFInternalError(QString message, QString data = "") throw() :
         RDFException(message, data) { }
     RDFInternalError(QString message, Uri data) throw() :
+        RDFException(message, data) { }
+};
+
+/**
+ * \class RDFUnsupportedError RDFException.h <dataquay/RDFException.h>
+ *
+ * RDFUnsupportedError is an exception that results from an attempt to
+ * use a feature that is not supported or not configured in the
+ * current build.
+ */
+class RDFUnsupportedError : virtual public RDFException
+{
+public:
+    RDFUnsupportedError(QString message, QString data = "") throw() :
+        RDFException(message, data) { }
+    RDFUnsupportedError(QString message, Uri data) throw() :
         RDFException(message, data) { }
 };
 

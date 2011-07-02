@@ -32,6 +32,7 @@
 */
 
 #include "TransactionalStore.h"
+#include "BasicStore.h"
 #include "RDFException.h"
 #include "Debug.h"
 
@@ -206,6 +207,15 @@ public:
     void save(const Transaction *tx, QString filename) const {
         Operation op(this, tx);
         m_store->save(filename);
+    }
+/*!!!
+    void import(Transaction *tx, QUrl url, ImportDuplicatesMode idm, QString format) {
+        Operation op(this, tx);
+        m_store->import(url, idm, format);
+    }
+*/
+    Features getSupportedFeatures() const {
+        return m_store->getSupportedFeatures();
     }
 
     bool hasWrap() const {
@@ -521,6 +531,33 @@ public:
         }
     }
 
+    void import(QUrl url, ImportDuplicatesMode idm, QString format) {
+        check();
+        BasicStore *bs = 0;
+        try {
+            bs = BasicStore::load(url, format);
+            Triples ts = bs->match(Triple());
+            foreach (Triple t, ts) {
+                bool added = m_td->add(m_tx, t);
+                if (added) {
+                    m_changes.push_back(Change(AddTriple, t));
+                } else if (idm == ImportFailOnDuplicates) {
+                    throw RDFDuplicateImportException("Duplicate statement encountered on import in ImportFailOnDuplicates mode");
+                }
+            }
+            delete bs;
+            bs = 0;
+        } catch (RDFException &) {
+            delete bs;
+            abandon();
+            throw;
+        }
+    }
+
+    Features getSupportedFeatures() const {
+        return m_td->getSupportedFeatures();
+    }
+
     void commit() {
         check();
         DEBUG << "TransactionalStore::TSTransaction::commit: Committing" << endl;
@@ -573,6 +610,22 @@ TransactionalStore::save(QString filename) const
 {
     D::NonTransactionalAccess ntxa(m_d);
     m_d->getStore()->save(filename);
+}
+
+void
+TransactionalStore::import(QUrl url, ImportDuplicatesMode idm, QString format)
+{
+    if (!m_d->hasWrap()) {
+        throw RDFException("TransactionalStore::import() called without Transaction");
+    }
+    auto_ptr<Transaction> tx(startTransaction());
+    return tx->import(url, idm, format);
+}
+
+TransactionalStore::Features
+TransactionalStore::getSupportedFeatures() const
+{
+    return m_d->getStore()->getSupportedFeatures();
 }
 
 bool
@@ -761,6 +814,18 @@ void
 TransactionalStore::TSTransaction::save(QString filename) const
 {
     return m_d->save(filename);
+}
+
+void
+TransactionalStore::TSTransaction::import(QUrl url, ImportDuplicatesMode idm, QString format)
+{
+    m_d->import(url, idm, format);
+}
+
+TransactionalStore::TSTransaction::Features
+TransactionalStore::TSTransaction::getSupportedFeatures() const
+{
+    return m_d->getSupportedFeatures();
 }
 
 void

@@ -73,6 +73,7 @@ public:
     /**
      * Empty the store of triples.  Prefixes that have been added with
      * addPrefix are unaffected.
+     *!!! hoist to Store()?
      */
     void clear();
 
@@ -112,60 +113,10 @@ public:
     Node addBlankNode();
     Uri expand(QString uri) const;
 
-    /**
-     * Export the store to an RDF/TTL file with the given filename.
-     * If the file already exists, it will if possible be overwritten.
-     * May throw RDFException, FileOperationFailed, FailedToOpenFile,
-     * etc.
-     *
-     * Note that unlike import and load (which take URL arguments),
-     * save takes a simple filename with no file:// prefix.
-     */
     void save(QString filename) const;
-
-    /**
-     * ImportDuplicatesMode determines the outcome when an import
-     * operation encounters a triple in the imported data set that
-     * already exists in the store.
-     *
-     * ImportIgnoreDuplicates: Any duplicate of a triple that is
-     * already in the store is discarded without comment.
-     *
-     * ImportFailOnDuplicates: Import will fail with an
-     * RDFDuplicateImportException if any duplicate of a triple
-     * already in the store is found, and nothing will be imported.
-     *
-     * ImportPermitDuplicates: No tests for duplicate triples will be
-     * carried out, and the behaviour when duplicates are imported
-     * will depend on the underlying store implementation (which may
-     * merge them or store them as separate duplicate triples).  This
-     * is usually inadvisable: besides its unpredictability, this
-     * class does not generally handle duplicate triples well in other
-     * contexts.
-     */
-    enum ImportDuplicatesMode {
-        ImportIgnoreDuplicates,
-        ImportFailOnDuplicates,
-        ImportPermitDuplicates
-    };
-
-    /**
-     * Import the RDF document found at the given URL into the current
-     * store (in addition to its existing contents).  Its behaviour
-     * when a triple is encountered that already exists in the store
-     * is controlled by the ImportDuplicatesMode.
-     * 
-     * May throw RDFException.
-     *
-     * Note that the URL must be a URL, not just a filename
-     * (i.e. local files need the file: prefix).
-     *
-     * If format is specified, it will be taken as the RDF parse
-     * format (e.g. ntriples).  The set of supported format strings
-     * depends on the underlying RDF library configuration.  The
-     * default is to guess the format if possible.
-     */
     void import(QUrl url, ImportDuplicatesMode idm, QString format = "");
+
+    Features getSupportedFeatures() const;
 
     /**
      * Construct a new BasicStore from the RDF document at the given
