@@ -941,6 +941,7 @@ testImportOptions()
     TransactionalStore ts(&store);
     Connection c(&ts);
     c.remove(Triple());
+    c.commit();
     
     try {
         c.import(QUrl("file:test3.ttl"), BasicStore::ImportIgnoreDuplicates);
@@ -1323,6 +1324,17 @@ testConnection()
         if (n != 0) {
             cerr << "Transactional isolation failure -- match() during initial add returned " << n << " results (should have been 0)" << endl;
             return false;
+        }
+
+        // query on a different connection
+        {
+            Connection c2(&ts);
+            triples = c2.match(Triple());
+            n = triples.size();
+            if (n != 0) {
+                cerr << "Transactional isolation failure -- match() on separate connection during initial add returned " << n << " results (should have been 0)" << endl;
+                return false;
+            }
         }
 
         c.add(Triple(":fred",
@@ -2091,9 +2103,9 @@ main(int argc, char **argv)
 
     if (!Dataquay::Test::testBasicStore()) return 1;
     if (!Dataquay::Test::testDatatypes()) return 1;
-    if (!Dataquay::Test::testImportOptions()) return 1;
     if (!Dataquay::Test::testTransactionalStore()) return 1;
     if (!Dataquay::Test::testConnection()) return 1;
+    if (!Dataquay::Test::testImportOptions()) return 1;
     if (!Dataquay::Test::testObjectMapper()) return 1;
 
 //    if (!Dataquay::Test::testQtWidgets(argc, argv)) return 1;

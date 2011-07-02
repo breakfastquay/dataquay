@@ -539,7 +539,9 @@ public:
             Triples ts = bs->match(Triple());
             foreach (Triple t, ts) {
                 bool added = m_td->add(m_tx, t);
-                if (idm == ImportFailOnDuplicates && !added) {
+                if (added) {
+                    m_changes.push_back(Change(AddTriple, t));
+                } else if (idm == ImportFailOnDuplicates) {
                     throw RDFDuplicateImportException("Duplicate statement encountered on import in ImportFailOnDuplicates mode");
                 }
             }

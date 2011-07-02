@@ -217,7 +217,8 @@ Connection::D::save(QString filename) const
 void
 Connection::D::import(QUrl url, ImportDuplicatesMode idm, QString format)
 {
-    getStore()->import(url, idm, format);
+    start();
+    m_tx->import(url, idm, format);
 }
 
 Connection::Features
