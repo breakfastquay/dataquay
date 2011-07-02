@@ -5,8 +5,11 @@ QT -= gui
 
 TARGET = dataquay
 
-#DEFINES += USE_REDLAND
-DEFINES += USE_SORD
+# Define this to use the Redland datastore (http://librdf.org/)
+DEFINES += USE_REDLAND
+
+# Define this to use the Sord datastore (http://drobilla.net/software/sord/)
+#DEFINES += USE_SORD
 
 OBJECTS_DIR = o
 MOC_DIR = o
@@ -42,6 +45,7 @@ SOURCES += src/Connection.cpp \
            src/Uri.cpp \
            src/backend/BasicStoreRedland.cpp \
            src/backend/BasicStoreSord.cpp \
+           src/backend/define-check.cpp \
            src/objectmapper/ContainerBuilder.cpp \
            src/objectmapper/ObjectBuilder.cpp \
            src/objectmapper/ObjectLoader.cpp \
