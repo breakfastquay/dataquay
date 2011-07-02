@@ -3,7 +3,7 @@
 /*
     Dataquay
 
-    A C++/Qt library for simple RDF datastore management with Redland.
+    A C++/Qt library for simple RDF datastore management.
     Copyright 2009-2011 Chris Cannam.
   
     Permission is hereby granted, free of charge, to any person

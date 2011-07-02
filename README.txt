@@ -3,17 +3,19 @@ Dataquay
 ========
 
 Dataquay is a free open source library that provides a friendly C++
-API for the popular Redland RDF data store using Qt4 classes and
-containers.
+API for an RDF data store using Qt4 classes and containers.
 
-Dataquay is intended to be simple to use and easy to integrate. It is
-principally intended for use in Qt-based applications that would like
-to use an RDF datastore as backing for in-memory project data, to
-avoid having to provide application data-specific file formats and to
-make it easy to augment the data with descriptive metadata pulled in
-from external sources. Dataquay is also intended to be useful for
-applications whose primary purpose is not related to RDF but that have
-ad-hoc RDF needs for metadata management.
+Dataquay is simple to use and easy to integrate. It is principally
+intended for use in Qt-based applications that would like to use an
+RDF datastore as backing for in-memory project data, to avoid having
+to provide application data-specific file formats and to make it easy
+to augment the data with descriptive metadata pulled in from external
+sources. Dataquay is also intended to be useful for applications whose
+primary purpose is not related to RDF but that have ad-hoc RDF needs
+for metadata management.
+
+Dataquay does not include the datastore implementation itself; instead
+it is a wrapper around either the Redland or Sord datastore.
 
 Dataquay provides these features:
 
@@ -54,11 +56,8 @@ Dataquay provides these features:
    might find -- particularly for serious bugs -- but you have no
    obligation to do so.
 
-Dataquay is a small library: most of the serious work is done by Dave
-Beckett's excellent Redland C libraries with David Robillard's Trees
-store and Turtle I/O implementations. You will need to have the
-Raptor, Rasqal and Redland libraries installed in order to build and
-use Dataquay.
+You will need to have the Raptor, Rasqal and Redland libraries
+installed in order to build and use Dataquay.
 
 
 Compiling Dataquay
@@ -71,7 +70,7 @@ Dataquay requires Qt 4.5 or newer.
 The default debug build will print a lot of information to standard
 error during run time; this can be very helpful for debugging your
 application, but it can quickly become excessive.  Define NDEBUG in
-the build to eliminate this output.
+the build, or perform a release build. to eliminate this output.
 
 A test program is included in the tests/ directory -- this runs a
 series of unit tests and will bail out if any fails.  To use it, run
