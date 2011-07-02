@@ -68,7 +68,7 @@ Dataquay can be built against either Redland (http://librdf.org) or
 Sord (http://drobilla.net/software/sord/).  To use Redland, ensure
 USE_REDLAND is defined in the build; to use Sord, ensure USE_SORD is
 defined.  The choice is made at compile time: Dataquay does not have
-any module or plugin system.
+any module or plugin system.  The default is to use Redland.
 
 Which to choose?  Sord is smaller and simpler, Redland more complete.
 SPARQL queries and data loading from a remote (e.g. HTTP) resource are
