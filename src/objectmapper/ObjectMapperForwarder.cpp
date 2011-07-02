@@ -31,8 +31,8 @@
     authorization.
 */
 
-#include "ObjectMapperForwarder.h"
-#include "ObjectMapper.h"
+#include "objectmapper/ObjectMapperForwarder.h"
+#include "objectmapper/ObjectMapper.h"
 
 #include <QMetaProperty>
 #include "../Debug.h"

@@ -31,20 +31,20 @@
     authorization.
 */
 
-#include "ObjectBuilder.h"
+#include "objectmapper/ContainerBuilder.h"
 
 #include <QMutex>
 #include <QMutexLocker>
 
 namespace Dataquay {
 
-ObjectBuilder *
-ObjectBuilder::getInstance()
+ContainerBuilder *
+ContainerBuilder::getInstance()
 {
-    static ObjectBuilder *instance;
+    static ContainerBuilder *instance;
     static QMutex mutex;
     QMutexLocker locker(&mutex);
-    if (!instance) instance = new ObjectBuilder();
+    if (!instance) instance = new ContainerBuilder();
     return instance;
 }
 

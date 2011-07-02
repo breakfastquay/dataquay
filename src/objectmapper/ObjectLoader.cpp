@@ -31,19 +31,19 @@
     authorization.
 */
 
-#include "ObjectLoader.h"
+#include "objectmapper/ObjectLoader.h"
 
-#include "ObjectBuilder.h"
-#include "ContainerBuilder.h"
-#include "TypeMapping.h"
+#include "objectmapper/ObjectBuilder.h"
+#include "objectmapper/ContainerBuilder.h"
+#include "objectmapper/TypeMapping.h"
 
-#include "ObjectMapperExceptions.h"
+#include "objectmapper/ObjectMapperExceptions.h"
 
 #include <QMetaProperty>
 #include <QSet>
 
-#include "../PropertyObject.h"
-#include "../Store.h"
+#include "PropertyObject.h"
+#include "Store.h"
 
 #include "../Debug.h"
 

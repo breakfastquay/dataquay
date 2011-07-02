@@ -31,8 +31,8 @@
     authorization.
 */
 
-#include "TypeMapping.h"
-#include "ObjectMapperExceptions.h"
+#include "objectmapper/TypeMapping.h"
+#include "objectmapper/ObjectMapperExceptions.h"
 
 #include <QHash>
 

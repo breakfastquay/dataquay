@@ -31,20 +31,21 @@
     authorization.
 */
 
-#include "../Node.h"
-#include "../BasicStore.h"
-#include "../PropertyObject.h"
-#include "../TransactionalStore.h"
-#include "../Connection.h"
-#include "../objectmapper/ObjectLoader.h"
-#include "../objectmapper/ObjectStorer.h"
-#include "../objectmapper/ObjectMapper.h"
-#include "../objectmapper/TypeMapping.h"
-#include "../objectmapper/ObjectBuilder.h"
-#include "../objectmapper/ContainerBuilder.h"
-#include "../objectmapper/ObjectMapperExceptions.h"
-#include "../RDFException.h"
-#include "../Debug.h"
+#include <dataquay/Node.h>
+#include <dataquay/BasicStore.h>
+#include <dataquay/PropertyObject.h>
+#include <dataquay/TransactionalStore.h>
+#include <dataquay/Connection.h>
+#include <dataquay/objectmapper/ObjectLoader.h>
+#include <dataquay/objectmapper/ObjectStorer.h>
+#include <dataquay/objectmapper/ObjectMapper.h>
+#include <dataquay/objectmapper/TypeMapping.h>
+#include <dataquay/objectmapper/ObjectBuilder.h>
+#include <dataquay/objectmapper/ContainerBuilder.h>
+#include <dataquay/objectmapper/ObjectMapperExceptions.h>
+#include <dataquay/RDFException.h>
+
+#include "../src/Debug.h"
 
 #include "TestObjects.h"
 

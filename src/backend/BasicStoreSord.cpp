@@ -4,7 +4,7 @@
     Dataquay
 
     A C++/Qt library for simple RDF datastore management with Redland.
-    Copyright 2009-2011 Chris Cannam.
+    Copyright 2009-2010 Chris Cannam.
   
     Permission is hereby granted, free of charge, to any person
     obtaining a copy of this software and associated documentation
@@ -31,10 +31,12 @@
     authorization.
 */
 
+#ifdef USE_SORD
+
 #include "BasicStore.h"
 #include "RDFException.h"
 
-#include <redland.h>
+#include <sord/sord.h>
 
 #include <QThread>
 #include <QMutex>
@@ -44,7 +46,7 @@
 #include <QCryptographicHash>
 #include <QReadWriteLock>
 
-#include "Debug.h"
+#include "../Debug.h"
 
 #include <cstdlib>
 #include <iostream>
@@ -55,7 +57,7 @@ namespace Dataquay
 class BasicStore::D
 {
 public:
-    D() : m_storage(0), m_model(0), m_counter(0) {
+    D() : m_model(0) {
         m_baseUri = Uri("#");
         m_prefixes[""] = m_baseUri;
         // note this is also hardcoded in expand():
@@ -65,11 +67,10 @@ public:
     }
 
     ~D() {
-        QMutexLocker locker(&m_librdfLock);
-        if (m_model) librdf_free_model(m_model);
-        if (m_storage) librdf_free_storage(m_storage);
+        QMutexLocker locker(&m_backendLock);
+        if (m_model) sord_free(m_model);
     }
-    
+
     QString getNewString() const {
         QString s =
             QString::fromLocal8Bit
@@ -107,17 +108,11 @@ public:
     }
 
     void clear() {
-        QMutexLocker locker(&m_librdfLock);
+        QMutexLocker locker(&m_backendLock);
         DEBUG << "BasicStore::clear" << endl;
-        if (m_model) librdf_free_model(m_model);
-        if (m_storage) librdf_free_storage(m_storage);
-        m_storage = librdf_new_storage(m_w.getWorld(), "trees", 0, 0);
-        if (!m_storage) {
-            DEBUG << "Failed to create RDF trees storage, falling back to default storage type" << endl;
-            m_storage = librdf_new_storage(m_w.getWorld(), 0, 0, 0);
-            if (!m_storage) throw RDFInternalError("Failed to create RDF data storage");
-        }
-        m_model = librdf_new_model(m_w.getWorld(), m_storage, 0);
+        if (m_model) sord_free(m_model);
+        //!!! are these the right indices?
+        m_model = sord_new(m_w.getWorld(), SORD_SPO|SORD_OPS, false);
         if (!m_model) throw RDFInternalError("Failed to create RDF data model");
     }
 
@@ -127,13 +122,13 @@ public:
     }
 
     bool add(Triple t) {
-        QMutexLocker locker(&m_librdfLock);
+        QMutexLocker locker(&m_backendLock);
         DEBUG << "BasicStore::add: " << t << endl;
         return doAdd(t);
     }
 
     bool remove(Triple t) {
-        QMutexLocker locker(&m_librdfLock);
+        QMutexLocker locker(&m_backendLock);
         DEBUG << "BasicStore::remove: " << t << endl;
         if (t.a.type == Node::Nothing || 
             t.b.type == Node::Nothing ||
@@ -154,7 +149,7 @@ public:
     }
 
     void change(ChangeSet cs) {
-        QMutexLocker locker(&m_librdfLock);
+        QMutexLocker locker(&m_backendLock);
         DEBUG << "BasicStore::change: " << cs.size() << " changes" << endl;
         for (int i = 0; i < cs.size(); ++i) {
             ChangeType type = cs[i].first;
@@ -174,7 +169,7 @@ public:
     }
 
     void revert(ChangeSet cs) {
-        QMutexLocker locker(&m_librdfLock);
+        QMutexLocker locker(&m_backendLock);
         DEBUG << "BasicStore::revert: " << cs.size() << " changes" << endl;
         for (int i = cs.size()-1; i >= 0; --i) {
             ChangeType type = cs[i].first;
@@ -194,24 +189,22 @@ public:
     }
 
     bool contains(Triple t) const {
-        QMutexLocker locker(&m_librdfLock);
+        QMutexLocker locker(&m_backendLock);
         DEBUG << "BasicStore::contains: " << t << endl;
-        librdf_statement *statement = tripleToStatement(t);
+        SordQuad statement;
+        tripleToStatement(t, statement);
         if (!checkComplete(statement)) {
-            librdf_free_statement(statement);
             throw RDFException("Failed to test for triple (statement is incomplete)");
         }
-        if (!librdf_model_contains_statement(m_model, statement)) {
-            librdf_free_statement(statement);
+        if (!sord_contains(m_model, statement)) {
             return false;
-        } else {
-            librdf_free_statement(statement);
-            return true;
         }
+        freeStatement(statement);
+        return true;
     }
     
     Triples match(Triple t) const {
-        QMutexLocker locker(&m_librdfLock);
+        QMutexLocker locker(&m_backendLock);
         DEBUG << "BasicStore::match: " << t << endl;
         Triples result = doMatch(t);
 #ifndef NDEBUG
@@ -229,7 +222,7 @@ public:
             if (contains(t)) return t;
             else return Triple();
         }
-        QMutexLocker locker(&m_librdfLock);
+        QMutexLocker locker(&m_backendLock);
         DEBUG << "BasicStore::matchFirst: " << t << endl;
         Triples result = doMatch(t, true);
 #ifndef NDEBUG
@@ -243,30 +236,20 @@ public:
     }
 
     ResultSet query(QString sparql) const {
-        QMutexLocker locker(&m_librdfLock);
-        DEBUG << "BasicStore::query: " << sparql << endl;
-        ResultSet rs = runQuery(sparql);
-        return rs;
+        throw RDFUnsupportedError
+            ("SPARQL queries are not supported with Sord backend",
+             sparql);
     }
 
     Node queryFirst(QString sparql, QString bindingName) const {
-        QMutexLocker locker(&m_librdfLock);
-        DEBUG << "BasicStore::queryFirst: " << bindingName << " from " << sparql << endl;
-        ResultSet rs = runQuery(sparql);
-        if (rs.empty()) return Node();
-        for (ResultSet::const_iterator i = rs.begin(); i != rs.end(); ++i) {
-            Dictionary::const_iterator j = i->find(bindingName);
-            if (j == i->end()) continue;
-            if (j->type == Node::Nothing) continue;
-            return *j;
-        }
-        return Node();
+        throw RDFUnsupportedError
+            ("SPARQL queries are not supported with Sord backend",
+             sparql);
     }
 
     Uri getUniqueUri(QString prefix) const {
-        QMutexLocker locker(&m_librdfLock);
+        QMutexLocker locker(&m_backendLock);
         DEBUG << "BasicStore::getUniqueUri: prefix " << prefix << endl;
-        int base = (int)(long)this; // we don't care at all about overflow
         bool good = false;
         QString uri;
         while (!good) {
@@ -326,29 +309,44 @@ public:
     }
 
     Node addBlankNode() {
-        QMutexLocker locker(&m_librdfLock);
-        librdf_node *node = librdf_new_node_from_blank_identifier(m_w.getWorld(), 0);
+        QMutexLocker locker(&m_backendLock);
+        QString blankId = getNewString();
+        //!!! todo: how to check whether the blank node is already in use
+        SordNode *node = sord_new_blank(m_w.getWorld(), (uint8_t *)blankId.toUtf8().data());
         if (!node) throw RDFInternalError("Failed to create new blank node");
-        return lrdfNodeToNode(node);
+        return sordNodeToNode(node);
+    }
+
+    static size_t saveSink(const void *buf, size_t len, void *stream) {
+        QIODevice *dev = (QIODevice *)stream;
+        qint64 r = dev->write((const char *)buf, len);
+        if (r < 0) throw RDFException("Write failed");
+        else return r;
     }
 
     void save(QString filename) const {
 
-        QMutexLocker wlocker(&m_librdfLock);
+        QMutexLocker wlocker(&m_backendLock);
         QMutexLocker plocker(&m_prefixLock);
 
         DEBUG << "BasicStore::save(" << filename << ")" << endl;
 
-        librdf_uri *base_uri = uriToLrdfUri(m_baseUri);
-        librdf_serializer *s = librdf_new_serializer(m_w.getWorld(), "turtle", 0, 0);
-        if (!s) throw RDFInternalError("Failed to construct RDF serializer");
+        QByteArray bb = m_baseUri.toString().toUtf8();
+        SerdURI bu;
+
+        if (serd_uri_parse((uint8_t *)bb.data(), &bu) != SERD_SUCCESS) {
+            throw RDFInternalError("Failed to parse base URI", m_baseUri);
+        }
+
+        SerdNode bn = serd_node_from_string(SERD_URI, (uint8_t *)bb.data());
+        SerdEnv *env = serd_env_new(&bn);
 
         for (PrefixMap::const_iterator i = m_prefixes.begin();
              i != m_prefixes.end(); ++i) {
-            QByteArray b = i.key().toUtf8();
-            librdf_serializer_set_namespace(s, uriToLrdfUri(i.value()), b.data());
+            addToSerdNamespace(env, i.key(), i.value().toString());
         }
-        librdf_serializer_set_namespace(s, uriToLrdfUri(m_baseUri), "");
+
+//        addToSerdNamespace(env, QString(), m_baseUri.toString());
 
         QFile f(filename);
         if (!f.exists()) {
@@ -359,17 +357,32 @@ public:
         }
 
         QString tmpFilename = QString("%1.part").arg(filename);
-        QByteArray b = QFile::encodeName(tmpFilename);
-        const char *lname = b.data();
-        
-        if (librdf_serializer_serialize_model_to_file(s, lname, base_uri, m_model)) {
-            librdf_free_serializer(s);
-            QFile::remove(tmpFilename);
-            throw RDFException("Failed to export RDF model to temporary file",
-                               tmpFilename);
-        }
 
-        librdf_free_serializer(s);
+        QFile tf(tmpFilename);
+        if (!tf.open(QFile::WriteOnly)) {
+            throw RDFException("Failed to open partial file for writing", tmpFilename);
+        }
+        
+        SerdEnv *wenv = serd_env_new(&bn);
+
+        SerdWriter *writer = serd_writer_new
+            (SERD_TURTLE,
+             SerdStyle(SERD_STYLE_ABBREVIATED | SERD_STYLE_RESOLVED | SERD_STYLE_CURIED),
+             wenv, &bu, saveSink, &tf);
+
+	serd_env_foreach(env,
+	                 (SerdPrefixSink)serd_writer_set_prefix,
+	                 writer);
+
+        sord_write(m_model, writer, NULL);
+
+	serd_writer_finish(writer);
+	serd_writer_free(writer);
+
+	serd_env_free(env);
+	serd_env_free(wenv);
+        
+        tf.close();
 
         // New file is now completed; the following is scruffy, but
         // that shouldn't really matter now
@@ -385,13 +398,155 @@ public:
         }
     }
 
+    void addPrefixOnImport(QString pfx, Uri uri) {
+
+        DEBUG << "namespace: " << pfx << " -> " << uri << endl;
+
+        if (pfx == "" && uri != Uri("#")) {
+            // base uri
+            if (m_baseUri == Uri("#")) {
+                std::cerr << "BasicStore::import: NOTE: Loading file into store with no base URI; setting base URI to <" << uri.toString().toStdString() << "> from file" << std::endl;
+                m_baseUri = uri;
+                m_prefixes[""] = m_baseUri;
+            } else {
+                if (uri != m_baseUri) {
+                    std::cerr << "BasicStore::import: NOTE: Base URI of loaded file differs from base URI of store (<" << uri.toString().toStdString() << "> != <" << m_baseUri.toString().toStdString() << ">)" << std::endl;
+                }
+            }
+        }
+
+        // don't call addPrefix; it tries to lock the mutex,
+        // and anyway we want to add the prefix only if it
+        // isn't already there (to avoid surprisingly changing
+        // a prefix in unusual cases, or changing the base URI)
+        if (m_prefixes.find(pfx) == m_prefixes.end()) {
+            m_prefixes[pfx] = uri;
+        }
+    }
+
+    static SerdStatus addPrefixSink(void *handle,
+                                    const SerdNode *name,
+                                    const SerdNode *uri) {
+
+        D *d = (D *)handle;
+
+        QString qpfx(QString::fromUtf8((const char *)name->buf, name->n_bytes));
+        Uri quri(QString::fromUtf8((const char *)uri->buf, uri->n_bytes));
+
+        d->addPrefixOnImport(qpfx, quri);
+
+        return SERD_SUCCESS;
+    }
+
     void import(QUrl url, ImportDuplicatesMode idm, QString format) {
 
-        QMutexLocker wlocker(&m_librdfLock);
+        QMutexLocker wlocker(&m_backendLock);
         QMutexLocker plocker(&m_prefixLock);
 
-        librdf_uri *luri = uriToLrdfUri(Uri(url));
-        librdf_uri *base_uri = uriToLrdfUri(m_baseUri);
+        //!!! todo: format?
+
+        //!!! todo: retrieve prefixes from model after loading
+
+        QByteArray bb = m_baseUri.toString().toUtf8();
+        SerdURI bu;
+
+        if (serd_uri_parse((uint8_t *)bb.data(), &bu) != SERD_SUCCESS) {
+            throw RDFInternalError("Failed to parse base URI", m_baseUri);
+        }
+
+        SerdNode bn = serd_node_from_string(SERD_URI, (uint8_t *)bb.data());
+        SerdEnv *env = serd_env_new(&bn);
+
+        QString fileUri = url.toString();
+
+        // serd_uri_to_path doesn't like the brief file:blah
+        // convention, it insists that file: is followed by //
+        // (technically correct, but a bit pedantic)
+
+        if (fileUri.startsWith("file:") && !fileUri.startsWith("file://")) {
+            // however, it's happy with scheme-less paths
+            fileUri = fileUri.right(fileUri.length()-5);
+        }
+
+        if (idm == ImportPermitDuplicates) {
+
+            // No special handling for duplicates, do whatever the
+            // underlying engine does
+
+            SerdReader *reader = sord_new_reader(m_model, env, SERD_TURTLE, NULL);
+
+            if (serd_reader_read_file
+                (reader, (const uint8_t *)fileUri.toLocal8Bit().data())) {
+                serd_reader_free(reader);
+                serd_env_free(env);
+                throw RDFException("Failed to import model from URL",
+                                   url.toString());
+            }
+
+            serd_reader_free(reader);
+
+        } else {
+
+            // ImportFailOnDuplicates and ImportIgnoreDuplicates:
+            // import into a separate model and transfer across
+
+            SordModel *im = sord_new(m_w.getWorld(), 0, false); // no index
+            
+            SerdReader *reader = sord_new_reader(im, env, SERD_TURTLE, NULL);
+
+            if (serd_reader_read_file
+                (reader, (const uint8_t *)fileUri.toLocal8Bit().data())) {
+                serd_reader_free(reader);
+                sord_free(im);
+                serd_env_free(env);
+                throw RDFException("Failed to import model from URL",
+                                   url.toString());
+            }
+
+            serd_reader_free(reader);
+
+            SordQuad templ;
+            tripleToStatement(Triple(), templ);
+
+            if (idm == ImportFailOnDuplicates) {
+
+                SordIter *itr = sord_find(im, templ);
+                while (!sord_iter_end(itr)) {
+                    SordQuad q;
+                    sord_iter_get(itr, q);
+                    if (sord_contains(m_model, q)) {
+                        sord_iter_free(itr);
+                        freeStatement(templ);
+                        sord_free(im);
+                        serd_env_free(env);
+                        throw RDFDuplicateImportException("Duplicate statement encountered on import in ImportFailOnDuplicates mode");
+                    }
+                    sord_iter_next(itr);
+                }
+                sord_iter_free(itr);
+            }
+            
+            SordIter *itr = sord_find(im, templ);
+            while (!sord_iter_end(itr)) {
+                SordQuad q;
+                sord_iter_get(itr, q);
+                if (idm == ImportFailOnDuplicates || // (already tested if so)
+                    !sord_contains(m_model, q)) {
+                    sord_add(m_model, q);
+                }
+                sord_iter_next(itr);
+            }
+            sord_iter_free(itr);
+            freeStatement(templ);
+            sord_free(im);
+        }
+
+	serd_env_foreach(env, addPrefixSink, this);
+        serd_env_free(env);
+
+/*!!!
+        librdf_uri *luri = uriToSordUri(Uri(url));
+        librdf_uri *base_uri = uriToSordUri(m_baseUri);
 
         if (format == "") format = "guess";
 
@@ -439,7 +594,7 @@ public:
                     throw RDFException("Failed to import model from URL",
                                        url.toString());
                 }
-                all = tripleToStatement(Triple());
+                tripleToStatement(Triple(), all);
 
                 if (idm == ImportFailOnDuplicates) {
                     // Need to query twice, first time to check for dupes
@@ -468,8 +623,7 @@ public:
                 while (!librdf_stream_end(stream)) {
                     librdf_statement *current = librdf_stream_get_object(stream);
                     if (!current) continue;
-                    if (idm == ImportFailOnDuplicates || // (already tested if so)
-                        !librdf_model_contains_statement(m_model, current)) {
+                    if (!librdf_model_contains_statement(m_model, current)) {
                         librdf_model_add_statement(m_model, current);
                     }
                     librdf_stream_next(stream);
@@ -496,7 +650,7 @@ public:
             const char *pfx = librdf_parser_get_namespaces_seen_prefix(parser, i);
             librdf_uri *uri = librdf_parser_get_namespaces_seen_uri(parser, i);
             QString qpfx = QString::fromUtf8(pfx);
-            Uri quri = lrdfUriToUri(uri);
+            Uri quri = sordUriToUri(uri);
             DEBUG << "namespace " << i << ": " << qpfx << " -> " << quri << endl;
             if (qpfx == "" && quri != Uri("#")) {
                 // base uri
@@ -520,6 +674,7 @@ public:
         }
 
         librdf_free_parser(parser);
+*/
     }
 
 private:
@@ -529,99 +684,94 @@ private:
         World() {
             QMutexLocker locker(&m_mutex);
             if (!m_world) {
-                m_world = librdf_new_world();
-                librdf_world_open(m_world);
+                m_world = sord_world_new();
             }
             ++m_refcount;
         }
         ~World() {
             QMutexLocker locker(&m_mutex);
+            DEBUG << "~World: About to lower refcount from " << m_refcount << endl;
             if (--m_refcount == 0) {
                 DEBUG << "Freeing world" << endl;
-                librdf_free_world(m_world);
+                sord_world_free(m_world);
                 m_world = 0;
             }
         }
         
-        librdf_world *getWorld() const { return m_world; }
+        SordWorld *getWorld() const {
+            return m_world;
+        }
         
     private:
         static QMutex m_mutex;
-        static librdf_world *m_world;
+        static SordWorld *m_world;
         static int m_refcount;
     };
 
     World m_w;
-    librdf_storage *m_storage;
-    librdf_model *m_model;
-    static QMutex m_librdfLock; // assume the worst
+    SordModel *m_model;
+    static QMutex m_backendLock; // assume the worst
 
     typedef QHash<QString, Uri> PrefixMap;
     Uri m_baseUri;
     PrefixMap m_prefixes;
     mutable QMutex m_prefixLock; // also protects m_baseUri
 
-    mutable int m_counter;
-
     bool doAdd(Triple t) {
-        librdf_statement *statement = tripleToStatement(t);
+        SordQuad statement;
+        tripleToStatement(t, statement);
         if (!checkComplete(statement)) {
-            librdf_free_statement(statement);
             throw RDFException("Failed to add triple (statement is incomplete)");
         }
-        if (librdf_model_contains_statement(m_model, statement)) {
-            librdf_free_statement(statement);
+        if (sord_contains(m_model, statement)) {
             return false;
         }
-        if (librdf_model_add_statement(m_model, statement)) {
-            librdf_free_statement(statement);
-            throw RDFInternalError("Failed to add statement to model");
-        }
-        librdf_free_statement(statement);
+        sord_add(m_model, statement);
+        freeStatement(statement);
         return true;
     }
 
     bool doRemove(Triple t) {
-        librdf_statement *statement = tripleToStatement(t);
+        SordQuad statement;
+        tripleToStatement(t, statement);
         if (!checkComplete(statement)) {
-            librdf_free_statement(statement);
             throw RDFException("Failed to remove triple (statement is incomplete)");
         }
-        // Looks like librdf_model_remove_statement returns the wrong
-        // value in trees storage as of 1.0.9, so let's do this check
-        // separately and ignore its return value
-        if (!librdf_model_contains_statement(m_model, statement)) {
-            librdf_free_statement(statement);
+        if (!sord_contains(m_model, statement)) {
             return false;
         }
-        librdf_model_remove_statement(m_model, statement);
-        librdf_free_statement(statement);
+        sord_remove(m_model, statement);
+        freeStatement(statement);
         return true;
     }
 
-    librdf_uri *uriToLrdfUri(Uri uri) const {
-        librdf_uri *luri = librdf_new_uri
-            (m_w.getWorld(),
+    SordNode *uriToSordNode(Uri uri) const {
+        SordNode *node = sord_new_uri
+            (m_w.getWorld(), 
              (const unsigned char *)uri.toString().toUtf8().data());
-        if (!luri) throw RDFInternalError("Failed to convert URI to internal representation", uri);
-        return luri;
+        if (!node) throw RDFInternalError("Failed to convert URI to internal representation", uri);
+        return node;
     }
 
-    Uri lrdfUriToUri(librdf_uri *u) const {
-        const char *s = (const char *)librdf_uri_as_string(u);
-        if (s) return Uri(QString::fromUtf8(s));
+    //!!! utility function to extract string value from node would be more useful
+    Uri sordNodeToUri(const SordNode *n) const {
+        if (!n || sord_node_get_type(n) != SORD_URI) {
+            return Uri();
+        }
+        const uint8_t *s = sord_node_get_string(n);
+        if (s) return Uri(QString::fromUtf8((char *)s));
         else return Uri();
     }
 
-    librdf_node *nodeToLrdfNode(Node v) const { // called with m_librdfLock held
-        librdf_node *node = 0;
+    SordNode *nodeToSordNode(Node v) const { // called with m_backendLock held
+        SordNode *node = 0;
         switch (v.type) {
         case Node::Nothing:
             return 0;
         case Node::Blank: {
             QByteArray b = v.value.toUtf8();
             const unsigned char *bident = (const unsigned char *)b.data();
-            node = librdf_new_node_from_blank_identifier(m_w.getWorld(), bident);
+            node = sord_new_blank(m_w.getWorld(), bident);
             if (!node) throw RDFException
                            ("Failed to construct node from blank identifier",
                             v.value);
@@ -629,9 +779,7 @@ private:
             break;
         case Node::URI: {
             Uri value = expand(v.value);
-            librdf_uri *uri = uriToLrdfUri(value);
-            if (!uri) throw RDFException("Failed to construct URI from value ", v.value);
-            node = librdf_new_node_from_uri(m_w.getWorld(), uri);
+            node = uriToSordNode(value);
             if (!node) throw RDFException("Failed to construct node from URI");
         }
             break;
@@ -639,16 +787,13 @@ private:
             QByteArray b = v.value.toUtf8();
             const unsigned char *literal = (const unsigned char *)b.data();
             if (v.datatype != Uri()) {
-                Uri dtu = v.datatype;
-                librdf_uri *type_uri = uriToLrdfUri(dtu);
-                node = librdf_new_node_from_typed_literal
-                    (m_w.getWorld(), literal, 0, type_uri);
+                SordNode *typeNode = uriToSordNode(v.datatype);
+                node = sord_new_literal(m_w.getWorld(), typeNode, literal, 0);
                 if (!node) throw RDFException
                                ("Failed to construct node from literal of type ",
                                 v.datatype);
             } else {
-                node = librdf_new_node_from_literal
-                    (m_w.getWorld(), literal, 0, 0);
+                node = sord_new_literal(m_w.getWorld(), 0, literal, 0);
                 if (!node) throw RDFException
                                ("Failed to construct node from literal");
             }
@@ -658,154 +803,111 @@ private:
         return node;
     }
 
-    Node lrdfNodeToNode(librdf_node *node) const {
+    Node sordNodeToNode(const SordNode *node) const {
         
         Node v;
         if (!node) return v;
 
-        if (librdf_node_is_resource(node)) {
+        SordNodeType type = sord_node_get_type(node);
 
+        switch (type) {
+
+        case SORD_URI:
             v.type = Node::URI;
-            librdf_uri *uri = librdf_node_get_uri(node);
-            v.value = lrdfUriToUri(uri).toString();
+            v.value = sordNodeToUri(node).toString();
+            break;
 
-        } else if (librdf_node_is_literal(node)) {
-
-            v.type = Node::Literal;
-            const char *s = (const char *)librdf_node_get_literal_value(node);
-            if (s) v.value = QString::fromUtf8(s);
-            librdf_uri *type_uri = librdf_node_get_literal_value_datatype_uri(node);
-            if (type_uri) v.datatype = lrdfUriToUri(type_uri);
-            
-        } else if (librdf_node_is_blank(node)) {
-
+        case SORD_BLANK:
             v.type = Node::Blank;
-            const char *s = (const char *)librdf_node_get_blank_identifier(node);
-            if (s) v.value = s;
+            //!!! utility function for this -- types and what if it's null?
+            v.value = QString::fromUtf8((char *)sord_node_get_string(node));
+            break;
+
+        case SORD_LITERAL:
+            v.type = Node::Literal;
+            //!!! utility function for this -- types and what if it's null?
+            v.value = QString::fromUtf8((char *)sord_node_get_string(node));
+            v.datatype = sordNodeToUri(sord_node_get_datatype(node));
+            break;
         }
 
         return v;
     }
 
-    librdf_statement *tripleToStatement(Triple t) const {
-        librdf_node *na = nodeToLrdfNode(t.a);
-        librdf_node *nb = nodeToLrdfNode(t.b);
-        librdf_node *nc = nodeToLrdfNode(t.c);
-        librdf_statement *statement = 
-            librdf_new_statement_from_nodes(m_w.getWorld(), na, nb, nc);
-        if (!statement) throw RDFException("Failed to construct statement");
-        return statement;
+    void tripleToStatement(Triple t, SordQuad q) const {
+        q[0] = nodeToSordNode(t.a);
+        q[1] = nodeToSordNode(t.b);
+        q[2] = nodeToSordNode(t.c);
+        q[3] = 0;
     }
 
-    Triple statementToTriple(librdf_statement *statement) const {
-        librdf_node *subject = librdf_statement_get_subject(statement);
-        librdf_node *predicate = librdf_statement_get_predicate(statement);
-        librdf_node *object = librdf_statement_get_object(statement);
-        Triple triple(lrdfNodeToNode(subject),
-                      lrdfNodeToNode(predicate),
-                      lrdfNodeToNode(object));
+    void freeStatement(SordQuad q) const {
+        // Not for removing statements from the store
+        for (int i = 0; i < 4; ++i) {
+            sord_node_free(m_w.getWorld(), (SordNode *)q[i]);
+        }
+    }
+
+    Triple statementToTriple(const SordQuad q) const {
+        Triple triple(sordNodeToNode(q[0]),
+                      sordNodeToNode(q[1]),
+                      sordNodeToNode(q[2]));
         return triple;
     }
 
-    bool checkComplete(librdf_statement *statement) const {
-        if (librdf_statement_is_complete(statement)) return true;
-        else {
-            unsigned char *text = librdf_statement_to_string(statement);
-            QString str = QString::fromUtf8((char *)text);
-            std::cerr << "BasicStore::checkComplete: WARNING: RDF statement is incomplete: " << str.toStdString() << std::endl;
-            free(text);
+    bool checkComplete(const SordQuad q) const {
+        if (!q[0] || !q[1] || !q[2]) {
+            std::cerr << "BasicStore::checkComplete: WARNING: RDF statement contains one or more NULL nodes" << std::endl;
             return false;
         }
+        if ((sord_node_get_type(q[0]) == SORD_URI ||
+             sord_node_get_type(q[0]) == SORD_BLANK) &&
+            (sord_node_get_type(q[1]) == SORD_URI)) {
+            return true;
+        } else {
+            std::cerr << "BasicStore::checkComplete: WARNING: RDF statement is incomplete: [" << sord_node_get_string(q[0]) << "," << sord_node_get_string(q[1]) << "," << sord_node_get_string(q[2]) << "]" << std::endl;
+            return false;
+        }
+    }
+
+    void addToSerdNamespace(SerdEnv *env, QString key, QString value) const {
+
+        QByteArray b = key.toUtf8();
+        QByteArray v = value.toUtf8();
+
+        SerdNode name = serd_node_from_string(SERD_URI, (uint8_t *)b.data());
+        SerdNode uri = serd_node_from_string(SERD_URI, (uint8_t *)v.data());
+            
+        serd_env_set_prefix(env, &name, &uri); // copies name, uri
     }
 
     Triples doMatch(Triple t, bool single = false) const {
         // Any of a, b, and c in t that have Nothing as their node type
         // will contribute all matching nodes to the returned triples
         Triples results;
-        librdf_statement *templ = tripleToStatement(t);
-        librdf_stream *stream = librdf_model_find_statements(m_model, templ);
-        librdf_free_statement(templ);
-        if (!stream) throw RDFInternalError("Failed to match RDF triples");
-        while (!librdf_stream_end(stream)) {
-            librdf_statement *current = librdf_stream_get_object(stream);
-            if (current) results.push_back(statementToTriple(current));
+        SordQuad templ;
+        tripleToStatement(t, templ);
+        SordIter *itr = sord_find(m_model, templ);
+        while (!sord_iter_end(itr)) {
+            SordQuad q;
+            sord_iter_get(itr, q);
+            results.push_back(statementToTriple(q));
             if (single) break;
-            librdf_stream_next(stream);
+            sord_iter_next(itr);
         }
-        librdf_free_stream(stream);
+        sord_iter_free(itr);
+        freeStatement(templ);
         return results;
-    }
-
-    ResultSet runQuery(QString rawQuery) const {
-    
-        if (m_baseUri == Uri("#")) {
-            std::cerr << "BasicStore::runQuery: WARNING: Query requested on RDF store with default '#' base URI: results may be not as expected" << std::endl;
-            //!!! but in what way? explicate
-        }
-
-        QString sparql;
-        m_prefixLock.lock();
-        for (PrefixMap::const_iterator i = m_prefixes.begin();
-             i != m_prefixes.end(); ++i) {
-            sparql += QString(" PREFIX %1: <%2> ")
-                .arg(i.key()).arg(i.value().toString());
-        }
-        m_prefixLock.unlock();
-        sparql += rawQuery;
-
-        ResultSet returned;
-        librdf_query *query =
-            librdf_new_query(m_w.getWorld(), "sparql", 0,
-                             (const unsigned char *)sparql.toUtf8().data(), 0);
-        if (!query) return returned;
-
-        librdf_query_results *results = librdf_query_execute(query, m_model);
-        if (!results) {
-            librdf_free_query(query);
-            return returned;
-        }
-        if (!librdf_query_results_is_bindings(results)) {
-            librdf_free_query_results(results);
-            librdf_free_query(query);
-            return returned;
-        }
-    
-        while (!librdf_query_results_finished(results)) {
-            int count = librdf_query_results_get_bindings_count(results);
-            Dictionary dict;
-            for (int i = 0; i < count; ++i) {
-
-                const char *name =
-                    librdf_query_results_get_binding_name(results, i);
-                if (!name) continue;
-                QString key = (const char *)name;
-
-                librdf_node *node =
-                    librdf_query_results_get_binding_value(results, i);
-
-                dict[key] = lrdfNodeToNode(node);
-            }
-
-            returned.push_back(dict);
-            librdf_query_results_next(results);
-        }
-
-        librdf_free_query_results(results);
-        librdf_free_query(query);
-
-//        DEBUG << "runQuery: returning " << returned.size() << " result(s)" << endl;
-        
-        return returned;
     }
 };
 
 QMutex
-BasicStore::D::m_librdfLock;
+BasicStore::D::m_backendLock;
 
 QMutex
 BasicStore::D::World::m_mutex;
 
-librdf_world *
+SordWorld *
 BasicStore::D::World::m_world = 0;
 
 int
@@ -942,12 +1044,13 @@ BasicStore::Features
 BasicStore::getSupportedFeatures() const
 {
     Features fs;
-    fs << ModifyFeature << QueryFeature << RemoteImportFeature;
+    fs << ModifyFeature;
     return fs;
 }
 
 }
 
+#endif
 
 
 		
