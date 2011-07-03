@@ -1,5 +1,10 @@
 
-Changes in Dataquay 0.4 since the previous version 0.3:
+Changes in Dataquay 0.8 since the previous version 0.3:
+
+ * Add support for David Robillard's lightweight Sord datastore as an
+   alternative to the existing Redland support.  The Dataquay Store
+   now has a getSupportedFeatures() method to return capabilities of
+   the underlying datastore.
 
  * Many fixes to ObjectMapper API, including a more formal approach
    to circular dependencies and formalising the object loading order
@@ -7,8 +12,10 @@ Changes in Dataquay 0.4 since the previous version 0.3:
  * Add method to commit a transaction on a connection and
    simultaneously receive the set of changes
 
- * Move save() to the Store interface from the BasicStore concrete
-   class, and provide isolated save() in TransactionalStore
+ * Hoist save() and import() to the Store interface from the
+   BasicStore concrete class, and provide transactional
+   implementations in TransactionalStore
+
 
 Changes in Dataquay 0.3 since the previous version 0.2:
 
