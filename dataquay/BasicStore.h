@@ -44,8 +44,11 @@ namespace Dataquay
  *
  * BasicStore is an in-memory RDF data store implementing the Store
  * interface, providing add, remove, matching and query operations for
- * RDF triples and SPARQL, as well as export and import.  BasicStore
- * uses the Redland librdf datastore internally.
+ * RDF triples and SPARQL, as well as export and import.
+ *
+ * BasicStore uses a Redland or Sord datastore internally, depending
+ * on whether USE_REDLAND or USE_SORD was defined when Dataquay was
+ * built.
  *
  * All operations are thread safe.
  */

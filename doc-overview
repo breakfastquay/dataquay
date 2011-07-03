@@ -5,7 +5,7 @@ namespace Dataquay {
 \section about About Dataquay
 
 %Dataquay is a free open source library that provides a friendly C++
-API for the popular Redland RDF data store using Qt4 classes and
+API for the Redland and Sord RDF data stores using Qt4 classes and
 containers.
 
 %Dataquay is intended to be simple to use and easy to integrate. It is
