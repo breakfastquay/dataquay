@@ -1,14 +1,14 @@
 
-#include "../BasicStore.h"
-#include "../PropertyObject.h"
-#include "../TransactionalStore.h"
-#include "../Connection.h"
-#include "../RDFException.h"
-#include "../objectmapper/ObjectStorer.h"
-#include "../objectmapper/ObjectLoader.h"
-#include "../objectmapper/ObjectBuilder.h"
-#include "../objectmapper/TypeMapping.h"
-#include "../Debug.h"
+#include "dataquay/BasicStore.h"
+#include "dataquay/PropertyObject.h"
+#include "dataquay/TransactionalStore.h"
+#include "dataquay/Connection.h"
+#include "dataquay/RDFException.h"
+#include "dataquay/objectmapper/ObjectStorer.h"
+#include "dataquay/objectmapper/ObjectLoader.h"
+#include "dataquay/objectmapper/ObjectBuilder.h"
+#include "dataquay/objectmapper/TypeMapping.h"
+#include "../src/Debug.h"
 
 #include <QStringList>
 #include <QMutex>
@@ -68,17 +68,18 @@ struct LayoutLoader : public ObjectLoader::LoadCallback {
 	QObject *layoutOf = 0;
 	QObject *centralOf = 0;
 
-/*!!! FIXME!!!
 	if (pod.hasProperty("layout")) {
-	    layout = m->loadFrom(map, Uri(pod.getProperty("layout").value<Uri>()));
+	    layout = map.value(Uri(pod.getProperty("layout").value<Uri>()));
+	    std::cerr << "have layout property: in map is " << layout << std::endl;
 	}
 	if (pod.hasProperty("layout_of")) {
-	    layoutOf = m->loadFrom(map, Uri(pod.getProperty("layout_of").value<Uri>()));
+	    layoutOf = map.value(Uri(pod.getProperty("layout_of").value<Uri>()));
+	    std::cerr << "have layout_of property: in map is " << layoutOf << std::endl;
 	}
 	if (pod.hasProperty("central_widget_of")) {
-	    centralOf = m->loadFrom(map, Uri(pod.getProperty("central_widget_of").value<Uri>()));
+	    centralOf = map.value(Uri(pod.getProperty("central_widget_of").value<Uri>()));
+	    std::cerr << "have central_widget_of property: in map is " << centralOf << std::endl;
 	}
-*/
 
 	if (centralOf) {
 	    QMainWindow *m = dynamic_cast<QMainWindow *>(centralOf);
@@ -113,7 +114,15 @@ struct LayoutStorer : public ObjectStorer::StoreCallback {
 
     void stored(ObjectStorer *m, ObjectStorer::ObjectNodeMap &map, QObject *o, Node node)
     {
+	std::cerr << "LayoutStorer: stored: " << node << std::endl;
+
 	PropertyObject pod(m->getStore(), dqPrefix.toString(), node);
+
+	//!!! not right -- these calls back to store() cause an
+	//!!! infinite loop -- we really need to store only if not
+	//!!! stored already, or modify ObjectStorer so as to call
+	//!!! callbacks only after all objects have been stored (as
+	//!!! ObjectLoader does already)
 
 	QLayout *layout = dynamic_cast<QLayout *>(o);
 	if (layout) {
@@ -161,11 +170,10 @@ testQtWidgets(int argc, char **argv)
     LayoutLoader loader;
     oloader.addLoadCallback(&loader);
 
+    std::cerr << "about to load all objects..." << std::endl;
+
     QObjectList objects = oloader.loadAll();
     
-    //!!! damn, now we need to _find_ the parent object
-
-//!!!FIXME    QMainWindow *mw = qobject_cast<QMainWindow *>(parent);
     QMainWindow *mw = 0;
     if (!mw) {
 	foreach (QObject *o, objects) {
@@ -195,11 +203,26 @@ testQtWidgets(int argc, char **argv)
 			    ObjectStorer::FollowSiblings |
 			    ObjectStorer::FollowParent |
 			    ObjectStorer::FollowChildren);
+
+    std::cerr << "about to store all objects..." << std::endl;
+
     ostorer.store(objects);
+
+    std::cerr << "about to save resulting store..." << std::endl;
+
     store2.save("test-qt-widgets-out.ttl");
 
     return app.exec();
 }
 
 }
+}
+
+int
+main(int argc, char **argv)
+{
+    if (!Dataquay::Test::testQtWidgets(argc, argv)) return 1;
+
+    std::cerr << "testQtWidgets successfully completed" << std::endl;
+    return 0;
 }

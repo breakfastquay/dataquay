@@ -7,13 +7,20 @@ INCLUDEPATH += . ..
 DEPENDPATH += . ..
 LIBPATH += ..
 PRE_TARGETDEPS += ../libdataquay.a
-LIBPATH += ../../ext
-LIBS += -ldataquay -lext
+
+OBJECTS_DIR = o
+MOC_DIR = o
+
+LIBS += ../libdataquay.a
 
 SOURCES += TestQtWidgets.cpp
 
-solaris* {
-  QMAKE_CXXFLAGS_DEBUG += -xprofile=tcov
-  debug: LIBS += -xprofile=tcov
-  LIBS += -lsocket -lnsl
+exists(./platform.pri) {
+    include(./platform.pri)
 }
+!exists(./platform.pri) {
+    exists(../platform.pri) {
+	include(../platform.pri)
+    }
+}
+

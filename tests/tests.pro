@@ -11,11 +11,10 @@ PRE_TARGETDEPS += ../libdataquay.a
 OBJECTS_DIR = o
 MOC_DIR = o
 
-LIBS += ../libdataquay.a -L/usr/local/lib -lsord-0 -lserd-0
+LIBS += ../libdataquay.a 
 
 HEADERS += TestObjects.h
 SOURCES += TestDataquay.cpp
-#SOURCES += TestQtWidgets.cpp
 
 exists(./platform.pri) {
     include(./platform.pri)
