@@ -504,11 +504,16 @@ private:
             DEBUG << "load: calling initialise(" << node << ")" << endl;
             initialise(state, node);
         }
-        foreach (Node node, state.toPopulate) {
+
+        // populate() removes from state.toPopulate, so we need to
+        // make a note of the original set for calling load callbacks
+        NodeSet tp = state.toPopulate;
+
+        foreach (Node node, tp) {
             DEBUG << "load: calling populate(" << node << ")" << endl;
             populate(state, node);
         }
-        foreach (Node node, state.toPopulate) {
+        foreach (Node node, tp) {
             DEBUG << "load: calling callLoadCallbacks(" << node << ")" << endl;
             callLoadCallbacks(state, node);
         }
