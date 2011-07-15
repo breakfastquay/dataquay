@@ -168,7 +168,7 @@ testQtWidgets(int argc, char **argv)
     ObjectLoader oloader(&store);
     oloader.setTypeMapping(mapping);
     LayoutLoader loader;
-    oloader.addLoadCallback(&loader);
+    oloader.addLoadCallback(&loader, ObjectLoader::FinalCallback);
 
     std::cerr << "about to load all objects..." << std::endl;
 

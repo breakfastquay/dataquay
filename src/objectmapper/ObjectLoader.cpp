@@ -69,17 +69,16 @@ namespace Dataquay {
  * 3. Initialise -- set the "literal" properties for each node in
  * toInitialise
  *
- * 4. Populate -- set all remaining properties for each node in
+ * 4. Immediate callbacks -- call any registered immediate load
+ * callbacks for each node (these are callbacks that may use the
+ * "literal" data but should be called before related nodes are
+ * loaded)
+
+ * 5. Populate -- set all remaining properties for each node in
  * toPopulate
  *
- * 5. Callbacks -- call any registered load callbacks for each node
- *
- *!!! Originally we separated out initialise and populate for the
- * convenience of users, in order to get basic definitional properties
- * set before attaching objects as children or properties.  However,
- * this doesn't really hold in practice because we must attach
- * children before the initialise phase.  Is there still value in it?
- * Is there any harm in it?
+ * 6. Final callbacks -- call any registered final load callbacks for
+ * each node
  *
  * Notes
  *  
@@ -273,8 +272,15 @@ public:
         return objects;
     }
     
-    void addLoadCallback(LoadCallback *cb) {
-        m_loadCallbacks.push_back(cb);
+    void addLoadCallback(LoadCallback *cb, LoadCallbackType type) {
+        switch (type) {
+        case ImmediateCallback:
+            m_immediateCallbacks.push_back(cb);
+            break;
+        case FinalCallback:
+            m_finalCallbacks.push_back(cb);
+            break;
+        }
     }
 
 private:
@@ -285,7 +291,8 @@ private:
     TypeMapping m_tm;
     FollowPolicy m_fp;
     AbsentPropertyPolicy m_ap;
-    QList<LoadCallback *> m_loadCallbacks;
+    QList<LoadCallback *> m_immediateCallbacks;
+    QList<LoadCallback *> m_finalCallbacks;
     QString m_parentProp;
     QString m_followProp;
 
@@ -515,7 +522,7 @@ private:
         }
         foreach (Node node, tp) {
             DEBUG << "load: calling callLoadCallbacks(" << node << ")" << endl;
-            callLoadCallbacks(state, node);
+            callLoadCallbacks(state, node, m_finalCallbacks);
         }
     }
 
@@ -604,7 +611,8 @@ private:
         return o;
     }
 
-    void callLoadCallbacks(LoadState &state, Node node) {
+    void callLoadCallbacks(LoadState &state, Node node,
+                           QList<LoadCallback *> &callbacks) {
 
         QObject *o = state.map.value(node);
 
@@ -612,8 +620,7 @@ private:
 
         if (!o) return;
 
-        foreach (LoadCallback *cb, m_loadCallbacks) {
-            //!!! this doesn't really work out -- the callback doesn't know whether we're loading a single object or a graph; it may load any number of other related objects into the map, and if we were only supposed to load a single object, we won't know what to do with them afterwards (at the moment we just leak them)
+        foreach (LoadCallback *cb, callbacks) {
             cb->loaded(m_m, state.map, node, o);
         }
     }
@@ -642,6 +649,7 @@ void
 ObjectLoader::D::initialise(LoadState &state, Node node)
 {
     loadProperties(state, node, LoadLiteralProperties);
+    callLoadCallbacks(state, node, m_immediateCallbacks);
     state.toInitialise.remove(node);
 }
 
@@ -1080,9 +1088,9 @@ ObjectLoader::loadAll(NodeObjectMap &map)
 }
 
 void
-ObjectLoader::addLoadCallback(LoadCallback *cb)
+ObjectLoader::addLoadCallback(LoadCallback *cb, LoadCallbackType type)
 {
-    m_d->addLoadCallback(cb);
+    m_d->addLoadCallback(cb, type);
 }
 
 }

@@ -110,7 +110,7 @@ public:
         m_loader = new ObjectLoader(&m_c);
         m_loader->setAbsentPropertyPolicy(ObjectLoader::ResetAbsentProperties);
         m_loader->setFollowPolicy(ObjectLoader::FollowObjectProperties);
-        m_loader->addLoadCallback(&m_callback);
+        m_loader->addLoadCallback(&m_callback, ObjectLoader::FinalCallback);
 
         m_storer = new ObjectStorer(&m_c);
         m_storer->setPropertyStorePolicy(ObjectStorer::StoreIfChanged);

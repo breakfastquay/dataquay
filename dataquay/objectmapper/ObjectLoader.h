@@ -124,12 +124,18 @@ class TypeMapping;
  * \li After all objects have been constructed, those properties that
  * have "simple" RDF literal values are assigned for each object;
  *
+ * \li Next any immediate callbacks registered with addLoadCallback
+ * are called for each object that has been loaded (i.e. any object
+ * that was either constructed or assigned to).  Use immediate
+ * callbacks if you need to do any further initialisation work on an
+ * object before its neighbours or property objects are loaded.
+ *
  * \li After all "simple" properties have been assigned, any further
  * properties are set (those with container and object types);
  *
- * \li Finally, any callbacks registered with addLoadCallback are
- * called for each object that was loaded (i.e. any object that was
- * either constructed or assigned to).
+ * \li Finally, any final callbacks registered with addLoadCallback
+ * are called for each object that has been loaded (i.e. any object
+ * that was either constructed or assigned to).
  *
  * Note that ObjectLoader always maintains a one-to-one correspondence
  * between QObjects and the RDF nodes that it loads as QObjects.  In
@@ -254,11 +260,24 @@ public:
     };
 
     /**
+     * Type of a load callback.  Immediate callbacks are called after
+     * each node's literal properties have been assigned but before
+     * any child, sibling, property etc relationships are followed.
+     * Final callbacks are called after all work has been done on all
+     * nodes and the graph is complete.
+     */
+    enum LoadCallbackType {
+        ImmediateCallback,
+        FinalCallback
+    };
+
+    /**
      * Register the given callback (a subclass of the abstract
      * LoadCallback class) as providing a "loaded" callback method
      * which will be called after each object is loaded.
      */
-    void addLoadCallback(LoadCallback *callback);
+    void addLoadCallback(LoadCallback *callback,
+                         LoadCallbackType type);
 
 private slots:
     void objectDestroyed(QObject *);
