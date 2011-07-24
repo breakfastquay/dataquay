@@ -175,10 +175,18 @@ public:
     PropertyStorePolicy getPropertyStorePolicy() const;
 
     enum BlankNodePolicy {
-        /** Ensure every stored object has a URI */
+
+        /**
+         * Ensure that every object explicitly stored has a
+         * URI. (Blank nodes may still appear as list nodes when
+         * storing containers.)
+         */
         NoBlankNodes,
-        /** Use blank nodes for objects with no existing URIs that are
-            not known to be referred to elsewhere (default) */
+
+        /**
+         * Use blank nodes for objects with no existing URIs that are
+         * not known to be referred to elsewhere (this is the default)
+         */
         BlankNodesAsNeeded
     };
 
