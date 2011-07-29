@@ -6,10 +6,10 @@ QT -= gui
 TARGET = dataquay
 
 # Define this to use the Redland datastore (http://librdf.org/)
-DEFINES += USE_REDLAND
+#DEFINES += USE_REDLAND
 
 # Define this to use the Sord datastore (http://drobilla.net/software/sord/)
-#DEFINES += USE_SORD
+DEFINES += USE_SORD
 
 OBJECTS_DIR = o
 MOC_DIR = o

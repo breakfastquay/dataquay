@@ -475,12 +475,16 @@ public:
 
             SerdReader *reader = sord_new_reader(m_model, env, SERD_TURTLE, NULL);
 
-            if (serd_reader_read_file
-                (reader, (const uint8_t *)fileUri.toLocal8Bit().data())) {
+            SerdStatus rv = serd_reader_read_file
+                (reader, (const uint8_t *)fileUri.toLocal8Bit().data());
+
+            if (rv != SERD_SUCCESS) {
                 serd_reader_free(reader);
                 serd_env_free(env);
-                throw RDFException("Failed to import model from URL",
-                                   url.toString());
+                throw RDFException
+                    (QString("Failed to import model from URL: %1")
+                     .arg(serdStatusToString(rv)),
+                     url.toString());
             }
 
             serd_reader_free(reader);
@@ -494,13 +498,17 @@ public:
             
             SerdReader *reader = sord_new_reader(im, env, SERD_TURTLE, NULL);
 
-            if (serd_reader_read_file
-                (reader, (const uint8_t *)fileUri.toLocal8Bit().data())) {
+            SerdStatus rv = serd_reader_read_file
+                (reader, (const uint8_t *)fileUri.toLocal8Bit().data());
+            
+            if (rv != SERD_SUCCESS) {
                 serd_reader_free(reader);
                 sord_free(im);
                 serd_env_free(env);
-                throw RDFException("Failed to import model from URL",
-                                   url.toString());
+                throw RDFException
+                    (QString("Failed to import model from URL: %1")
+                     .arg(serdStatusToString(rv)),
+                     url.toString());
             }
 
             serd_reader_free(reader);
@@ -766,6 +774,18 @@ private:
         sord_iter_free(itr);
         freeStatement(templ);
         return results;
+    }
+
+    QString serdStatusToString(SerdStatus s)
+    {
+        switch (s) {
+        case SERD_SUCCESS: return "Success";
+        case SERD_FAILURE: return "Non-fatal failure";
+        case SERD_ERR_UNKNOWN: return "Unknown error";
+        case SERD_ERR_BAD_SYNTAX: return "Invalid syntax or bad argument";
+        case SERD_ERR_NOT_FOUND: return "Not found";
+        }
+        return QString("Unknown Serd error type");
     }
 };
 
