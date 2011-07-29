@@ -440,6 +440,8 @@ public:
 
     void import(QUrl url, ImportDuplicatesMode idm, QString format) {
 
+        DEBUG << "BasicStoreSord::import: " << url << endl;
+
         QMutexLocker wlocker(&m_backendLock);
         QMutexLocker plocker(&m_prefixLock);
 

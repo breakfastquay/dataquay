@@ -36,6 +36,8 @@
 
 #include "../Node.h"
 
+#include "ObjectMapperDefs.h"
+
 #include <QHash>
 
 class QObject;
@@ -144,9 +146,15 @@ public:
     const TypeMapping &getTypeMapping() const;
 
     enum PropertyStorePolicy {
-        /** Store only properties that differ from default object */
+
+        /**
+         * Store only properties that differ from default object
+         */
         StoreIfChanged,
-        /** Store all properties (if storable, readable & writable) (default) */
+
+        /**
+         * Store all properties (if storable, readable & writable) (default)
+         */
         StoreAlways
     };
 
@@ -174,30 +182,16 @@ public:
      */
     PropertyStorePolicy getPropertyStorePolicy() const;
 
-    enum BlankNodePolicy {
-
-        /**
-         * Ensure that every object explicitly stored has a
-         * URI. (Blank nodes may still appear as list nodes when
-         * storing containers.)
-         */
-        NoBlankNodes,
-
-        /**
-         * Use blank nodes for objects with no existing URIs that are
-         * not known to be referred to elsewhere (this is the default)
-         */
-        BlankNodesAsNeeded
-    };
-
     /**
      * Set the policy used to determine whether to give an object a
      * URI or use a blank node for it.
      *
-     * If NoBlankNodes, all objects written will be given URIs.  These
-     * will be drawn from the object's uri property if it exists and
-     * is of Dataquay::Uri type, or else invented uniquely based on
-     * the object's class name.
+     * If NeverUseBlankNodes or NoBlankObjectNodes, all objects
+     * written will be given URIs.  These will be drawn from the
+     * object's uri property if it exists and is of Dataquay::Uri
+     * type, or else invented uniquely based on the object's class
+     * name.  If NeverUseBlankNodes, blank nodes will not be used for
+     * list nodes either.
      *
      * If BlankNodesAsNeeded, objects will be given blank nodes if it
      * appears to ObjectStorer that they do not need URIs.  In

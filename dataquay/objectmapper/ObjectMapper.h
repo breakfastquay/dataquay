@@ -34,10 +34,12 @@
 #ifndef _DATAQUAY_OBJECT_MAPPER_H_
 #define _DATAQUAY_OBJECT_MAPPER_H_
 
-#include <QObject>
-
 #include "../Node.h"
 #include "../Store.h"
+
+#include "ObjectMapperDefs.h"
+
+#include <QObject>
 
 namespace Dataquay
 {
@@ -137,6 +139,19 @@ public:
      * the default (empty) TypeMapping if none has been set.
      */
     const TypeMapping &getTypeMapping() const;
+
+    /**
+     * Set the policy used to determine whether to give an object a
+     * URI or use a blank node for it.  The default is
+     * BlankNodesAsNeeded.
+     */
+    void setBlankNodePolicy(BlankNodePolicy policy);
+
+    /**
+     * Retrieve the current policy used to determine whether to give
+     * an object a URI or use a blank node for it.
+     */
+    BlankNodePolicy getBlankNodePolicy() const;
 
     /**
      * Obtain the RDF node to which the given object has been mapped,

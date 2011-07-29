@@ -114,7 +114,7 @@ public:
 
         m_storer = new ObjectStorer(&m_c);
         m_storer->setPropertyStorePolicy(ObjectStorer::StoreIfChanged);
-        m_storer->setBlankNodePolicy(ObjectStorer::NoBlankNodes); //!!!???
+        m_storer->setBlankNodePolicy(NoBlankObjectNodes);
         m_storer->setFollowPolicy(ObjectStorer::FollowObjectProperties);
         m_storer->addStoreCallback(&m_callback);
 
@@ -140,6 +140,14 @@ public:
 
     const TypeMapping &getTypeMapping() const {
         return m_tm;
+    }
+
+    void setBlankNodePolicy(BlankNodePolicy bp) {
+        m_storer->setBlankNodePolicy(bp);
+    }
+
+    BlankNodePolicy getBlankNodePolicy() const {
+        return m_storer->getBlankNodePolicy();
     }
 
     Node getNodeForObject(QObject *o) {
@@ -554,6 +562,18 @@ const TypeMapping &
 ObjectMapper::getTypeMapping() const
 {
     return m_d->getTypeMapping();
+}
+
+void
+ObjectMapper::setBlankNodePolicy(BlankNodePolicy policy)
+{
+    m_d->setBlankNodePolicy(policy);
+}
+
+BlankNodePolicy
+ObjectMapper::getBlankNodePolicy() const
+{
+    return m_d->getBlankNodePolicy();
 }
 
 Node

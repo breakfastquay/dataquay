@@ -59,7 +59,7 @@ public:
         m_cb(ContainerBuilder::getInstance()),
         m_s(s),
         m_psp(StoreAlways),
-        m_bp(BlankNodesAsNeeded),
+        m_bp(PermitBlankObjectNodes),
         m_fp(FollowNone) {
     }
 
@@ -161,6 +161,7 @@ private:
     bool isStarType(const char *) const;
     bool variantsEqual(const QVariant &, const QVariant &) const;
     Uri getUriFrom(QObject *o) const;
+    bool isListHead(Node n) const;
 
     Node allocateNode(ObjectNodeMap &map, QObject *o);
     Node storeSingle(ObjectNodeMap &map, ObjectSet &examined, QObject *o);
@@ -168,7 +169,7 @@ private:
     void callStoreCallbacks(ObjectNodeMap &map, QObject *o, Node node);
 
     void storeProperties(ObjectNodeMap &map, ObjectSet &examined, QObject *o, Node node);
-    void removeUnusedBlankNode(Node node);
+    void removeUnusedNode(Node node);
     void removePropertyNodes(Node node, Uri propertyUri, QSet<Node> *retain = 0);
     void replacePropertyNodes(Node node, Uri propertyUri, Node newValue);
     void replacePropertyNodes(Node node, Uri propertyUri, Nodes newValues);
@@ -315,11 +316,43 @@ ObjectStorer::D::removePropertyNodes(Node node, Uri propertyUri, QSet<Node> *ret
             retain->remove(t.c);
         } else {
             m_s->remove(t);
-            if (t.c.type == Node::Blank && t.c != node) {
-                removeUnusedBlankNode(t.c);
+            if (t.c == node) continue;
+            // If this is a blank node, or if it is a node only used
+            // as a list head, then we can safely remove it.  Formerly
+            // we removed only blank nodes here (list nodes are most
+            // usually blank anyway), but that means we don't replace
+            // list properties correctly with NeverUseBlankNodes
+            if (t.c.type == Node::Blank) {
+                removeUnusedNode(t.c);
+            } else if (isListHead(t.c)) {
+                removeUnusedNode(t.c);
             }
         }
     }
+}
+
+bool
+ObjectStorer::D::isListHead(Node n) const
+{
+    Triples ts = m_s->match(Triple(n, Node(), Node()));
+
+    bool isHead = false;
+
+    DEBUG << "isListHead: Testing node " << n << endl;
+
+    // A list head should have only rdf:first and rdf:rest properties
+    if (ts.size() == 2) {
+        Node first = m_s->expand("rdf:first");
+        Node rest = m_s->expand("rdf:rest");
+        if ((ts[0].b == first || ts[1].b == rest) ||
+            (ts[0].b == rest || ts[1].b == first)) {
+            isHead = true;
+        }
+    }
+
+    DEBUG << "isListHead: isHead = " << isHead << endl;
+
+    return isHead;
 }
 
 void
@@ -348,19 +381,19 @@ ObjectStorer::D::replacePropertyNodes(Node node, Uri propertyUri, Nodes newValue
 }
 
 void
-ObjectStorer::D::removeUnusedBlankNode(Node node)
+ObjectStorer::D::removeUnusedNode(Node node)
 {
-    // The node is known to be a blank node.  If it is not referred to
-    // by anything else, then we want to remove everything it refers
-    // to.  If it happens to be a list node, then we also want to
-    // recurse to its tail.
+    // The node is known to be a blank node or a list head.  If it is
+    // not referred to by anything else, then we want to remove
+    // everything it refers to.  If it happens to be a list node, then
+    // we also want to recurse to its tail.
 
     if (m_s->matchFirst(Triple(Node(), Node(), node)) != Triple()) {
         // The node is still a target of some predicate, leave it alone
         return;
     }
 
-    DEBUG << "removeUnusedBlankNode: Blank node " << node
+    DEBUG << "removeUnusedBlankNode: Blank or list node " << node
           << " is not target for any other predicate" << endl;
 
     // check for a list tail (query first, but then delete our own
@@ -373,9 +406,7 @@ ObjectStorer::D::removeUnusedBlankNode(Node node)
 
     foreach (Triple t, tails) {
         DEBUG << "... recursing to list tail" << endl;
-        if (t.c.type == Node::Blank) {
-            removeUnusedBlankNode(t.c);
-        }
+        removeUnusedNode(t.c);
     }
 }
 
@@ -491,7 +522,12 @@ ObjectStorer::D::listToPropertyNode(ObjectNodeMap &map, ObjectSet &examined, QVa
 
         Node pnode = pnodes[0];
 
-        node = m_s->addBlankNode();
+        if (m_bp != NeverUseBlankNodes) {
+            node = m_s->addBlankNode();
+        } else {
+            node = Node(m_s->getUniqueUri(":list_"));
+        }
+
         if (first == Node()) first = node;
 
         if (previous != Node()) {
@@ -677,7 +713,7 @@ ObjectStorer::D::allocateNode(ObjectNodeMap &map, QObject *o)
         return node;
     }
 
-    if (!map.contains(o) && m_bp == BlankNodesAsNeeded) { //!!! I don't much like that name
+    if (!map.contains(o) && m_bp == PermitBlankObjectNodes) {
 
         node = m_s->addBlankNode();
 
@@ -775,7 +811,7 @@ ObjectStorer::setBlankNodePolicy(BlankNodePolicy policy)
     m_d->setBlankNodePolicy(policy);
 }
 
-ObjectStorer::BlankNodePolicy
+BlankNodePolicy
 ObjectStorer::getBlankNodePolicy() const
 {
     return m_d->getBlankNodePolicy();

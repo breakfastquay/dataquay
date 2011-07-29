@@ -30,6 +30,7 @@ HEADERS += dataquay/BasicStore.h \
            dataquay/objectmapper/ObjectBuilder.h \
            dataquay/objectmapper/ObjectLoader.h \
            dataquay/objectmapper/ObjectMapper.h \
+           dataquay/objectmapper/ObjectMapperDefs.h \
            dataquay/objectmapper/ObjectMapperForwarder.h \
            dataquay/objectmapper/ObjectStorer.h \
            dataquay/objectmapper/TypeMapping.h \
