@@ -393,7 +393,7 @@ ObjectStorer::D::removeUnusedNode(Node node)
         return;
     }
 
-    DEBUG << "removeUnusedBlankNode: Blank or list node " << node
+    DEBUG << "removeUnusedNode: Blank or list node " << node
           << " is not target for any other predicate" << endl;
 
     // check for a list tail (query first, but then delete our own
@@ -525,7 +525,15 @@ ObjectStorer::D::listToPropertyNode(ObjectNodeMap &map, ObjectSet &examined, QVa
         if (m_bp != NeverUseBlankNodes) {
             node = m_s->addBlankNode();
         } else {
-            node = Node(m_s->getUniqueUri(":list_"));
+            //!!! This is a hack -- we can give a list node a stable
+            //!!! (and more attractive) URI by deriving it from the
+            //!!! node it contains -- but we have no way to ensure
+            //!!! that this is unique... hm
+            if (pnode.type == Node::URI) {
+                node = Node(Node::URI, pnode.value + "_listnode");
+            } else {
+                node = Node(m_s->getUniqueUri(":listnode_"));
+            }
         }
 
         if (first == Node()) first = node;

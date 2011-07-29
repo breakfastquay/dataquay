@@ -39,6 +39,7 @@ HEADERS += dataquay/BasicStore.h \
 SOURCES += src/Connection.cpp \
            src/Node.cpp \
            src/PropertyObject.cpp \
+           src/RDFException.cpp \
            src/Store.cpp \
            src/Transaction.cpp \
            src/TransactionalStore.cpp \

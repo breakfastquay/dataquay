@@ -153,15 +153,16 @@ public:
         DEBUG << "BasicStore::change: " << cs.size() << " changes" << endl;
         for (int i = 0; i < cs.size(); ++i) {
             ChangeType type = cs[i].first;
+            Triple triple = cs[i].second;
             switch (type) {
             case AddTriple:
-                if (!doAdd(cs[i].second)) {
-                    throw RDFException("Change add failed due to duplication");
+                if (!doAdd(triple)) {
+                    throw RDFException("Change add failed: triple is already in store", triple);
                 }
                 break;
             case RemoveTriple:
                 if (!doRemove(cs[i].second)) {
-                    throw RDFException("Change remove failed due to absence");
+                    throw RDFException("Change remove failed: triple is not in store", triple);
                 }
                 break;
             }
@@ -173,15 +174,16 @@ public:
         DEBUG << "BasicStore::revert: " << cs.size() << " changes" << endl;
         for (int i = cs.size()-1; i >= 0; --i) {
             ChangeType type = cs[i].first;
+            Triple triple = cs[i].second;
             switch (type) {
             case AddTriple:
-                if (!doRemove(cs[i].second)) {
-                    throw RDFException("Change revert add failed due to absence");
+                if (!doRemove(triple)) {
+                    throw RDFException("Revert of add failed: triple is not in store", triple);
                 }
                 break;
             case RemoveTriple:
-                if (!doAdd(cs[i].second)) {
-                    throw RDFException("Change revert remove failed due to duplication");
+                if (!doAdd(triple)) {
+                    throw RDFException("Revert of remove failed: triple is already in store", triple);
                 }
                 break;
             }

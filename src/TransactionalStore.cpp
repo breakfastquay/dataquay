@@ -412,15 +412,16 @@ public:
         // transaction), so unlike BasicStore we don't need a lock
         for (int i = 0; i < cs.size(); ++i) {
             ChangeType type = cs[i].first;
+            Triple triple = cs[i].second;
             switch (type) {
             case AddTriple:
-                if (!add(cs[i].second)) {
-                    throw RDFException("Change add failed due to duplication");
+                if (!add(triple)) {
+                    throw RDFException("Change add failed: triple is already in store", triple);
                 }
                 break;
             case RemoveTriple:
                 if (!remove(cs[i].second)) {
-                    throw RDFException("Change remove failed due to absence");
+                    throw RDFException("Change remove failed: triple is not in store", triple);
                 }
                 break;
             }
@@ -432,15 +433,16 @@ public:
         // transaction), so unlike BasicStore we don't need a lock
         for (int i = cs.size()-1; i >= 0; --i) {
             ChangeType type = cs[i].first;
+            Triple triple = cs[i].second;
             switch (type) {
             case AddTriple:
-                if (!remove(cs[i].second)) {
-                    throw RDFException("Change revert add failed due to absence");
+                if (!remove(triple)) {
+                    throw RDFException("Revert of add failed: triple is not in store", triple);
                 }
                 break;
             case RemoveTriple:
-                if (!add(cs[i].second)) {
-                    throw RDFException("Change revert remove failed due to duplication");
+                if (!add(triple)) {
+                    throw RDFException("Revert of remove failed: triple is already in store", triple);
                 }
                 break;
             }

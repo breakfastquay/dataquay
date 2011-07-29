@@ -37,13 +37,12 @@
 #include <QString>
 #include <exception>
 
-#include "Uri.h"
-
-#include <cstring>
-#include <cstdlib>
-
 namespace Dataquay
 {
+
+class Uri;
+class Node;
+class Triple;
 
 /**
  * \class RDFException RDFException.h <dataquay/RDFException.h>
@@ -56,38 +55,19 @@ namespace Dataquay
 class RDFException : virtual public std::exception
 {
 public:
-    RDFException(QString message) throw() : m_message(0) {
-        setMessage(message);
-    }
-    RDFException(QString message, QString data) throw() : m_message(0) {
-        setMessage(QString("%1 [with string \"%2\"]").arg(message).arg(data));
-    }
-    RDFException(QString message, Uri uri) throw() : m_message(0) {
-        setMessage(QString("%1 [with URI <%2>]").arg(message).arg(uri.toString()));
-    }
-    RDFException(const RDFException &e) throw() {
-        m_message = strdup(e.m_message);
-    }
-    RDFException &operator=(const RDFException &e) throw() {
-        if (&e == this) return *this;
-        free(m_message);
-        m_message = strdup(e.m_message);
-        return *this;
-    }
-    virtual ~RDFException() throw() {
-        free(m_message);
-    }
-    virtual const char *what() const throw() {
-        return m_message;
-    }
-    
+    RDFException(QString message) throw();
+    RDFException(QString message, QString data) throw();
+    RDFException(QString message, const Uri &uri) throw();
+    RDFException(QString message, const Node &node) throw();
+    RDFException(QString message, const Triple &triple) throw();
+    RDFException(const RDFException &e) throw();
+    RDFException &operator=(const RDFException &e) throw();
+    virtual ~RDFException() throw();
+    virtual const char *what() const throw() { return m_message; }
+
 protected:
     char *m_message;
-
-    void setMessage(QString m) {
-        if (m_message) free(m_message);
-        m_message = strdup(m.toLocal8Bit().data());
-    }
+    void setMessage(QString m);
 };
 
 /**
@@ -101,7 +81,7 @@ class RDFInternalError : virtual public RDFException
 public:
     RDFInternalError(QString message, QString data = "") throw() :
         RDFException(message, data) { }
-    RDFInternalError(QString message, Uri data) throw() :
+    RDFInternalError(QString message, const Uri &data) throw() :
         RDFException(message, data) { }
 };
 
@@ -117,7 +97,7 @@ class RDFUnsupportedError : virtual public RDFException
 public:
     RDFUnsupportedError(QString message, QString data = "") throw() :
         RDFException(message, data) { }
-    RDFUnsupportedError(QString message, Uri data) throw() :
+    RDFUnsupportedError(QString message, const Uri &data) throw() :
         RDFException(message, data) { }
 };
 
