@@ -229,6 +229,7 @@ public:
         FollowSiblings         = 4,
         FollowChildren         = 8
         // there is no FollowAll; it generally isn't a good idea
+        //!!! revise this in light of two-step rework
     };
     typedef int FollowPolicy;
 
