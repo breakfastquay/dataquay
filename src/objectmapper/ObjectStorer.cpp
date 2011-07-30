@@ -118,6 +118,11 @@ public:
         return m_fp;
     }
 
+    void updatePropertyNames() {
+        m_parentProp = m_tm.getRelationshipPrefix().toString() + "parent";
+        m_followProp = m_tm.getRelationshipPrefix().toString() + "follows";
+    }
+
     void removeObject(Node n) {
         Triples triples = m_s->match(Triple(n, Node(), Node()));
         foreach (Triple t, triples) {
@@ -128,12 +133,32 @@ public:
         m_s->remove(Triple(Node(), Node(), n));
     }
 
-    void updatePropertyNames() {
-        m_parentProp = m_tm.getRelationshipPrefix().toString() + "parent";
-        m_followProp = m_tm.getRelationshipPrefix().toString() + "follows";
-    }
-
     Uri store(QObject *o, ObjectNodeMap &map) {
+
+        if (!map.contains(o)) {
+            // ensure blank node not used for this object       
+            map.insert(o, Node());
+        }
+
+        StoreState state;
+        state.requested << o;
+
+        collect(state);
+        store(state);
+
+        Node node = state.map.value(o);
+
+        if (node.type != Node::URI) {
+            // This shouldn't happen (see above)
+            DEBUG << "ObjectStorer::store: Stored object node "
+                  << node << " is not a URI node" << endl;
+            std::cerr << "WARNING: ObjectStorer::store: No URI for stored object!" << std::endl;
+            return Uri();
+        } else {
+            return Uri(node.value);
+        }
+
+/*
         ObjectSet examined;
         if (!map.contains(o)) {
             // ensure blank node not used for this object       
@@ -149,9 +174,21 @@ public:
         } else {
             return Uri(node.value);
         }
+*/
     }
 
     void store(QObjectList ol, ObjectNodeMap &map) {
+
+        StoreState state;
+        state.requested = ol;
+        state.map = map;
+
+        collect(state);
+        store(state);
+
+        map = state.map;
+
+/*
         ObjectSet examined;
         int n = ol.size(), i = 0;
         foreach (QObject *o, ol) {
@@ -163,9 +200,12 @@ public:
         foreach (QObject *o, ol) {
             store(map, examined, o);
         }
+*/
     }
 
+/*
     Node store(ObjectNodeMap &map, ObjectSet &examined, QObject *o);
+*/
 
     void addStoreCallback(StoreCallback *cb) {
         m_storeCallbacks.push_back(cb);
@@ -183,6 +223,131 @@ private:
     QList<StoreCallback *> m_storeCallbacks;
     QString m_parentProp;
     QString m_followProp;
+
+    void collect(StoreState &state) {
+        
+        QObjectList candidates = state.requested;
+        ObjectSet visited;
+
+        // Avoid ever pushing null (if returned as absence case) as a
+        // future candidate by marking it as used already
+
+        visited << 0;
+
+        // Use counter to iterate, so that when additional elements
+        // pushed onto the end of state.desired will be iterated over
+
+        for (int i = 0; i < candidates.size(); ++i) {
+
+            QObject *obj = candidates[i];
+
+            visited << obj;
+
+            if (!state.map.contains(obj) || state.map.value(obj) == Node()) {
+
+                state.toAllocate.insert(obj);
+                state.toStore.insert(obj);
+
+            } else if (i < state.requested.size()) {
+
+                // This is one of the requested objects, which were at
+                // the start of the candidates list.  It didn't hit
+                // the previous test so it already has a node, but we
+                // still need to store it as requested
+
+                state.toStore.insert(obj);
+            }
+
+            QObjectList relatives;
+
+            if (m_fp & FollowParent) {
+                relatives << obj->parent();
+            }
+            if (m_fp & FollowChildren) {
+                relatives << obj->children();
+            }
+            if (m_fp & FollowSiblings) {
+                if (obj->parent()) {
+                    relatives << obj->parent()->children();
+                }
+            }
+            if (m_fp & FollowObjectProperties) {
+                relatives << propertyObjectsOf(obj);
+            }
+
+            foreach (QObject *r, relatives) {
+                if (!visited.contains(r)) {
+                    candidates << r;
+                }
+            }
+        }
+
+        DEBUG << "ObjectStorer: collect: "
+              << "requested = " << state.requested.size()
+              << ", toAllocate = " << state.toAllocate.size()
+              << ", toPopulate = " << state.toPopulate.size()
+              << endl;
+
+        DEBUG << "Requested:";
+        foreach (QObject *obj, state.requested) DEBUG << obj;
+
+        DEBUG << "toAllocate:";
+        foreach (QObject *obj, state.toAllocate) DEBUG << obj;
+
+        DEBUG << "toPopulate:";
+        foreach (QObject *obj, state.toPopulate) DEBUG << obj;
+
+        DEBUG << endl;
+    }
+
+    QObjectList objectsOf(QVariant v) {
+        
+        QObjectList objects;
+
+        const char *typeName = QMetaType::typeName(v.userType());
+        if (!typeName) return objects;
+
+        if (m_cb->canExtractContainer(typeName)) {
+
+            QVariantList list = m_cb->extractContainer(typeName, v);
+            
+            foreach (QVariant member, list) {
+                objects << objectsOf(member);
+            }
+            
+        } else if (m_ob->canExtract(typeName)) {
+
+            QObject *obj = m_ob->extract(typeName, v);
+            if (obj) objects << obj;
+        }
+
+        return objects;
+    }
+
+    QObjectList propertyObjectsOf(QObject *o) {
+        
+        QObjectList pobjects;
+
+        QString cname = o->metaObject()->className();
+
+        for (int i = 0; i < o->metaObject()->propertyCount(); ++i) {
+
+            QMetaProperty property = o->metaObject()->property(i);
+
+            if (!property.isStored() ||
+                !property.isReadable()) {
+                continue;
+            }
+
+            QString pname = property.name();
+            QByteArray pnba = pname.toLocal8Bit();
+
+            if (pname == "uri") continue;
+
+            QVariant v = o->property(pnba.data());
+            if (v != QVariant()) pobjects << objectsOf(v);
+        }
+    }
 
     bool isStarType(const char *) const;
     bool variantsEqual(const QVariant &, const QVariant &) const;
