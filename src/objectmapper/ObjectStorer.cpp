@@ -53,6 +53,23 @@ class ObjectStorer::D
     typedef QSet<QObject *> ObjectSet;
 
 public:
+    struct StoreState {
+        
+        StoreState() { }
+
+        /// Objects the customer has explicitly asked to store
+        QObjectList requested;
+
+        /// Objects needing URIs allocated
+        ObjectSet toAllocate;
+        
+        /// Objects whose properties have not yet been stored
+        ObjectSet toStore;
+
+        /// All known object-node correspondences, to be updated as we go
+        ObjectNodeMap map;
+    };
+
     D(ObjectStorer *m, Store *s) :
         m_m(m),
         m_ob(ObjectBuilder::getInstance()),
@@ -61,6 +78,7 @@ public:
         m_psp(StoreAlways),
         m_bp(PermitBlankObjectNodes),
         m_fp(FollowNone) {
+        updatePropertyNames();
     }
 
     Store *getStore() {
@@ -69,6 +87,7 @@ public:
 
     void setTypeMapping(const TypeMapping &tm) {
 	m_tm = tm;
+        updatePropertyNames();
     }
 
     const TypeMapping &getTypeMapping() const {
@@ -107,6 +126,11 @@ public:
             }
         }
         m_s->remove(Triple(Node(), Node(), n));
+    }
+
+    void updatePropertyNames() {
+        m_parentProp = m_tm.getRelationshipPrefix().toString() + "parent";
+        m_followProp = m_tm.getRelationshipPrefix().toString() + "follows";
     }
 
     Uri store(QObject *o, ObjectNodeMap &map) {
@@ -157,6 +181,8 @@ private:
     BlankNodePolicy m_bp;
     FollowPolicy m_fp;
     QList<StoreCallback *> m_storeCallbacks;
+    QString m_parentProp;
+    QString m_followProp;
 
     bool isStarType(const char *) const;
     bool variantsEqual(const QVariant &, const QVariant &) const;
@@ -567,14 +593,12 @@ ObjectStorer::D::store(ObjectNodeMap &map, ObjectSet &examined, QObject *o)
     DEBUG << "ObjectStorer::store: Object " << o << " has node " << node << endl;
     
     QObject *parent = o->parent();
-    Uri parentUri(m_tm.getRelationshipPrefix().toString() + "parent");
-    Uri followsUri(m_tm.getRelationshipPrefix().toString() + "follows");
 
     if (!parent) {
 
         DEBUG << "ObjectStorer::store: Node " << node << " has no parent" << endl;
     
-        m_s->remove(Triple(node, parentUri, Node()));
+        m_s->remove(Triple(node, m_parentProp, Node()));
 
     } else {
 
@@ -593,7 +617,7 @@ ObjectStorer::D::store(ObjectNodeMap &map, ObjectSet &examined, QObject *o)
         Node pn = map.value(parent);
         if (pn != Node()) {
 
-            replacePropertyNodes(node, parentUri, pn);
+            replacePropertyNodes(node, Uri(m_parentProp), pn);
 
             // write (references to) siblings (they wouldn't be
             // meaningful if the parent was absent)
@@ -656,7 +680,7 @@ ObjectStorer::D::store(ObjectNodeMap &map, ObjectSet &examined, QObject *o)
                 Node sn = map.value(previous);
                 if (sn != Node()) {
                     DEBUG << "ObjectStorer::store: Node " << node << " has previous sibling " << sn << endl;
-                    replacePropertyNodes(node, followsUri, sn);
+                    replacePropertyNodes(node, Uri(m_followProp), sn);
                 } else {
                     DEBUG << "ObjectStorer::store: Previous sibling of node " << node << " is not to be written" << endl;
                     if (m_fp & FollowSiblings) {
@@ -667,7 +691,7 @@ ObjectStorer::D::store(ObjectNodeMap &map, ObjectSet &examined, QObject *o)
             } else {
                 // no previous sibling
                 DEBUG << "ObjectStorer::store: Node " << node << " is first child" << endl;
-                m_s->remove(Triple(node, followsUri, Node()));
+                m_s->remove(Triple(node, m_followProp, Node()));
             }
         } else {
             // no parent node
@@ -703,9 +727,9 @@ ObjectStorer::D::store(ObjectNodeMap &map, ObjectSet &examined, QObject *o)
             DEBUG << "store: FollowChildren is set, wrote child " << cn << " of " << node << endl;
             if (previous) {
                 Node prevNode = map.value(previous);
-                replacePropertyNodes(cn, followsUri, prevNode);
+                replacePropertyNodes(cn, Uri(m_followProp), prevNode);
             } else {
-                m_s->remove(Triple(cn, followsUri, Node()));
+                m_s->remove(Triple(cn, m_followProp, Node()));
             }
             previous = c;
         }
