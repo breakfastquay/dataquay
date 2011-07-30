@@ -563,6 +563,8 @@ ObjectStorer::D::store(ObjectNodeMap &map, ObjectSet &examined, QObject *o)
     }
 
     Node node = storeSingle(map, examined, o);
+
+    DEBUG << "ObjectStorer::store: Object " << o << " has node " << node << endl;
     
     QObject *parent = o->parent();
     Uri parentUri(m_tm.getRelationshipPrefix().toString() + "parent");
@@ -570,13 +572,15 @@ ObjectStorer::D::store(ObjectNodeMap &map, ObjectSet &examined, QObject *o)
 
     if (!parent) {
 
+        DEBUG << "ObjectStorer::store: Node " << node << " has no parent" << endl;
+    
         m_s->remove(Triple(node, parentUri, Node()));
 
     } else {
 
         if (m_fp & FollowParent) {
             if (!examined.contains(parent)) {
-                DEBUG << "store: FollowParent is set, writing parent of " << node << endl;
+                DEBUG << "ObjectStorer::store: FollowParent is set, writing parent of " << node << endl;
                 store(map, examined, parent);
             }
         } else if (map.contains(parent) && map.value(parent) == Node()) {
@@ -638,6 +642,8 @@ ObjectStorer::D::store(ObjectNodeMap &map, ObjectSet &examined, QObject *o)
                 // FollowSiblings is set, it will have been written in the
                 // all-siblings loop above
 
+                DEBUG << "ObjectStorer::store: Node " << node << " has previous sibling object " << previous << endl;
+
                 if (!(m_fp & FollowSiblings)) {
                     if (map.contains(previous) && map.value(previous) == Node()) {
                         // previous is to be written at some point: bring it
@@ -649,8 +655,10 @@ ObjectStorer::D::store(ObjectNodeMap &map, ObjectSet &examined, QObject *o)
 
                 Node sn = map.value(previous);
                 if (sn != Node()) {
+                    DEBUG << "ObjectStorer::store: Node " << node << " has previous sibling " << sn << endl;
                     replacePropertyNodes(node, followsUri, sn);
                 } else {
+                    DEBUG << "ObjectStorer::store: Previous sibling of node " << node << " is not to be written" << endl;
                     if (m_fp & FollowSiblings) {
                         std::cerr << "Internal error: FollowSiblings set, but previous sibling has not been written" << std::endl;
                     }
@@ -658,10 +666,12 @@ ObjectStorer::D::store(ObjectNodeMap &map, ObjectSet &examined, QObject *o)
 
             } else {
                 // no previous sibling
+                DEBUG << "ObjectStorer::store: Node " << node << " is first child" << endl;
                 m_s->remove(Triple(node, followsUri, Node()));
             }
         } else {
             // no parent node
+            DEBUG << "ObjectStorer::store: Parent of node " << node << " is not to be written" << endl;
             if (m_fp & FollowParent) {
                 std::cerr << "Internal error: FollowParent set, but parent has not been written" << std::endl;
             }
