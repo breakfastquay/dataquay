@@ -135,10 +135,11 @@ public:
 
     Uri store(QObject *o, ObjectNodeMap &map) {
 
-        if (!map.contains(o)) {
-            // ensure blank node not used for this object       
-            map.insert(o, Node());
-        }
+        //!!! what is the right way to do this?
+//        if (!map.contains(o)) {
+//            // ensure blank node not used for this object       
+//            map.insert(o, Node());
+//        }
 
         StoreState state;
         state.requested << o;
@@ -347,6 +348,8 @@ private:
             QVariant v = o->property(pnba.data());
             if (v != QVariant()) pobjects << objectsOf(v);
         }
+
+        return pobjects;
     }
 
     void store(StoreState &state) {
@@ -780,7 +783,7 @@ ObjectStorer::D::store(StoreState &state, QObject *o)
         }
     }
 
-    if (m_fp & FollowSiblings) {
+    if (parent && (m_fp & FollowSiblings)) {
             
         QObjectList siblings = parent->children();
 
@@ -837,10 +840,11 @@ ObjectStorer::D::allocate(StoreState &state, QObject *o)
     if (uri != Uri()) {
         node = Node(uri);
         state.map.insert(o, node);
+        state.toAllocate.remove(o);
         return;
     }
 
-    if (!state.map.contains(o) && m_bp == PermitBlankObjectNodes) {
+    if (!state.requested.contains(o) && m_bp == PermitBlankObjectNodes) {
 
         node = m_s->addBlankNode();
 
@@ -860,6 +864,7 @@ ObjectStorer::D::allocate(StoreState &state, QObject *o)
     }
 
     state.map.insert(o, node);
+    state.toAllocate.remove(o);
 }
 
 Node
