@@ -1799,13 +1799,14 @@ testObjectMapper()
         cerr << "Wrong number of C-type nodes in store (found " << test.size() << ", expected 3)" << endl;
         return false;
     }
+/*!!! not a good test -- storer can legitimately make a URI for the C-node in the circular reference test (because it's a circular reference!)
     foreach (Triple t, test) {
         if (t.a.type != Node::Blank) {
             cerr << "C-type node in store is not expected blank node" << endl;
             return false;
         }
     }
-
+*/
     // We should be able to do a more sophisticated query to ensure
     // the relationships are right:
     try {
@@ -1877,9 +1878,20 @@ testObjectMapper()
     mapper.add(c1);
     mapper.add(c2);
 
-    Node n = mapper.getNodeForObject(c);
+    // This next test depends on the object in question (c1 or
+    // whatever) being one which has been stored with a blank node
+    // only, previously, so has no URI -- if it had a URI already,
+    // this will return a valid node
+    Node n = mapper.getNodeForObject(a1);
     if (n != Node()) {
-        cerr << "ObjectMapper returns non-nil Node for managed object prior to commit" << endl;
+        cerr << "ObjectMapper returns non-nil Node " << n << " for managed object prior to commit" << endl;
+        return false;
+    }
+
+    // Let's put the above remark to the test
+    n = mapper.getNodeForObject(a);
+    if (n == Node()) {
+        cerr << "ObjectMapper returns nil Node " << n << " for managed object with known URI, prior to commit" << endl;
         return false;
     }
 

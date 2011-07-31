@@ -66,6 +66,9 @@ public:
         /// Objects whose properties have not yet been stored
         ObjectSet toStore;
 
+        /// Objects for which blank nodes shouldn't be used regardless of policy
+        ObjectSet noBlanks;
+
         /// All known object-node correspondences, to be updated as we go
         ObjectNodeMap map;
     };
@@ -135,17 +138,14 @@ public:
 
     Uri store(QObject *o, ObjectNodeMap &map) {
 
-        //!!! what is the right way to do this?
-//        if (!map.contains(o)) {
-//            // ensure blank node not used for this object       
-//            map.insert(o, Node());
-//        }
-
         StoreState state;
         state.requested << o;
+        state.map = map;
 
         collect(state);
         store(state);
+
+        map = state.map;
 
         Node node = state.map.value(o);
 
@@ -158,24 +158,6 @@ public:
         } else {
             return Uri(node.value);
         }
-
-/*
-        ObjectSet examined;
-        if (!map.contains(o)) {
-            // ensure blank node not used for this object       
-            map.insert(o, Node());
-        }
-        Node node = store(map, examined, o);
-        if (node.type != Node::URI) {
-            // This shouldn't happen (see above)
-            DEBUG << "ObjectStorer::store: Stored object node "
-                  << node << " is not a URI node" << endl;
-            std::cerr << "WARNING: ObjectStorer::store: No URI for stored object!" << std::endl;
-            return Uri();
-        } else {
-            return Uri(node.value);
-        }
-*/
     }
 
     void store(QObjectList ol, ObjectNodeMap &map) {
@@ -188,25 +170,7 @@ public:
         store(state);
 
         map = state.map;
-
-/*
-        ObjectSet examined;
-        int n = ol.size(), i = 0;
-        foreach (QObject *o, ol) {
-            if (!map.contains(o)) {
-                // ensure blank node not used for this object            
-                map.insert(o, Node());
-            }
-        }
-        foreach (QObject *o, ol) {
-            store(map, examined, o);
-        }
-*/
     }
-
-/*
-    Node store(ObjectNodeMap &map, ObjectSet &examined, QObject *o);
-*/
 
     void addStoreCallback(StoreCallback *cb) {
         m_storeCallbacks.push_back(cb);
@@ -228,6 +192,7 @@ private:
     void collect(StoreState &state) {
 
         QObjectList candidates = state.requested;
+        state.noBlanks = ObjectSet::fromList(candidates);
         ObjectSet visited;
 
         // Avoid ever pushing null (if returned as absence case) as a
@@ -278,12 +243,22 @@ private:
 
             foreach (QObject *r, relatives) {
                 if (!visited.contains(r)) {
+                    DEBUG << "ObjectStorer::collect: relative " << r 
+                          << " is new, listing it as candidate" << endl;
                     candidates << r;
+                } else {
+                    // We've seen this one before.  If we see any
+                    // object more than once by different routes, that
+                    // implies that we can't use a blank node for it
+                    DEBUG << "ObjectStorer::collect: relative " << r 
+                          << " has been seen more than once,"
+                          << " ensuring it doesn't get a blank node" << endl;
+                    state.noBlanks << r;
                 }
             }
         }
 
-        DEBUG << "ObjectStorer: collect: "
+        DEBUG << "ObjectStorer::collect: "
               << "requested = " << state.requested.size()
               << ", toAllocate = " << state.toAllocate.size()
               << ", toStore = " << state.toStore.size()
@@ -377,11 +352,11 @@ private:
     bool isStarType(const char *) const;
     bool variantsEqual(const QVariant &, const QVariant &) const;
     Uri getUriFrom(QObject *o) const;
-    bool isListHead(Node n) const;
+    bool isListNode(Node n) const;
 
     void allocate(StoreState &state, QObject *o);
     void store(StoreState &state, QObject *o);
-    Node storeSingle(StoreState &state, QObject *o);
+    void storeSingle(StoreState &state, QObject *o, Node node);
 
     void callStoreCallbacks(StoreState &state, QObject *o);
     void storeProperties(StoreState &state, QObject *o, Node node);
@@ -502,7 +477,7 @@ ObjectStorer::D::storeProperties(StoreState &state, QObject *o, Node node)
         }
 
         if (store) {
-            DEBUG << "For object " << node.value << " (" << o << ") writing property " << pname << " of type " << property.userType() << endl;
+            DEBUG << "For object " << node << " (" << o << ") writing property " << pname << " of type " << property.userType() << endl;
         }
 
         Uri puri;
@@ -527,10 +502,15 @@ ObjectStorer::D::removePropertyNodes(Node node, Uri propertyUri, QSet<Node> *ret
 {
     Triple t(node, propertyUri, Node());
     Triples m(m_s->match(t));
+    DEBUG << "removePropertyNodes: Node " << node << " and property "
+          << propertyUri << " yields " << m.size() << " matching triples"
+          << endl;
     foreach (t, m) {
         if (retain && retain->contains(t.c)) {
+            DEBUG << "...retaining " << t.c << endl;
             retain->remove(t.c);
         } else {
+            DEBUG << "...removing " << t.c << endl;
             m_s->remove(t);
             if (t.c == node) continue;
             // If this is a blank node, or if it is a node only used
@@ -540,7 +520,7 @@ ObjectStorer::D::removePropertyNodes(Node node, Uri propertyUri, QSet<Node> *ret
             // list properties correctly with NeverUseBlankNodes
             if (t.c.type == Node::Blank) {
                 removeUnusedNode(t.c);
-            } else if (isListHead(t.c)) {
+            } else if (isListNode(t.c)) {
                 removeUnusedNode(t.c);
             }
         }
@@ -548,13 +528,13 @@ ObjectStorer::D::removePropertyNodes(Node node, Uri propertyUri, QSet<Node> *ret
 }
 
 bool
-ObjectStorer::D::isListHead(Node n) const
+ObjectStorer::D::isListNode(Node n) const
 {
     Triples ts = m_s->match(Triple(n, Node(), Node()));
 
-    bool isHead = false;
+    bool isList = false;
 
-    DEBUG << "isListHead: Testing node " << n << endl;
+    DEBUG << "isListNode: Testing node " << n << endl;
 
     // A list head should have only rdf:first and rdf:rest properties
     if (ts.size() == 2) {
@@ -562,13 +542,13 @@ ObjectStorer::D::isListHead(Node n) const
         Node rest = m_s->expand("rdf:rest");
         if ((ts[0].b == first || ts[1].b == rest) ||
             (ts[0].b == rest || ts[1].b == first)) {
-            isHead = true;
+            isList = true;
         }
     }
 
-    DEBUG << "isListHead: isHead = " << isHead << endl;
+    DEBUG << "isListNode: isList = " << isList << endl;
 
-    return isHead;
+    return isList;
 }
 
 void
@@ -606,6 +586,8 @@ ObjectStorer::D::removeUnusedNode(Node node)
 
     if (m_s->matchFirst(Triple(Node(), Node(), node)) != Triple()) {
         // The node is still a target of some predicate, leave it alone
+        DEBUG << "removeUnusedNode: Blank or list node " << node
+              << " is still a target for another predicate, leaving" << endl;
         return;
     }
 
@@ -760,7 +742,14 @@ ObjectStorer::D::store(StoreState &state, QObject *o)
 
     if (!state.toStore.contains(o)) return;
 
-    Node node = storeSingle(state, o);
+    Node node = state.map.value(o);
+    if (node == Node()) {
+        // We don't allocate any nodes here -- that happened already
+        DEBUG << "ObjectStorer::store: Strange -- object " << o << " has no node, why wasn't it allocated?" << endl;
+        return;
+    }
+
+    storeSingle(state, o, node);
 
     DEBUG << "ObjectStorer::store: Object " << o << " has node " << node << endl;
 
@@ -834,19 +823,25 @@ ObjectStorer::D::allocate(StoreState &state, QObject *o)
 
     //!!! too many of these tests, some must be redundant
     Node node = state.map.value(o);
-    if (node != Node()) return;
+    if (node != Node()) {
+        DEBUG << "allocate: object " << o << " already has node " << node << endl;
+        return;
+    }
 
     Uri uri = getUriFrom(o);
     if (uri != Uri()) {
         node = Node(uri);
         state.map.insert(o, node);
         state.toAllocate.remove(o);
+        DEBUG << "allocate: object " << o << " has known uri " << uri << endl;
         return;
     }
 
-    if (!state.requested.contains(o) && m_bp == PermitBlankObjectNodes) {
+    if (m_bp == PermitBlankObjectNodes && !state.noBlanks.contains(o)) {
 
         node = m_s->addBlankNode();
+
+        DEBUG << "allocate: object " << o << " being given new blank node " << node << endl;
 
     } else {
         QString className = o->metaObject()->className();
@@ -861,31 +856,21 @@ ObjectStorer::D::allocate(StoreState &state, QObject *o)
         Uri uri = m_s->getUniqueUri(prefix.toString());
         o->setProperty("uri", QVariant::fromValue(uri));
         node = uri;
+
+        DEBUG << "allocate: object " << o << " being given new URI " << uri << endl;
     }
 
     state.map.insert(o, node);
     state.toAllocate.remove(o);
 }
 
-Node
-ObjectStorer::D::storeSingle(StoreState &state, QObject *o)
+void
+ObjectStorer::D::storeSingle(StoreState &state, QObject *o, Node node)
 {
-    Node node = state.map.value(o);
-
-    // We don't allocate any nodes here -- that happened already
-    if (node == Node()) return node;
-
-    if (!state.toStore.contains(o)) {
-        return node;
-    }
-
     QString className = o->metaObject()->className();
     m_s->add(Triple(node, "a", m_tm.synthesiseTypeUriForClass(className)));
-
     storeProperties(state, o, node);
-
     state.toStore.remove(o);
-    return node;
 }
 
 void
