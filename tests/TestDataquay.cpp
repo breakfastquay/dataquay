@@ -1690,7 +1690,7 @@ testObjectMapper()
 */
 
     store.save("test-object-mapper-2.ttl");
-
+    
     // We should have:
     //
     // - one object with URI, one property, of type:QObject
@@ -1787,12 +1787,14 @@ testObjectMapper()
         cerr << "Wrong number of B-type nodes in store (found " << test.size() << ", expected 4)" << endl;
         return false;
     }
+/*!!! not a good test -- one of the Bs ("b") will be given a URI because it's a top-level node rather than a property
     foreach (Triple t, test) {
         if (t.a.type != Node::Blank) {
             cerr << "B-type node in store is not expected blank node" << endl;
             return false;
         }
     }
+*/
 
     test = store.match(Triple(Node(), "a", store.expand("type:C")));
     if (test.size() != 3) {
@@ -1848,6 +1850,7 @@ testObjectMapper()
 
     {
 
+    store.clear();
     TransactionalStore ts(&store);
 
     ObjectMapper mapper(&ts);

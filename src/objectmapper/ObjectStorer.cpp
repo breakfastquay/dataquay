@@ -237,15 +237,24 @@ private:
                     relatives << obj->parent()->children();
                 }
             }
-            if (m_fp & FollowObjectProperties) {
-                relatives << propertyObjectsOf(obj);
-            }
 
             foreach (QObject *r, relatives) {
+
                 if (!visited.contains(r)) {
+
                     DEBUG << "ObjectStorer::collect: relative " << r 
                           << " is new, listing it as candidate" << endl;
                     candidates << r;
+
+                    // Although (in PermitBlankObjectNodes mode) we
+                    // technically can use blank nodes for objects
+                    // that are not referred to as properties but are
+                    // accessible through the object tree, the result
+                    // can be rather counterintuitive -- it means we
+                    // end up with spare-looking blank nodes at top
+                    // level.  Best avoided.
+                    state.noBlanks << r;
+
                 } else {
                     // We've seen this one before.  If we see any
                     // object more than once by different routes, that
@@ -256,8 +265,30 @@ private:
                     state.noBlanks << r;
                 }
             }
-        }
 
+            if (m_fp & FollowObjectProperties) {
+
+                QObjectList properties = propertyObjectsOf(obj);
+
+                foreach (QObject *p, properties) {
+
+                    if (!visited.contains(p)) {
+
+                        DEBUG << "ObjectStorer::collect: property " << p 
+                              << " is new, listing it as candidate" << endl;
+                        candidates << p;
+                        
+                    } else {
+                        // We've seen this one before (as above)
+                        DEBUG << "ObjectStorer::collect: property " << p 
+                              << " has been seen more than once,"
+                              << " ensuring it doesn't get a blank node" << endl;
+                        state.noBlanks << p;
+                    }
+                }
+            }
+        }
+        
         DEBUG << "ObjectStorer::collect: "
               << "requested = " << state.requested.size()
               << ", toAllocate = " << state.toAllocate.size()
