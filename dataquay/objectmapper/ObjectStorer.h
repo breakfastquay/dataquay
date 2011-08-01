@@ -110,12 +110,15 @@ public:
     /**
      * ObjectNodeMap contains a record of the RDF node used for each
      * object.  This can be filled in a call to store() and passed to
-     * subsequent calls in order to hasten lookup and avoid
-     * unnecessary repeated stores.
+     * subsequent calls in order to hasten lookup, avoid unnecessary
+     * repeated stores, and ensure consistency for generated URIs.
      * 
      * Note that, although ObjectStorer places the URI of each object
      * in its uri property, certain objects may be written using blank
      * nodes -- those nodes can only be retrieved through this map.
+     *
+     * The caller is responsible for ensuring that any objects
+     * subsequently deleted are also removed from this map.
      */
     typedef QHash<QObject *, Node> ObjectNodeMap;
 
@@ -186,26 +189,32 @@ public:
      * Set the policy used to determine whether to give an object a
      * URI or use a blank node for it.
      *
-     * If NeverUseBlankNodes or NoBlankObjectNodes, all objects
-     * written will be given URIs.  These will be drawn from the
-     * object's uri property if it exists and is of Dataquay::Uri
-     * type, or else invented uniquely based on the object's class
-     * name.  If NeverUseBlankNodes, blank nodes will not be used for
-     * list nodes either.
+     * If BlankNodesAsNeeded (the default), objects will be given
+     * blank nodes if it appears to ObjectStorer that they do not need
+     * URIs.  In practice this means that objects which are referred
+     * to because they are properties of other objects and which do
+     * not appear elsewhere in the list of objects being stored, do
+     * not have an existing uri property, and do not have a URI node
+     * allocated in an ObjectNodeMap passed to the store method, will
+     * be assigned blank nodes.
      *
-     * If BlankNodesAsNeeded, objects will be given blank nodes if it
-     * appears to ObjectStorer that they do not need URIs.  In
-     * practice this means that objects which are referred to because
-     * they are properties of other objects and which do not appear
-     * elsewhere in the list of objects being stored, do not have an
-     * existing uri property, and do not have a URI node allocated in
-     * an ObjectNodeMap passed to the store method, will be assigned
-     * blank nodes.
+     * If NoBlankObjectNodes, all objects written will be given URIs.
+     * These will be drawn from the object's uri property if it exists
+     * and is of Dataquay::Uri type, or else invented uniquely based
+     * on the object's class name.
      * 
-     * If you would prefer ObjectStorer not to use a blank node for a
-     * specific object, you can assign a URI in advance by setting a
-     * Dataquay::Uri to its "uri" property (either a declared property
-     * or a user property).
+     * If NeverUseBlankNodes, the ObjectStorer will never generate a
+     * blank node -- all objects written will be given URIs, and list
+     * nodes will be given URIs generated from those of their
+     * contents.  With this setting, an object graph written twice
+     * using the same object-node map will produce identical RDF
+     * graphs.
+     *!!! ^^^ write a unit test for this, and ensure that it is true
+     *
+     * If you are using BlankNodesAsNeeded but would prefer
+     * ObjectStorer not to use a blank node for a specific object, you
+     * can assign a URI in advance by setting a Dataquay::Uri to its
+     * "uri" property (either a declared property or a user property).
      *
      * Note that if a blank node is used for an object, there will be
      * no way to retrieve that node through the object (no equivalent
@@ -261,11 +270,6 @@ public:
      *
      * If the policy has FollowChildren set, then where an object has
      * QObject children, those children will also be written.
-     *
-     * Note that it is not generally a good idea to set both
-     * FollowChildren and FollowSiblings if you have FollowParent set,
-     * as this gives multiple paths to related objects.  (For this
-     * reason, there is no "FollowAll" flag.)
      */
     void setFollowPolicy(FollowPolicy policy);
     FollowPolicy getFollowPolicy() const;
