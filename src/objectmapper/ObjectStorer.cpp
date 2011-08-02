@@ -752,14 +752,17 @@ ObjectStorer::D::listToPropertyNode(StoreState &state, QVariantList list)
         if (first == Node()) first = node;
 
         if (previous != Node()) {
+            m_s->remove(Triple(previous, "rdf:rest", Node()));
             m_s->add(Triple(previous, "rdf:rest", node));
         }
 
+        m_s->remove(Triple(node, "rdf:first", Node()));
         m_s->add(Triple(node, "rdf:first", pnode));
         previous = node;
     }
 
     if (node != Node()) {
+        m_s->remove(Triple(node, "rdf:rest", Node()));
         m_s->add(Triple(node, "rdf:rest", m_s->expand("rdf:nil")));
     }
 
@@ -792,18 +795,18 @@ ObjectStorer::D::store(StoreState &state, QObject *o)
     
     QObject *parent = o->parent();
 
-    if (!parent) {
-        DEBUG << "ObjectStorer::store: Node " << node
-              << " has no parent" << endl;
-        m_s->remove(Triple(node, m_parentProp, Node()));
-    } else {
+    if (parent) {
         Node pn = state.map.value(parent);
         if (pn != Node()) {
             replacePropertyNodes(node, Uri(m_parentProp), pn);
         }
+    } else {
+        DEBUG << "ObjectStorer::store: Node " << node
+              << " has no parent" << endl;
+        m_s->remove(Triple(node, m_parentProp, Node()));
     }
 
-    if (parent && (m_fp & FollowSiblings)) {
+    if (parent) {
             
         QObjectList siblings = parent->children();
 
@@ -822,24 +825,31 @@ ObjectStorer::D::store(StoreState &state, QObject *o)
         if (previous) {
 
             DEBUG << "ObjectStorer::store: Node " << node
-                  << " has previous sibling object " << previous << endl;
+                  << " follows sibling object " << previous << endl;
 
             Node sn = state.map.value(previous);
 
             if (sn != Node()) {
 
                 DEBUG << "ObjectStorer::store: Node " << node
-                      << " has previous sibling " << sn << endl;
+                      << " follows sibling " << sn << endl;
                 replacePropertyNodes(node, Uri(m_followProp), sn);
 
             } else {
-                std::cerr << "Internal error: FollowSiblings set, but previous sibling has not been allocated" << std::endl;
+                // previous sibling has no node
+                if (m_fp & FollowSiblings) {
+                    std::cerr << "Internal error: FollowSiblings set, but previous sibling has not been allocated" << std::endl;
+                } else {
+                    DEBUG << "ObjectStorer::store: Node " << node 
+                          << " follows sibling object " << previous
+                          << " that is not to be written" << endl;
+                }
             }
 
         } else {
             // no previous sibling
             DEBUG << "ObjectStorer::store: Node " << node
-                  << " is first child" << endl;
+                  << " is first child, follows nothing" << endl;
             m_s->remove(Triple(node, m_followProp, Node()));
         }
     }
