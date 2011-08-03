@@ -558,11 +558,11 @@ private:
             Nodes siblings = orderedSiblingsOf(node);
             foreach (Node s, siblings) {
                 //!!! Hmm. Do we want to recurse to children of siblings if FollowChildren is set? Trouble is we don't want to recurse to siblings of siblings (that would lead to a cycle)
-                loadSingle(state, s, parentObject);
+                allocateSingle(state, s, parentObject);
             }
         }
 
-        QObject *o = loadSingle(state, node, parentObject);
+        QObject *o = allocateSingle(state, node, parentObject);
 
         if (state.toInitialise.contains(node)) {
             initialise(state, node);
@@ -576,15 +576,14 @@ private:
         }
     }
 
-    QObject *loadSingle(LoadState &state, Node node) {
+    QObject *allocateSingle(LoadState &state, Node node) {
         QObject *parentObject = parentObjectOf(state, node);
-        return loadSingle(state, node, parentObject);
+        return allocateSingle(state, node, parentObject);
     }
 
-    //!!! not the best name for this function perhaps
-    QObject *loadSingle(LoadState &state, Node node, QObject *parentObject) {
+    QObject *allocateSingle(LoadState &state, Node node, QObject *parentObject) {
 
-        DEBUG << "loadSingle: " << node << " (parent = " << parentObject << ")" << endl;
+        DEBUG << "allocateSingle: " << node << " (parent = " << parentObject << ")" << endl;
 
         //!!! too many of these tests, some must be redundant
         if (!state.toAllocate.contains(node)) {
@@ -909,7 +908,7 @@ ObjectLoader::D::propertyNodeToObject(LoadState &state, Node pnode)
     QObject *o = 0;
 
     if (pnode.type == Node::URI || pnode.type == Node::Blank) {
-        o = loadSingle(state, pnode);
+        o = allocateSingle(state, pnode);
     } else {
         DEBUG << "Not an object node, ignoring" << endl;
     }

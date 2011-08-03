@@ -168,14 +168,14 @@ public:
 
     void setTypeMapping(const TypeMapping &);
     const TypeMapping &getTypeMapping() const;
-    
+
+    //!!! document this (after ObjectStorer) -- or pull it into ObjectMapperDefs
     enum FollowOption {
         FollowNone             = 0, // the default
         FollowObjectProperties = 1,
         FollowParent           = 2,
         FollowSiblings         = 4,
         FollowChildren         = 8
-        // there is no FollowAll; it generally isn't a good idea
     };
     typedef int FollowPolicy;
 

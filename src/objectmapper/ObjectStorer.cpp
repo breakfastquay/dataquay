@@ -53,6 +53,26 @@ class ObjectStorer::D
     typedef QSet<QObject *> ObjectSet;
 
 public:
+    struct StoreState {
+        
+        StoreState() { }
+
+        /// Objects the customer has explicitly asked to store
+        QObjectList requested;
+
+        /// Objects needing URIs allocated
+        ObjectSet toAllocate;
+        
+        /// Objects whose properties have not yet been stored
+        ObjectSet toStore;
+
+        /// Objects for which blank nodes shouldn't be used regardless of policy
+        ObjectSet noBlanks;
+
+        /// All known object-node correspondences, to be updated as we go
+        ObjectNodeMap map;
+    };
+
     D(ObjectStorer *m, Store *s) :
         m_m(m),
         m_ob(ObjectBuilder::getInstance()),
@@ -61,6 +81,7 @@ public:
         m_psp(StoreAlways),
         m_bp(PermitBlankObjectNodes),
         m_fp(FollowNone) {
+        updatePropertyNames();
     }
 
     Store *getStore() {
@@ -69,6 +90,7 @@ public:
 
     void setTypeMapping(const TypeMapping &tm) {
 	m_tm = tm;
+        updatePropertyNames();
     }
 
     const TypeMapping &getTypeMapping() const {
@@ -99,6 +121,11 @@ public:
         return m_fp;
     }
 
+    void updatePropertyNames() {
+        m_parentProp = m_tm.getRelationshipPrefix().toString() + "parent";
+        m_followProp = m_tm.getRelationshipPrefix().toString() + "follows";
+    }
+
     void removeObject(Node n) {
         Triples triples = m_s->match(Triple(n, Node(), Node()));
         foreach (Triple t, triples) {
@@ -110,12 +137,18 @@ public:
     }
 
     Uri store(QObject *o, ObjectNodeMap &map) {
-        ObjectSet examined;
-        if (!map.contains(o)) {
-            // ensure blank node not used for this object       
-            map.insert(o, Node());
-        }
-        Node node = store(map, examined, o);
+
+        StoreState state;
+        state.requested << o;
+        state.map = map;
+
+        collect(state);
+        store(state);
+
+        map = state.map;
+
+        Node node = state.map.value(o);
+
         if (node.type != Node::URI) {
             // This shouldn't happen (see above)
             DEBUG << "ObjectStorer::store: Stored object node "
@@ -128,20 +161,16 @@ public:
     }
 
     void store(QObjectList ol, ObjectNodeMap &map) {
-        ObjectSet examined;
-        int n = ol.size(), i = 0;
-        foreach (QObject *o, ol) {
-            if (!map.contains(o)) {
-                // ensure blank node not used for this object            
-                map.insert(o, Node());
-            }
-        }
-        foreach (QObject *o, ol) {
-            store(map, examined, o);
-        }
-    }
 
-    Node store(ObjectNodeMap &map, ObjectSet &examined, QObject *o);
+        StoreState state;
+        state.requested = ol;
+        state.map = map;
+
+        collect(state);
+        store(state);
+
+        map = state.map;
+    }
 
     void addStoreCallback(StoreCallback *cb) {
         m_storeCallbacks.push_back(cb);
@@ -157,25 +186,218 @@ private:
     BlankNodePolicy m_bp;
     FollowPolicy m_fp;
     QList<StoreCallback *> m_storeCallbacks;
+    QString m_parentProp;
+    QString m_followProp;
+
+    void collect(StoreState &state) {
+
+        QObjectList candidates = state.requested;
+        state.noBlanks = ObjectSet::fromList(candidates);
+        ObjectSet visited;
+
+        // Avoid ever pushing null (if returned as absence case) as a
+        // future candidate by marking it as used already
+
+        visited << 0;
+
+        // Use counter to iterate, so that when additional elements
+        // pushed onto the end of state.desired will be iterated over
+
+        for (int i = 0; i < candidates.size(); ++i) {
+
+            QObject *obj = candidates[i];
+
+            visited << obj;
+
+            if (!state.map.contains(obj) || state.map.value(obj) == Node()) {
+
+                state.toAllocate.insert(obj);
+                state.toStore.insert(obj);
+
+            } else if (i < state.requested.size()) {
+
+                // This is one of the requested objects, which were at
+                // the start of the candidates list.  It didn't hit
+                // the previous test so it already has a node, but we
+                // still need to store it as requested
+
+                state.toStore.insert(obj);
+            }
+
+            QObjectList relatives;
+
+            if (m_fp & FollowParent) {
+                relatives << obj->parent();
+            }
+            if (m_fp & FollowChildren) {
+                relatives << obj->children();
+            }
+            if (m_fp & FollowSiblings) {
+                if (obj->parent()) {
+                    relatives << obj->parent()->children();
+                }
+            }
+
+            foreach (QObject *r, relatives) {
+
+                if (!visited.contains(r)) {
+
+                    DEBUG << "ObjectStorer::collect: relative " << r 
+                          << " is new, listing it as candidate" << endl;
+                    candidates << r;
+
+                    // Although (in PermitBlankObjectNodes mode) we
+                    // technically can use blank nodes for objects
+                    // that are not referred to as properties but are
+                    // accessible through the object tree, the result
+                    // can be rather counterintuitive -- it means we
+                    // end up with spare-looking blank nodes at top
+                    // level.  Best avoided.
+                    state.noBlanks << r;
+
+                } else {
+                    // We've seen this one before.  If we see any
+                    // object more than once by different routes, that
+                    // implies that we can't use a blank node for it
+                    DEBUG << "ObjectStorer::collect: relative " << r 
+                          << " has been seen more than once,"
+                          << " ensuring it doesn't get a blank node" << endl;
+                    state.noBlanks << r;
+                }
+            }
+
+            if (m_fp & FollowObjectProperties) {
+
+                QObjectList properties = propertyObjectsOf(obj);
+
+                foreach (QObject *p, properties) {
+
+                    if (!visited.contains(p)) {
+
+                        DEBUG << "ObjectStorer::collect: property " << p 
+                              << " is new, listing it as candidate" << endl;
+                        candidates << p;
+                        
+                    } else {
+                        // We've seen this one before (as above)
+                        DEBUG << "ObjectStorer::collect: property " << p 
+                              << " has been seen more than once,"
+                              << " ensuring it doesn't get a blank node" << endl;
+                        state.noBlanks << p;
+                    }
+                }
+            }
+        }
+        
+        DEBUG << "ObjectStorer::collect: "
+              << "requested = " << state.requested.size()
+              << ", toAllocate = " << state.toAllocate.size()
+              << ", toStore = " << state.toStore.size()
+              << endl;
+
+        DEBUG << "Requested:";
+        foreach (QObject *obj, state.requested) DEBUG << obj;
+
+        DEBUG << "toAllocate:";
+        foreach (QObject *obj, state.toAllocate) DEBUG << obj;
+
+        DEBUG << "toStore:";
+        foreach (QObject *obj, state.toStore) DEBUG << obj;
+
+        DEBUG << endl;
+    }
+
+    QObjectList objectsOf(QVariant v) {
+        
+        QObjectList objects;
+
+        const char *typeName = QMetaType::typeName(v.userType());
+        if (!typeName) return objects;
+
+        if (m_cb->canExtractContainer(typeName)) {
+
+            QVariantList list = m_cb->extractContainer(typeName, v);
+            
+            foreach (QVariant member, list) {
+                objects << objectsOf(member);
+            }
+            
+        } else if (m_ob->canExtract(typeName)) {
+
+            QObject *obj = m_ob->extract(typeName, v);
+            if (obj) objects << obj;
+        }
+
+        return objects;
+    }
+
+    QObjectList propertyObjectsOf(QObject *o) {
+        
+        QObjectList pobjects;
+
+        QString cname = o->metaObject()->className();
+
+        for (int i = 0; i < o->metaObject()->propertyCount(); ++i) {
+
+            QMetaProperty property = o->metaObject()->property(i);
+
+            if (!property.isStored() ||
+                !property.isReadable()) {
+                continue;
+            }
+
+            QString pname = property.name();
+            QByteArray pnba = pname.toLocal8Bit();
+
+            if (pname == "uri") continue;
+
+            QVariant v = o->property(pnba.data());
+            if (v != QVariant()) pobjects << objectsOf(v);
+        }
+
+        return pobjects;
+    }
+
+    void store(StoreState &state) {
+
+        foreach (QObject *obj, state.toAllocate) {
+            DEBUG << "store: calling allocate(" << obj << ")" << endl;
+            allocate(state, obj);//!!! can this fail, as it can in loader?
+        }
+
+        // store() removes from state.toStore, so we need to make a
+        // note of the original set for calling load callbacks
+        ObjectSet ts = state.toStore;
+
+        foreach (QObject *obj, ts) {
+            DEBUG << "store: calling store(" << obj << ")" << endl;
+            store(state, obj);
+        }
+
+        foreach (QObject *obj, ts) {
+            DEBUG << "store: calling callStoreCallbacks(" << obj << ")" << endl;
+            callStoreCallbacks(state, obj);
+        }
+    }
 
     bool isStarType(const char *) const;
     bool variantsEqual(const QVariant &, const QVariant &) const;
     Uri getUriFrom(QObject *o) const;
-    bool isListHead(Node n) const;
+    bool isListNode(Node n) const;
 
-    Node allocateNode(ObjectNodeMap &map, QObject *o);
-    Node storeSingle(ObjectNodeMap &map, ObjectSet &examined, QObject *o);
+    void allocate(StoreState &state, QObject *o);
+    void store(StoreState &state, QObject *o);
+    void storeSingle(StoreState &state, QObject *o, Node node);
 
-    void callStoreCallbacks(ObjectNodeMap &map, QObject *o, Node node);
-
-    void storeProperties(ObjectNodeMap &map, ObjectSet &examined, QObject *o, Node node);
+    void callStoreCallbacks(StoreState &state, QObject *o);
+    void storeProperties(StoreState &state, QObject *o, Node node);
     void removeUnusedNode(Node node);
     void removePropertyNodes(Node node, Uri propertyUri, QSet<Node> *retain = 0);
     void replacePropertyNodes(Node node, Uri propertyUri, Node newValue);
     void replacePropertyNodes(Node node, Uri propertyUri, Nodes newValues);
-    Nodes variantToPropertyNodeList(ObjectNodeMap &map, ObjectSet &examined, QVariant v);
-    Node objectToPropertyNode(ObjectNodeMap &map, ObjectSet &examined, QObject *o);
-    Node listToPropertyNode(ObjectNodeMap &map, ObjectSet &examined, QVariantList list);
+    Nodes variantToPropertyNodeList(StoreState &state, QVariant v);
+    Node objectToPropertyNode(StoreState &state, QObject *o);
+    Node listToPropertyNode(StoreState &state, QVariantList list);
 };
 
 bool
@@ -243,7 +465,7 @@ ObjectStorer::D::getUriFrom(QObject *o) const
 }
 
 void
-ObjectStorer::D::storeProperties(ObjectNodeMap &map, ObjectSet &examined, QObject *o, Node node)
+ObjectStorer::D::storeProperties(StoreState &state, QObject *o, Node node)
 {
     QString cname = o->metaObject()->className();
     PropertyObject po(m_s, m_tm.getPropertyPrefix().toString(), node);
@@ -286,7 +508,7 @@ ObjectStorer::D::storeProperties(ObjectNodeMap &map, ObjectSet &examined, QObjec
         }
 
         if (store) {
-            DEBUG << "For object " << node.value << " (" << o << ") writing property " << pname << " of type " << property.userType() << endl;
+            DEBUG << "For object " << node << " (" << o << ") writing property " << pname << " of type " << property.userType() << endl;
         }
 
         Uri puri;
@@ -296,7 +518,7 @@ ObjectStorer::D::storeProperties(ObjectNodeMap &map, ObjectSet &examined, QObjec
 
         if (store) {
 
-            Nodes pnodes = variantToPropertyNodeList(map, examined, value);
+            Nodes pnodes = variantToPropertyNodeList(state, value);
             replacePropertyNodes(node, puri, pnodes);
 
         } else {
@@ -311,10 +533,15 @@ ObjectStorer::D::removePropertyNodes(Node node, Uri propertyUri, QSet<Node> *ret
 {
     Triple t(node, propertyUri, Node());
     Triples m(m_s->match(t));
+    DEBUG << "removePropertyNodes: Node " << node << " and property "
+          << propertyUri << " yields " << m.size() << " matching triples"
+          << endl;
     foreach (t, m) {
         if (retain && retain->contains(t.c)) {
+            DEBUG << "...retaining " << t.c << endl;
             retain->remove(t.c);
         } else {
+            DEBUG << "...removing " << t.c << endl;
             m_s->remove(t);
             if (t.c == node) continue;
             // If this is a blank node, or if it is a node only used
@@ -324,7 +551,7 @@ ObjectStorer::D::removePropertyNodes(Node node, Uri propertyUri, QSet<Node> *ret
             // list properties correctly with NeverUseBlankNodes
             if (t.c.type == Node::Blank) {
                 removeUnusedNode(t.c);
-            } else if (isListHead(t.c)) {
+            } else if (isListNode(t.c)) {
                 removeUnusedNode(t.c);
             }
         }
@@ -332,13 +559,13 @@ ObjectStorer::D::removePropertyNodes(Node node, Uri propertyUri, QSet<Node> *ret
 }
 
 bool
-ObjectStorer::D::isListHead(Node n) const
+ObjectStorer::D::isListNode(Node n) const
 {
     Triples ts = m_s->match(Triple(n, Node(), Node()));
 
-    bool isHead = false;
+    bool isList = false;
 
-    DEBUG << "isListHead: Testing node " << n << endl;
+    DEBUG << "isListNode: Testing node " << n << endl;
 
     // A list head should have only rdf:first and rdf:rest properties
     if (ts.size() == 2) {
@@ -346,13 +573,13 @@ ObjectStorer::D::isListHead(Node n) const
         Node rest = m_s->expand("rdf:rest");
         if ((ts[0].b == first || ts[1].b == rest) ||
             (ts[0].b == rest || ts[1].b == first)) {
-            isHead = true;
+            isList = true;
         }
     }
 
-    DEBUG << "isListHead: isHead = " << isHead << endl;
+    DEBUG << "isListNode: isList = " << isList << endl;
 
-    return isHead;
+    return isList;
 }
 
 void
@@ -390,6 +617,8 @@ ObjectStorer::D::removeUnusedNode(Node node)
 
     if (m_s->matchFirst(Triple(Node(), Node(), node)) != Triple()) {
         // The node is still a target of some predicate, leave it alone
+        DEBUG << "removeUnusedNode: Blank or list node " << node
+              << " is still a target for another predicate, leaving" << endl;
         return;
     }
 
@@ -411,7 +640,7 @@ ObjectStorer::D::removeUnusedNode(Node node)
 }
 
 Nodes
-ObjectStorer::D::variantToPropertyNodeList(ObjectNodeMap &map, ObjectSet &examined, QVariant v)
+ObjectStorer::D::variantToPropertyNodeList(StoreState &state, QVariant v)
 {
     const char *typeName = QMetaType::typeName(v.userType());
     Nodes nodes;
@@ -429,12 +658,12 @@ ObjectStorer::D::variantToPropertyNodeList(ObjectNodeMap &map, ObjectSet &examin
         ContainerBuilder::ContainerKind k = m_cb->getContainerKind(typeName);
 
         if (k == ContainerBuilder::SequenceKind) {
-            Node node = listToPropertyNode(map, examined, list);
+            Node node = listToPropertyNode(state, list);
             if (node != Node()) nodes << node;
                 
         } else if (k == ContainerBuilder::SetKind) {
             foreach (QVariant member, list) {
-                nodes += variantToPropertyNodeList(map, examined, member);
+                nodes += variantToPropertyNodeList(state, member);
             }
         }
             
@@ -442,7 +671,7 @@ ObjectStorer::D::variantToPropertyNodeList(ObjectNodeMap &map, ObjectSet &examin
 
         QObject *obj = m_ob->extract(typeName, v);
         if (obj) {
-            Node n = objectToPropertyNode(map, examined, obj);
+            Node n = objectToPropertyNode(state, obj);
             if (n != Node()) nodes << n;
         } else {
             DEBUG << "variantToPropertyNodeList: Note: obtained NULL object from variant" << endl;
@@ -465,29 +694,14 @@ ObjectStorer::D::variantToPropertyNodeList(ObjectNodeMap &map, ObjectSet &examin
 }
 
 Node
-ObjectStorer::D::objectToPropertyNode(ObjectNodeMap &map, ObjectSet &examined, QObject *o)
+ObjectStorer::D::objectToPropertyNode(StoreState &state, QObject *o)
 {
     Node pnode;
 
-    DEBUG << "objectToPropertyNode: " << o << ", follow = " << (m_fp & FollowObjectProperties) << endl;
+    DEBUG << "objectToPropertyNode: " << o << endl;
 
-    // -> our policy for parent is:
-    //  - if we have FollowParent set, write parent always
-    //  - otherwise, if the parent is in the map but with no node
-    //    assigned, write it
-    //  - otherwise, if there is a node for the parent in the map,
-    //    write the reference to it (using that node) without rewriting
-    //  - otherwise, do not write a reference
-    // -> This seems sensible for properties too?
-
-    if (m_fp & FollowObjectProperties) {
-        DEBUG << "objectToPropertyNode: FollowObjectProperties is set, writing object" << endl;
-        if (!examined.contains(o)) {
-            store(map, examined, o);
-        }
-    } else if (map.contains(o) && map.value(o) == Node()) {
-        DEBUG << "objectToPropertyNode: Object has not been written yet, writing it" << endl;
-        store(map, examined, o);
+    if (state.map.contains(o) && state.map.value(o) != Node()) {
+        pnode = state.map.value(o);
     } else {
         // if the object is not intended to be stored, but it has a
         // URI, we should nonetheless write a reference to that -- but
@@ -499,12 +713,11 @@ ObjectStorer::D::objectToPropertyNode(ObjectNodeMap &map, ObjectSet &examined, Q
         }
     }
 
-    pnode = map.value(o);
     return pnode;
 }
 
 Node
-ObjectStorer::D::listToPropertyNode(ObjectNodeMap &map, ObjectSet &examined, QVariantList list)
+ObjectStorer::D::listToPropertyNode(StoreState &state, QVariantList list)
 {
     DEBUG << "listToPropertyNode: have " << list.size() << " items" << endl;
 
@@ -512,7 +725,7 @@ ObjectStorer::D::listToPropertyNode(ObjectNodeMap &map, ObjectSet &examined, QVa
 
     foreach (QVariant v, list) {
 
-        Nodes pnodes = variantToPropertyNodeList(map, examined, v);
+        Nodes pnodes = variantToPropertyNodeList(state, v);
         if (pnodes.empty()) {
             std::cerr << "WARNING: ObjectStorer::listToPropertyNode: Obtained nil Node in list" << std::endl;
             continue;
@@ -539,201 +752,137 @@ ObjectStorer::D::listToPropertyNode(ObjectNodeMap &map, ObjectSet &examined, QVa
         if (first == Node()) first = node;
 
         if (previous != Node()) {
+            m_s->remove(Triple(previous, "rdf:rest", Node()));
             m_s->add(Triple(previous, "rdf:rest", node));
         }
 
+        m_s->remove(Triple(node, "rdf:first", Node()));
         m_s->add(Triple(node, "rdf:first", pnode));
         previous = node;
     }
 
     if (node != Node()) {
+        m_s->remove(Triple(node, "rdf:rest", Node()));
         m_s->add(Triple(node, "rdf:rest", m_s->expand("rdf:nil")));
     }
 
     return first;
 }
 
-Node
-ObjectStorer::D::store(ObjectNodeMap &map, ObjectSet &examined, QObject *o)
+void
+ObjectStorer::D::store(StoreState &state, QObject *o)
 {
     DEBUG << "ObjectStorer::store: Examining " << o << endl;
 
-    if (m_fp != FollowNone) {
-        examined.insert(o);
+    if (!state.toStore.contains(o)) return;
+
+    Node node = state.map.value(o);
+    if (node == Node()) {
+        // We don't allocate any nodes here -- that happened already
+        DEBUG << "ObjectStorer::store: Strange -- object " << o << " has no node, why wasn't it allocated?" << endl;
+        return;
     }
 
-    Node node = storeSingle(map, examined, o);
+    storeSingle(state, o, node);
 
     DEBUG << "ObjectStorer::store: Object " << o << " has node " << node << endl;
+
+    // If we have a parent with a node, write a parent property; if we
+    // are following siblings, we need to write a follow property to
+    // the prior sibling.  We don't need to worry about actually
+    // storing the sibling, parents or children -- they will already
+    // be in the toStore list if we're supposed to be storing them
     
     QObject *parent = o->parent();
-    Uri parentUri(m_tm.getRelationshipPrefix().toString() + "parent");
-    Uri followsUri(m_tm.getRelationshipPrefix().toString() + "follows");
 
-    if (!parent) {
-
-        DEBUG << "ObjectStorer::store: Node " << node << " has no parent" << endl;
-    
-        m_s->remove(Triple(node, parentUri, Node()));
-
-    } else {
-
-        if (m_fp & FollowParent) {
-            if (!examined.contains(parent)) {
-                DEBUG << "ObjectStorer::store: FollowParent is set, writing parent of " << node << endl;
-                store(map, examined, parent);
-            }
-        } else if (map.contains(parent) && map.value(parent) == Node()) {
-            // parent is to be written at some point: bring it forward
-            // so we have a uri to refer to now
-            DEBUG << "store: Parent of " << node << " has not been written yet, writing it" << endl;
-            store(map, examined, parent);
-        }
-
-        Node pn = map.value(parent);
+    if (parent) {
+        Node pn = state.map.value(parent);
         if (pn != Node()) {
-
-            replacePropertyNodes(node, parentUri, pn);
-
-            // write (references to) siblings (they wouldn't be
-            // meaningful if the parent was absent)
-
-            QObjectList siblings = parent->children();
-
-            if (m_fp & FollowSiblings) {
-                // Mark the siblings we are about to recurse to as
-                // examined, so that they don't then attempt to
-                // recurse to one another (which could run us out of
-                // stack).  Also allocate nodes for them now in case
-                // they need to be referred to before we get around to
-                // storing them (e.g. if a later sibling is required
-                // as a parent of a property of an earlier one).
-                // Store in toFollow the ones we will need to recurse
-                // to.
-                QObjectList toFollow; // list, not set: order matters
-                foreach (QObject *s, siblings) {
-                    if (!examined.contains(s)) {
-                        toFollow.push_back(s);
-                        allocateNode(map, s);
-                        examined.insert(s);
-                    }
-                }
-                foreach (QObject *s, toFollow) {
-                    DEBUG << "store: FollowSiblings is set, writing sibling of " << node << endl;
-                    store(map, examined, s);
-                }
-            }
-        
-            // find previous sibling
-
-            QObject *previous = 0;
-            for (int i = 0; i < siblings.size(); ++i) {
-                if (siblings[i] == o) {
-                    if (i > 0) {
-                        previous = siblings[i-1];
-                    }
-                    break;
-                }
-            }
-
-            if (previous) {
-                // we have to write a reference to the previous sibling, but
-                // we don't necessarily have to write the sibling itself -- if
-                // FollowSiblings is set, it will have been written in the
-                // all-siblings loop above
-
-                DEBUG << "ObjectStorer::store: Node " << node << " has previous sibling object " << previous << endl;
-
-                if (!(m_fp & FollowSiblings)) {
-                    if (map.contains(previous) && map.value(previous) == Node()) {
-                        // previous is to be written at some point: bring it
-                        // forward so we have a uri to refer to now
-                        DEBUG << "store: Previous sibling of " << node << " has not been written yet, writing it" << endl;
-                        store(map, examined, previous);
-                    }
-                }
-
-                Node sn = map.value(previous);
-                if (sn != Node()) {
-                    DEBUG << "ObjectStorer::store: Node " << node << " has previous sibling " << sn << endl;
-                    replacePropertyNodes(node, followsUri, sn);
-                } else {
-                    DEBUG << "ObjectStorer::store: Previous sibling of node " << node << " is not to be written" << endl;
-                    if (m_fp & FollowSiblings) {
-                        std::cerr << "Internal error: FollowSiblings set, but previous sibling has not been written" << std::endl;
-                    }
-                }
-
-            } else {
-                // no previous sibling
-                DEBUG << "ObjectStorer::store: Node " << node << " is first child" << endl;
-                m_s->remove(Triple(node, followsUri, Node()));
-            }
-        } else {
-            // no parent node
-            DEBUG << "ObjectStorer::store: Parent of node " << node << " is not to be written" << endl;
-            if (m_fp & FollowParent) {
-                std::cerr << "Internal error: FollowParent set, but parent has not been written" << std::endl;
-            }
+            replacePropertyNodes(node, Uri(m_parentProp), pn);
         }
+    } else {
+        DEBUG << "ObjectStorer::store: Node " << node
+              << " has no parent" << endl;
+        m_s->remove(Triple(node, m_parentProp, Node()));
     }
 
-    if (m_fp & FollowChildren) {
-        // Mark the children we are about to recurse to as examined,
-        // so that they don't then attempt to recurse to one another
-        // as siblings (which could run us out of stack).  Also
-        // allocate nodes for them now in case they need to be
-        // referred to before we get around to storing them (e.g. if a
-        // later child is required as a parent of a property of an
-        // earlier one).  Store in toFollow the ones we will need to
-        // recurse to.
-        QObjectList children = o->children();
-        QObjectList toFollow; // list, not set: order matters
-        foreach (QObject *c, children) {
-            if (!examined.contains(c)) {
-                toFollow.push_back(c);
-                allocateNode(map, c);
-                examined.insert(c);
+    if (parent) {
+            
+        QObjectList siblings = parent->children();
+
+        // find previous sibling (laboriously)
+
+        QObject *previous = 0;
+        for (int i = 0; i < siblings.size(); ++i) {
+            if (siblings[i] == o) {
+                if (i > 0) {
+                    previous = siblings[i-1];
+                }
+                break;
             }
         }
-        QObject *previous = 0;
-        foreach (QObject *c, toFollow) {
-            store(map, examined, c);
-            Node cn = map.value(c);
-            DEBUG << "store: FollowChildren is set, wrote child " << cn << " of " << node << endl;
-            if (previous) {
-                Node prevNode = map.value(previous);
-                replacePropertyNodes(cn, followsUri, prevNode);
+        
+        if (previous) {
+
+            DEBUG << "ObjectStorer::store: Node " << node
+                  << " follows sibling object " << previous << endl;
+
+            Node sn = state.map.value(previous);
+
+            if (sn != Node()) {
+
+                DEBUG << "ObjectStorer::store: Node " << node
+                      << " follows sibling " << sn << endl;
+                replacePropertyNodes(node, Uri(m_followProp), sn);
+
             } else {
-                m_s->remove(Triple(cn, followsUri, Node()));
+                // previous sibling has no node
+                if (m_fp & FollowSiblings) {
+                    std::cerr << "Internal error: FollowSiblings set, but previous sibling has not been allocated" << std::endl;
+                } else {
+                    DEBUG << "ObjectStorer::store: Node " << node 
+                          << " follows sibling object " << previous
+                          << " that is not to be written" << endl;
+                }
             }
-            previous = c;
+
+        } else {
+            // no previous sibling
+            DEBUG << "ObjectStorer::store: Node " << node
+                  << " is first child, follows nothing" << endl;
+            m_s->remove(Triple(node, m_followProp, Node()));
         }
     }
 
     DEBUG << "store: Finished with " << o << endl;
-
-    return node;
 }
 
-Node
-ObjectStorer::D::allocateNode(ObjectNodeMap &map, QObject *o)
+void
+ObjectStorer::D::allocate(StoreState &state, QObject *o)
 {
-    DEBUG << "allocateNode " << o << endl;
+    DEBUG << "allocate " << o << endl;
 
-    Node node = map.value(o);
-    if (node != Node()) return node;
+    //!!! too many of these tests, some must be redundant
+    Node node = state.map.value(o);
+    if (node != Node()) {
+        DEBUG << "allocate: object " << o << " already has node " << node << endl;
+        return;
+    }
 
     Uri uri = getUriFrom(o);
     if (uri != Uri()) {
         node = Node(uri);
-        map.insert(o, node);
-        return node;
+        state.map.insert(o, node);
+        state.toAllocate.remove(o);
+        DEBUG << "allocate: object " << o << " has known uri " << uri << endl;
+        return;
     }
 
-    if (!map.contains(o) && m_bp == PermitBlankObjectNodes) {
+    if (m_bp == PermitBlankObjectNodes && !state.noBlanks.contains(o)) {
 
         node = m_s->addBlankNode();
+
+        DEBUG << "allocate: object " << o << " being given new blank node " << node << endl;
 
     } else {
         QString className = o->metaObject()->className();
@@ -748,39 +897,29 @@ ObjectStorer::D::allocateNode(ObjectNodeMap &map, QObject *o)
         Uri uri = m_s->getUniqueUri(prefix.toString());
         o->setProperty("uri", QVariant::fromValue(uri));
         node = uri;
+
+        DEBUG << "allocate: object " << o << " being given new URI " << uri << endl;
     }
 
-    map.insert(o, node);
-
-    return node;
-}
-
-Node
-ObjectStorer::D::storeSingle(ObjectNodeMap &map, ObjectSet &examined, QObject *o)
-{
-    // This function should only be called when we know we want to
-    // store an object -- all conditions have been satisfied.
-
-    Node node = map.value(o);
-    if (node == Node()) {
-        node = allocateNode(map, o);
-    }
-
-    QString className = o->metaObject()->className();
-    m_s->add(Triple(node, "a", m_tm.synthesiseTypeUriForClass(className)));
-
-    storeProperties(map, examined, o, node);
-
-    callStoreCallbacks(map, o, node);
-
-    return node;
+    state.map.insert(o, node);
+    state.toAllocate.remove(o);
 }
 
 void
-ObjectStorer::D::callStoreCallbacks(ObjectNodeMap &map, QObject *o, Node node)
+ObjectStorer::D::storeSingle(StoreState &state, QObject *o, Node node)
 {
+    QString className = o->metaObject()->className();
+    m_s->add(Triple(node, "a", m_tm.synthesiseTypeUriForClass(className)));
+    storeProperties(state, o, node);
+    state.toStore.remove(o);
+}
+
+void
+ObjectStorer::D::callStoreCallbacks(StoreState &state, QObject *o)
+{
+    Node node = state.map.value(o);
     foreach (StoreCallback *cb, m_storeCallbacks) {
-        cb->stored(m_m, map, o, node);
+        cb->stored(m_m, state.map, o, node);
     }
 }
 

@@ -1690,7 +1690,7 @@ testObjectMapper()
 */
 
     store.save("test-object-mapper-2.ttl");
-
+    
     // We should have:
     //
     // - one object with URI, one property, of type:QObject
@@ -1787,25 +1787,28 @@ testObjectMapper()
         cerr << "Wrong number of B-type nodes in store (found " << test.size() << ", expected 4)" << endl;
         return false;
     }
+/*!!! not a good test -- one of the Bs ("b") will be given a URI because it's a top-level node rather than a property
     foreach (Triple t, test) {
         if (t.a.type != Node::Blank) {
             cerr << "B-type node in store is not expected blank node" << endl;
             return false;
         }
     }
+*/
 
     test = store.match(Triple(Node(), "a", store.expand("type:C")));
     if (test.size() != 3) {
         cerr << "Wrong number of C-type nodes in store (found " << test.size() << ", expected 3)" << endl;
         return false;
     }
+/*!!! not a good test -- storer can legitimately make a URI for the C-node in the circular reference test (because it's a circular reference!)
     foreach (Triple t, test) {
         if (t.a.type != Node::Blank) {
             cerr << "C-type node in store is not expected blank node" << endl;
             return false;
         }
     }
-
+*/
     // We should be able to do a more sophisticated query to ensure
     // the relationships are right:
     try {
@@ -1847,6 +1850,7 @@ testObjectMapper()
 
     {
 
+    store.clear();
     TransactionalStore ts(&store);
 
     ObjectMapper mapper(&ts);
@@ -1877,9 +1881,20 @@ testObjectMapper()
     mapper.add(c1);
     mapper.add(c2);
 
-    Node n = mapper.getNodeForObject(c);
+    // This next test depends on the object in question (c1 or
+    // whatever) being one which has been stored with a blank node
+    // only, previously, so has no URI -- if it had a URI already,
+    // this will return a valid node
+    Node n = mapper.getNodeForObject(a1);
     if (n != Node()) {
-        cerr << "ObjectMapper returns non-nil Node for managed object prior to commit" << endl;
+        cerr << "ObjectMapper returns non-nil Node " << n << " for managed object prior to commit" << endl;
+        return false;
+    }
+
+    // Let's put the above remark to the test
+    n = mapper.getNodeForObject(a);
+    if (n == Node()) {
+        cerr << "ObjectMapper returns nil Node " << n << " for managed object with known URI, prior to commit" << endl;
         return false;
     }
 
