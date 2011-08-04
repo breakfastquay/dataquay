@@ -436,11 +436,14 @@ private:
         // children; if some or all are missing, we still need to
         // return the right number of children -- they just won't
         // actually be ordered
-        NodeSet remaining = NodeSet::fromList(childrenOf(node));
-        Triple t = m_s->matchFirst(Triple(Node(), m_parentProp, node));
-        Nodes ordered = orderedSiblingsOf(t.a);
+        Nodes children = childrenOf(node);
+        if (children.empty()) return children;
+        NodeSet remaining = NodeSet::fromList(children);
+        Nodes ordered = orderedSiblingsOf(children[0]);
         remaining.subtract(NodeSet::fromList(ordered));
         foreach (Node n, remaining) ordered.push_back(n);
+        DEBUG << "orderedChildrenOf: Node " << node << " has " << ordered.size()
+              << " children: " << ordered << endl;
         return ordered;
     }
         
@@ -507,6 +510,10 @@ private:
                 }
             }
         }
+
+        // allocate() also calls initialise(), because we want the
+        // initialise to happen before children are added to a node --
+        // this is just belt and braces
         foreach (Node node, state.toInitialise) {
             DEBUG << "load: calling initialise(" << node << ")" << endl;
             initialise(state, node);
@@ -565,6 +572,7 @@ private:
         QObject *o = allocateSingle(state, node, parentObject);
 
         if (state.toInitialise.contains(node)) {
+            DEBUG << "load: calling initialise(" << node << ") from allocate" << endl;
             initialise(state, node);
         }
 
