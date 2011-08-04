@@ -806,7 +806,9 @@ ObjectStorer::D::store(StoreState &state, QObject *o)
         m_s->remove(Triple(node, m_parentProp, Node()));
     }
 
-    if (parent) {
+    bool followsWritten = false;
+
+    if (parent && (m_fp & FollowSiblings)) {
             
         QObjectList siblings = parent->children();
 
@@ -834,24 +836,21 @@ ObjectStorer::D::store(StoreState &state, QObject *o)
                 DEBUG << "ObjectStorer::store: Node " << node
                       << " follows sibling " << sn << endl;
                 replacePropertyNodes(node, Uri(m_followProp), sn);
+                followsWritten = true;
 
             } else {
                 // previous sibling has no node
-                if (m_fp & FollowSiblings) {
-                    std::cerr << "Internal error: FollowSiblings set, but previous sibling has not been allocated" << std::endl;
-                } else {
-                    DEBUG << "ObjectStorer::store: Node " << node 
-                          << " follows sibling object " << previous
-                          << " that is not to be written" << endl;
-                }
+                std::cerr << "Internal error: FollowSiblings set, but previous sibling has not been allocated" << std::endl;
             }
-
         } else {
             // no previous sibling
             DEBUG << "ObjectStorer::store: Node " << node
                   << " is first child, follows nothing" << endl;
-            m_s->remove(Triple(node, m_followProp, Node()));
         }
+    }
+
+    if (!followsWritten) {
+        m_s->remove(Triple(node, m_followProp, Node()));
     }
 
     DEBUG << "store: Finished with " << o << endl;
