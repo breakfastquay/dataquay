@@ -75,8 +75,9 @@ public:
     QString getNewString() const {
         QString s =
             QString::fromLocal8Bit
-            (QCryptographicHash::hash(QString("%1").arg(random()).toLocal8Bit(),
-                                      QCryptographicHash::Sha1).toHex())
+            (QCryptographicHash::hash
+             (QString("%1").arg(random() + time(0)).toLocal8Bit(),
+              QCryptographicHash::Sha1).toHex())
             .left(12);
         // This may be used as the whole of a name in some contexts,
         // so it must not start with a digit
