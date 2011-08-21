@@ -259,6 +259,8 @@ public:
      *
      * Note that the order of nodes in the returned list is arbitrary
      * and may change from one call to the next.
+     *
+     *!!! NB this is misnamed -- this looks up a set rather than a list
      */
     Nodes getPropertyNodeList(Transaction *tx, QString name) const;
 

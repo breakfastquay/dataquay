@@ -37,11 +37,13 @@
 #include "objectmapper/ObjectMapperForwarder.h"
 #include "objectmapper/ObjectLoader.h"
 #include "objectmapper/ObjectStorer.h"
+#include "objectmapper/ContainerBuilder.h"
 
 #include "objectmapper/TypeMapping.h"
 
 #include "TransactionalStore.h"
 #include "Connection.h"
+#include "PropertyObject.h"
 
 #include "../Debug.h"
 
@@ -64,6 +66,8 @@ ObjectMapper::D : public QObject
 
         ObjectLoader::NodeObjectMap nodeObjectMap;
         ObjectStorer::ObjectNodeMap objectNodeMap;
+
+        ObjectLoader::NodeObjectMap listNodeObjectMap;
         
         Node getNodeForObject(QObject *o) {
             ObjectStorer::ObjectNodeMap::const_iterator i =
@@ -240,8 +244,79 @@ public:
         ObjectMapperForwarder *f = new ObjectMapperForwarder(m_m, o);
         m_forwarders.insert(o, f);
 
-        m_n.objectNodeMap.insert(o, Node(uri));
-        m_n.nodeObjectMap.insert(Node(uri), o);
+        addObjectToNetwork(o, Node(uri));
+    }
+
+    void addObjectToNetwork(QObject *o, Node n) {
+
+        m_n.objectNodeMap.insert(o, n);
+        m_n.nodeObjectMap.insert(n, o);
+
+        // If our object has list properties, then we (sadly) need to
+        // associate all of the list nodes with the object as well in
+        // order to ensure that it gets reloaded if the list tail
+        // changes (i.e. if something in the list changes but its head
+        // node does not).  Quite a subtle problem that has rather sad
+        // efficiency implications.
+        addListNodesFor(o, n);
+    }
+
+    void addListNodesFor(QObject *o, Node n) {
+            
+        ContainerBuilder *cb = ContainerBuilder::getInstance();
+        
+        for (int i = 0; i < o->metaObject()->propertyCount(); ++i) {
+            
+            QMetaProperty property = o->metaObject()->property(i);
+            
+            if (!property.isStored() ||
+                !property.isReadable()) {
+                continue;
+            }
+            
+            if (!cb->canExtractContainer(property.typeName())) {
+                continue;
+            }
+
+            addListNodesForProperty(o, n, property);
+        }
+    }
+
+    void addListNodesForProperty(QObject *o, Node n,
+                                 const QMetaProperty &property) {
+        
+        //!!! todo: write a unit test!
+
+        QString cname = o->metaObject()->className();
+        QString pname = property.name();
+        Uri puri;
+            
+        if (!m_tm.getPropertyUri(cname, pname, puri)) {
+            PropertyObject po(m_s, m_tm.getPropertyPrefix().toString(), n);
+            puri = po.getPropertyUri(pname);
+        }
+
+        //!!! should be matching all, surely?
+        Node itr = m_s->matchFirst(Triple(n, puri, Node())).c;
+        if (itr == Node()) return; // property has no values
+        
+        Node nil = m_s->expand("rdf:nil");
+
+        while (1) {
+            Node next = m_s->matchFirst(Triple(itr, "rdf:rest", Node())).c;
+            if (next == Node()) { // This is not a list node at all!
+                DEBUG << "addListNodesForProperty: Strange, node " << itr
+                      << " is not a list node " << o << endl;
+                break;
+            }
+            m_n.listNodeObjectMap[itr] = o;
+            DEBUG << "addListNodesForProperty: Added node " << itr
+                  << " for object " << o << endl;
+            if (next == nil) { // we've finished
+                break;
+            }
+            itr = next;
+        }
     }
 
     void manage(QObjectList ol) {
@@ -331,7 +406,6 @@ public:
         m_inReload = true;
         DEBUG << "ObjectMapper: Synchronising from " << cs.size()
               << " change(s) in transaction" << endl;
-        //!!! reload objects
 
         DEBUG << "ObjectMapper: before sync, node-object map contains:" << endl;
         for (ObjectLoader::NodeObjectMap::iterator i = m_n.nodeObjectMap.begin();
@@ -357,13 +431,20 @@ public:
         //!!! something like ObjectLoader::reload() handle deleting
         //!!! objects that have been removed from store
 
-        // If an object's node appears as the "subject" of a
-        // predicate, then we should reload that object.  What if it
-        // appears as the "object"?  Do we ever need to reload then?
-        // I don't think so...
+        // If an object's node appears as the subject of a change
+        // predicate, then we should reload that object.  (What if it
+        // appears as the object?  Do we ever need to reload then?  I
+        // don't think so...)
         foreach (const Change &c, cs) {
-            m_reloading.insert(c.second.a);
+            if (m_n.nodeObjectMap.contains(c.second.a)) {
+                m_reloading.insert(c.second.a);
+            }
         }
+
+        // If the subject of a change predicate is a list node for a
+        // property of an object, then we should reload that object
+        // too.
+
         Nodes nodes;
         foreach (const Node &n, m_reloading) {
             nodes.push_back(n);

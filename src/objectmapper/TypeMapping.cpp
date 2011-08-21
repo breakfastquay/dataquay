@@ -81,7 +81,7 @@ public:
         m_typeRMap[className] = uri;
     }
 
-    bool getTypeUriForClass(QString className, Uri &uri) {
+    bool getTypeUriForClass(QString className, Uri &uri) const {
 	QHash<QString, Uri>::const_iterator i = m_typeRMap.find(className);
 	if (i != m_typeRMap.end()) {
 	    uri = *i;
@@ -90,7 +90,7 @@ public:
 	return false;
     }
 
-    bool getClassForTypeUri(Uri typeUri, QString &className) {
+    bool getClassForTypeUri(Uri typeUri, QString &className) const {
 	QHash<Uri, QString>::const_iterator i = m_typeMap.find(typeUri);
 	if (i != m_typeMap.end()) {
 	    className = *i;
@@ -99,7 +99,7 @@ public:
 	return false;
     }
 
-    QString synthesiseClassForTypeUri(Uri typeUri) {
+    QString synthesiseClassForTypeUri(Uri typeUri) const {
         QString s;
         if (getClassForTypeUri(typeUri, s)) {
             return s;
@@ -113,7 +113,7 @@ public:
         return s;
     }
 
-    Uri synthesiseTypeUriForClass(QString className) {
+    Uri synthesiseTypeUriForClass(QString className) const {
         Uri typeUri;
         if (getTypeUriForClass(className, typeUri)) {
             return typeUri;
@@ -127,7 +127,7 @@ public:
         m_typeUriPrefixMap[className] = prefix;
     }
 
-    bool getUriPrefixForClass(QString className, Uri &prefix) {
+    bool getUriPrefixForClass(QString className, Uri &prefix) const {
 	QHash<QString, Uri>::const_iterator i = m_typeUriPrefixMap.find(className);
 	if (i != m_typeUriPrefixMap.end()) {
 	    prefix = *i;
@@ -141,7 +141,7 @@ public:
         m_propertyRMap[className][propertyName] = uri;
     }
 
-    bool getPropertyUri(QString className, QString propertyName, Uri &uri) {
+    bool getPropertyUri(QString className, QString propertyName, Uri &uri) const {
 	QHash<QString, QHash<QString, Uri> >::const_iterator j = 
 	    m_propertyRMap.find(className);
 	if (j != m_propertyRMap.end()) {
@@ -154,7 +154,7 @@ public:
 	return false;
     }
 
-    bool getPropertyName(QString className, Uri uri, QString &propertyName) {
+    bool getPropertyName(QString className, Uri uri, QString &propertyName) const {
 	QHash<QString, QHash<Uri, QString> >::const_iterator j = 
 	    m_propertyMap.find(className);
 	if (j != m_propertyMap.end()) {
@@ -246,25 +246,25 @@ TypeMapping::addTypeMapping(QString className, Uri uri)
 }
 
 bool
-TypeMapping::getTypeUriForClass(QString className, Uri &uri)
+TypeMapping::getTypeUriForClass(QString className, Uri &uri) const
 {
     return m_d->getTypeUriForClass(className, uri);
 }
 
 bool
-TypeMapping::getClassForTypeUri(Uri uri, QString &className)
+TypeMapping::getClassForTypeUri(Uri uri, QString &className) const
 {
     return m_d->getClassForTypeUri(uri, className);
 }
 
 Uri
-TypeMapping::synthesiseTypeUriForClass(QString className)
+TypeMapping::synthesiseTypeUriForClass(QString className) const
 {
     return m_d->synthesiseTypeUriForClass(className);
 }
 
 QString
-TypeMapping::synthesiseClassForTypeUri(Uri typeUri)
+TypeMapping::synthesiseClassForTypeUri(Uri typeUri) const
 {
     return m_d->synthesiseClassForTypeUri(typeUri);
 }
@@ -276,7 +276,7 @@ TypeMapping::addTypeUriPrefixMapping(QString className, Uri prefix)
 }
 
 bool
-TypeMapping::getUriPrefixForClass(QString className, Uri &prefix)
+TypeMapping::getUriPrefixForClass(QString className, Uri &prefix) const
 {
     return m_d->getUriPrefixForClass(className, prefix);
 }
@@ -288,13 +288,13 @@ TypeMapping::addPropertyMapping(QString className, QString propertyName, Uri uri
 }
 
 bool
-TypeMapping::getPropertyUri(QString className, QString propertyName, Uri &uri)
+TypeMapping::getPropertyUri(QString className, QString propertyName, Uri &uri) const
 {
     return m_d->getPropertyUri(className, propertyName, uri);
 }
 
 bool
-TypeMapping::getPropertyName(QString className, Uri propertyUri, QString &propertyName)
+TypeMapping::getPropertyName(QString className, Uri propertyUri, QString &propertyName) const
 {
     return m_d->getPropertyName(className, propertyUri, propertyName);
 }

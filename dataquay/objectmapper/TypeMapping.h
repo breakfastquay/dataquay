@@ -133,7 +133,7 @@ public:
      * using \ref addTypeMapping, returning it in uri.  Return true if
      * such a URI was found, false otherwise.
      */
-    bool getTypeUriForClass(QString className, Uri &uri);
+    bool getTypeUriForClass(QString className, Uri &uri) const;
 
     /**
      * Retrieve the C++ class name that has been set for the given
@@ -141,7 +141,7 @@ public:
      * className.  Return true if such a name was found, false
      * otherwise.
      */
-    bool getClassForTypeUri(Uri uri, QString &className);
+    bool getClassForTypeUri(Uri uri, QString &className) const;
 
     /**
      * Return a URI for the RDF entity type corresponding to the given
@@ -157,7 +157,7 @@ public:
      * name, with all namespace separators ("::") replaced by slashes
      * ("/").
      */
-    Uri synthesiseTypeUriForClass(QString className);
+    Uri synthesiseTypeUriForClass(QString className) const;
 
     /**
      * Return a C++ class name corresponding to the given RDF entity
@@ -177,7 +177,7 @@ public:
      * available and the URI does not begin with the synthetic type
      * URI prefix.
      */
-    QString synthesiseClassForTypeUri(Uri uri);
+    QString synthesiseClassForTypeUri(Uri uri) const;
 
     /**
      * Add a mapping between class name and the common parts of any
@@ -210,7 +210,7 @@ public:
      * addTypeUriPrefixMapping, if any, returning it in prefix.
      * Return true if such a prefix was found, false otherwise.
      */
-    bool getUriPrefixForClass(QString className, Uri &prefix);
+    bool getUriPrefixForClass(QString className, Uri &prefix) const;
 
     /**
      * Add a specific mapping for the given QObject property in the
@@ -229,7 +229,7 @@ public:
      * the given class using \ref addPropertyMapping, returning it in
      * uri.  Return true if such a URI was found, false otherwise.
      */
-    bool getPropertyUri(QString className, QString propertyName, Uri &uri);
+    bool getPropertyUri(QString className, QString propertyName, Uri &uri) const;
 
     /**
      * Retrieve the name of the property for which the given URI has
@@ -237,7 +237,7 @@ public:
      * returning it in propertyName.  Return true if such a property
      * was found, false otherwise.
      */
-    bool getPropertyName(QString className, Uri propertyUri, QString &propertyName);
+    bool getPropertyName(QString className, Uri propertyUri, QString &propertyName) const;
 
     //!!! Note no property equivalents of
     //!!! synthesiseClassForTypeUri/synthesiseTypeUriForClass -- do we want them? if only to have somewhere to put the documentation?
