@@ -216,6 +216,17 @@ public:
             throw NoUriException(o->objectName(), o->metaObject()->className());
         }
 
+        // If our object has list properties, then we (sadly) need to
+        // associate all of the list nodes with the object as well in
+        // order to ensure that it gets reloaded if the list tail
+        // changes (i.e. if something in the list changes but its head
+        // node does not).  Note that we have to do this regardless of
+        // whether the object is already managed -- we may have been
+        // called from a reload callback.  Quite a subtle problem that
+        // has rather sad efficiency implications.
+
+        addListNodesFor(o, uri);
+
         // An object is managed if we have it in both maps. If it's
         // only in one map, then it has probably been stored or loaded
         // by following a property or other connection, and stored in
@@ -244,24 +255,13 @@ public:
         ObjectMapperForwarder *f = new ObjectMapperForwarder(m_m, o);
         m_forwarders.insert(o, f);
 
-        addObjectToNetwork(o, Node(uri));
-    }
-
-    void addObjectToNetwork(QObject *o, Node n) {
-
-        m_n.objectNodeMap.insert(o, n);
-        m_n.nodeObjectMap.insert(n, o);
-
-        // If our object has list properties, then we (sadly) need to
-        // associate all of the list nodes with the object as well in
-        // order to ensure that it gets reloaded if the list tail
-        // changes (i.e. if something in the list changes but its head
-        // node does not).  Quite a subtle problem that has rather sad
-        // efficiency implications.
-        addListNodesFor(o, n);
+        m_n.objectNodeMap.insert(o, uri);
+        m_n.nodeObjectMap.insert(uri, o);
     }
 
     void addListNodesFor(QObject *o, Node n) {
+
+        DEBUG << "addListNodesFor(" << n << ")" << endl;
             
         ContainerBuilder *cb = ContainerBuilder::getInstance();
         
@@ -274,11 +274,28 @@ public:
                 continue;
             }
             
-            if (!cb->canExtractContainer(property.typeName())) {
-                continue;
+            if (cb->getContainerKind(property.typeName()) ==
+                ContainerBuilder::SequenceKind) {
+                DEBUG << "addListNodesFor: Property " << property.name() << " is a sequence kind" << endl;
+                addListNodesForProperty(o, n, property);
             }
+        }
+    }
 
-            addListNodesForProperty(o, n, property);
+    void removeListNodesFor(QObject *o) {
+
+        DEBUG << "removeListNodesFor(" << o << ")" << endl;
+        
+        //!!! ouch
+
+        Nodes toRemove;
+        for (ObjectLoader::NodeObjectMap::iterator i = m_n.listNodeObjectMap.begin();
+             i != m_n.listNodeObjectMap.end(); ++i) {
+            if (i.value() == o) toRemove.push_back(i.key());
+        }
+
+        foreach (Node n, toRemove) {
+            m_n.listNodeObjectMap.remove(n);
         }
     }
 
@@ -298,7 +315,9 @@ public:
 
         //!!! should be matching all, surely?
         Node itr = m_s->matchFirst(Triple(n, puri, Node())).c;
-        if (itr == Node()) return; // property has no values
+        if (itr == Node()) {
+            return; // property has no values
+        }
         
         Node nil = m_s->expand("rdf:nil");
 
@@ -306,7 +325,8 @@ public:
             Node next = m_s->matchFirst(Triple(itr, "rdf:rest", Node())).c;
             if (next == Node()) { // This is not a list node at all!
                 DEBUG << "addListNodesForProperty: Strange, node " << itr
-                      << " is not a list node " << o << endl;
+                      << " (from property URI " << puri << " of object node "
+                      << n << ", object " << o << ") is not a list node" << endl;
                 break;
             }
             m_n.listNodeObjectMap[itr] = o;
@@ -364,6 +384,7 @@ public:
             return;
         }
         m_n.objectNodeMap.remove(o);
+        removeListNodesFor(o);
         if (m_inReload) {
             // This signal must have been emitted by a modification
             // caused by our own transactionCommitted method (see
@@ -407,6 +428,7 @@ public:
         DEBUG << "ObjectMapper: Synchronising from " << cs.size()
               << " change(s) in transaction" << endl;
 
+#ifndef NDEBUG
         DEBUG << "ObjectMapper: before sync, node-object map contains:" << endl;
         for (ObjectLoader::NodeObjectMap::iterator i = m_n.nodeObjectMap.begin();
              i != m_n.nodeObjectMap.end(); ++i) {
@@ -425,30 +447,51 @@ public:
             DEBUG << i.key() << " [" << n << "] -> " << i.value() << endl;
         }
 
+        DEBUG << "ObjectMapper: before sync, list-node-object map contains:" << endl;
+        for (ObjectLoader::NodeObjectMap::iterator i = m_n.listNodeObjectMap.begin();
+             i != m_n.listNodeObjectMap.end(); ++i) {
+            QString n;
+            QObject *o = i.value();
+            if (o) n = o->objectName();
+            DEBUG << i.key() << " -> " << i.value() << " [" << n << "]" << endl;
+        }
+#endif
         //!!! if an object has been effectively deleted from the
         //!!! store, we can't know that without querying the store to
         //!!! discover whether any triples remain -- so we should let
         //!!! something like ObjectLoader::reload() handle deleting
         //!!! objects that have been removed from store
 
-        // If an object's node appears as the subject of a change
-        // predicate, then we should reload that object.  (What if it
-        // appears as the object?  Do we ever need to reload then?  I
-        // don't think so...)
         foreach (const Change &c, cs) {
-            if (m_n.nodeObjectMap.contains(c.second.a)) {
-                m_reloading.insert(c.second.a);
+
+            Node subject = c.second.a;
+
+            // If the subject of a change is a node for an object,
+            // reload that object
+            if (m_n.nodeObjectMap.contains(subject)) {
+                m_reloading.insert(subject);
+                continue;
+            }
+
+            // Also if the subject of a change is a list node for a
+            // property of an object, reload that object.
+            if (m_n.listNodeObjectMap.contains(subject)) {
+                QObject *o = m_n.listNodeObjectMap.value(subject);
+                DEBUG << "transactionCommitted: Node " << subject
+                      << " is a list node for object " << o << endl;
+                if (m_n.objectNodeMap.contains(o)) {
+                    m_reloading.insert(m_n.objectNodeMap.value(o));
+                }
             }
         }
-
-        // If the subject of a change predicate is a list node for a
-        // property of an object, then we should reload that object
-        // too.
 
         Nodes nodes;
         foreach (const Node &n, m_reloading) {
             nodes.push_back(n);
         }
+
+        DEBUG << "transactionCommitted: Have " << nodes.size() << " node(s) to reload" << endl;
+
         m_loader->reload(nodes, m_n.nodeObjectMap);
         m_reloading.clear();
 
