@@ -216,17 +216,6 @@ public:
             throw NoUriException(o->objectName(), o->metaObject()->className());
         }
 
-        // If our object has list properties, then we (sadly) need to
-        // associate all of the list nodes with the object as well in
-        // order to ensure that it gets reloaded if the list tail
-        // changes (i.e. if something in the list changes but its head
-        // node does not).  Note that we have to do this regardless of
-        // whether the object is already managed -- we may have been
-        // called from a reload callback.  Quite a subtle problem that
-        // has rather sad efficiency implications.
-
-        addListNodesFor(o, uri);
-
         // An object is managed if we have it in both maps. If it's
         // only in one map, then it has probably been stored or loaded
         // by following a property or other connection, and stored in
@@ -259,10 +248,19 @@ public:
         m_n.nodeObjectMap.insert(uri, o);
     }
 
-    void addListNodesFor(QObject *o, Node n) {
+    void addListNodesFor(QObject *o) {
 
-        DEBUG << "addListNodesFor(" << n << ")" << endl;
+        DEBUG << "addListNodesFor(" << o << ")" << endl;
+
+        if (!m_n.objectNodeMap.contains(o)) {
+            DEBUG << "addListNodesFor(" << o << "): Object is unknown to us" << endl;
+            return;
+        }
             
+        Node n = m_n.objectNodeMap.value(o);
+
+        DEBUG << "addListNodesFor: Node is " << n << endl;
+
         ContainerBuilder *cb = ContainerBuilder::getInstance();
         
         for (int i = 0; i < o->metaObject()->propertyCount(); ++i) {
@@ -425,7 +423,7 @@ public:
         }
         //!!! but now what?
         m_inReload = true;
-        DEBUG << "ObjectMapper: Synchronising from " << cs.size()
+        DEBUG << "ObjectMapper::transactionCommitted: Synchronising from " << cs.size()
               << " change(s) in transaction" << endl;
 
 #ifndef NDEBUG
@@ -516,7 +514,7 @@ public:
     void doCommit(ChangeSet *cs) { 
 
         QMutexLocker locker(&m_mutex);
-        DEBUG << "ObjectMapper: Synchronising " << m_changedObjects.size()
+        DEBUG << "ObjectMapper::commit: Synchronising " << m_changedObjects.size()
               << " changed and " << m_deletedObjectNodes.size()
               << " deleted object(s)" << endl;
         //!!! if an object has been added as a new sibling of existing
@@ -549,6 +547,18 @@ public:
         // the unchanged (since the last "external" transaction)
         // m_n.nodeObjectMap from it
         syncMap(m_n.nodeObjectMap, m_n.objectNodeMap);
+
+        // If an object has list properties, then we (sadly) need to
+        // associate all of the list nodes with the object as well in
+        // order to ensure that it gets reloaded if the list tail
+        // changes (i.e. if something in the list changes but its head
+        // node does not).  Note that we have to do this regardless of
+        // whether the object is already managed -- we may have been
+        // called from a reload callback.  Quite a subtle problem that
+        // has rather sad efficiency implications.
+        foreach (QObject *o, m_changedObjects) {
+            addListNodesFor(o);
+        }
 
         m_deletedObjectNodes.clear();
         m_changedObjects.clear();
