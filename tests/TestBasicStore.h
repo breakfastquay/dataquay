@@ -48,12 +48,14 @@ class TestBasicStore : public QObject
     Q_OBJECT
     
 private slots:
+
     void initTestCase() {
 	base = store.getBaseUri().toString();
 	count = 0;
 	fromFred = 0;
 	toAlice = 0;
     }
+
     void simpleAdd() {
 	// check triple can be added
 	QVERIFY(store.add
@@ -62,22 +64,6 @@ private slots:
 			Node(Node::Literal, "Fred Jenkins"))));
 	++count;
 	++fromFred;
-    }
-    void simpleLookup() {
-	// check triple just added can be found again
-	QVERIFY(store.contains
-		(Triple(Node(Node::URI, ":fred"),
-			Node(Node::URI, "http://xmlns.com/foaf/0.1/name"),
-			Node(Node::Literal, "Fred Jenkins"))));
-    }
-    void simpleAbsentLookup() {
-	// check absent triple lookups are correctly handled
-	QVERIFY(!store.contains
-		(Triple(Node(Node::URI, ":fred"),
-			Node(Node::URI, "http://xmlns.com/foaf/0.1/name"),
-			Node(Node::Literal, "Fred Johnson"))));
-    }
-    void simpleAddAlternative() {
         // alternative Triple constructor
 	QVERIFY(store.add
 		(Triple(":fred",
@@ -87,6 +73,22 @@ private slots:
 	++fromFred;
 	++toAlice;
     }
+    void simpleLookup() {
+	// check triple just added can be found again
+	QVERIFY(store.contains
+		(Triple(Node(Node::URI, ":fred"),
+			Node(Node::URI, "http://xmlns.com/foaf/0.1/name"),
+			Node(Node::Literal, "Fred Jenkins"))));
+    }
+
+    void simpleAbsentLookup() {
+	// check absent triple lookups are correctly handled
+	QVERIFY(!store.contains
+		(Triple(Node(Node::URI, ":fred"),
+			Node(Node::URI, "http://xmlns.com/foaf/0.1/name"),
+			Node(Node::Literal, "Fred Johnson"))));
+    }
+
     void addFromVariantInt() {
         // variant conversion
         QVERIFY(store.add
@@ -102,8 +104,18 @@ private slots:
 	QCOMPARE(triples.size(), 1);
 	QCOMPARE(triples[0].c.toVariant().toInt(), 42);
     }	
+
     void addFromVariantURI() {
         // variant conversion
+	Uri fredUri("http://breakfastquay.com/rdf/person/fred");
+	QVERIFY(store.add
+		(Triple(":fred",
+			":has_some_uri",
+			Node::fromVariant
+			(QVariant::fromValue(fredUri)))));
+        ++count;
+        ++fromFred;
+
 	QVERIFY(store.add
 		(Triple(":fred",
 			":has_some_local_uri",
@@ -111,7 +123,22 @@ private slots:
 			(QVariant::fromValue(store.expand(":pootle"))))));
         ++count;
         ++fromFred;
+
+	Triples triples = store.match
+	    (Triple(Node(Node::URI, ":fred"),
+		    Node(Node::URI, ":has_some_uri"),
+		    Node()));
+	QCOMPARE(triples.size(), 1);
+	QCOMPARE(Uri(triples[0].c.value), fredUri);
+
+	triples = store.match
+	    (Triple(Node(Node::URI, ":fred"),
+		    Node(Node::URI, ":has_some_local_uri"),
+		    Node()));
+	QCOMPARE(triples.size(), 1);
+	QCOMPARE(triples[0].c.toVariant().value<Uri>(), store.expand(":pootle"));
     }
+
     void addFromVariantFloat() {
         // variant conversion
         QVERIFY(store.add
@@ -121,6 +148,7 @@ private slots:
         ++count;
         ++fromFred;
     }
+
     void addFromVariantBool() {
         // variant conversion
         QVERIFY(store.add
@@ -136,6 +164,7 @@ private slots:
 	QCOMPARE(triples.size(), 1);
 	QCOMPARE(triples[0].c.toVariant().toBool(), true);
     }
+
     void addFromVariantList() {
         // variant conversion
         QStringList colours;
@@ -157,6 +186,7 @@ private slots:
 	QStringList retrievedColours = triples[0].c.toVariant().toStringList();
 	QCOMPARE(colours, retrievedColours);
     }
+
     void addWithRdfTypeBuiltin() {
         // rdf:type builtin
 	QVERIFY(store.add
@@ -170,6 +200,7 @@ private slots:
         ++count;
         ++fromFred;
     }
+
     void addUsingPrefix() {
 	// prefix expansion
         store.addPrefix("foaf", Uri("http://xmlns.com/foaf/0.1/"));
@@ -189,6 +220,7 @@ private slots:
         ++count;
         ++count;
     }
+
     void addDuplicate() {
         // we try to add a triple that is a differently-expressed
         // duplicate of an already-added one -- this should be ignored
@@ -197,8 +229,7 @@ private slots:
 		(Triple(base + "alice",
 			"http://xmlns.com/foaf/0.1/name",
 			Node(Node::Literal, QString("Alice Banquet")))));
-    }
-    void addWithDifferentPrefix() {
+
         // now we try to add a triple a bit like an existing one but
         // differing in prefix -- this should succeed, and we do increment
         // our count, although this is not a very useful statement
@@ -208,6 +239,7 @@ private slots:
 			Node(Node::URI, "foaf:fred"))));
         ++count;
     }
+
     void addBlanks() {
         // things involving blank nodes
         Node blankNode = store.addBlankNode();
@@ -224,6 +256,7 @@ private slots:
 			Node(Node::Literal, "Omnipotent Being"))));
         ++count;
     }
+
     void addBlankPredicateFail() {
 	// can't have a blank node as predicate
 	Node anotherBlank = store.addBlankNode();
@@ -231,12 +264,13 @@ private slots:
 	    QVERIFY(!store.add
 		    (Triple(Node(Node::URI, ":fred"),
 			    anotherBlank,
-			    Node(Node::Literal, "meaningless"))));
+			    Node(Node::Literal, "this_statement_is_incomplete"))));
 	} catch (RDFException &) {
 	    QVERIFY(1);
 	}
     
     }
+
     void matchCounts() {
 	// must run after adds
 	QCOMPARE(store.match(Triple()).size(), count);
@@ -247,6 +281,109 @@ private slots:
 		 (Triple(Node(), Node(), Node(Node::URI, ":alice"))).size(),
 		 toAlice);
     }
+
+    void compareTriples() {
+
+	// check empty Triples match
+	QVERIFY(Triples().matches(Triples()));
+
+	// check two identical searches return matching (non-empty) results
+        Triples t1 = store.match(Triple(Node(Node::URI, ":fred"), Node(), Node()));
+        Triples t2 = store.match(Triple(Node(Node::URI, ":fred"), Node(), Node()));
+	QVERIFY(t1.size() > 0);
+	QVERIFY(!t1.matches(Triples()));
+	QVERIFY(t1.matches(t2));
+	QVERIFY(t2.matches(t1));
+
+	// check Triples matches itself in a different order
+	t2 = Triples();
+        foreach (Triple t, t1) t2.push_front(t);
+	QVERIFY(t1.matches(t2));
+	QVERIFY(t2.matches(t1));
+
+	// check two different searches return non-matching results
+	t2 = store.match(Triple(Node(Node::URI, ":alice"), Node(), Node()));
+        QVERIFY(!t1.matches(t2));
+        QVERIFY(!t2.matches(t1));
+    }
+
+    void remove() {
+	// check we can remove a triple
+	QVERIFY(store.remove
+		(Triple(":fred",
+			"http://xmlns.com/foaf/0.1/knows",
+			Node(Node::URI, ":alice"))));
+	--count;
+	--fromFred;
+	--toAlice;
+
+	// check we can't remove a triple that does not exist in store
+        QVERIFY(!store.remove
+		(Triple(":fred",
+			"http://xmlns.com/foaf/0.1/knows",
+			Node(Node::URI, ":tammy"))));
+
+        Triples triples = store.match(Triple());
+	QCOMPARE(triples.size(), count);
+    }
+
+    void query() {
+	
+        QString q = QString(" SELECT ?a "
+                            " WHERE { :fred foaf:knows ?a } ");
+        ResultSet results;
+
+	// We cannot perform queries without an absolute base URI,
+	// it seems, because the query engine takes relative URIs
+	// as relative to the query URI and we can't override that
+	// without an absolute prefix for the base URI
+
+	try {
+	    results = store.query(q);
+	    QCOMPARE(results.size(), 1);
+
+	    Node v = store.queryFirst(q, "a");
+	    QString expected = base + "alice";
+	    QCOMPARE(v.type, Node::URI);
+	    QCOMPARE(v.value, expected);
+
+	} catch (RDFUnsupportedError &e) {
+	    QSKIP("SPARQL queries not supported by current store backend",
+		  SkipSingle);
+	}
+    }
+
+    void saveAndLoad() {
+	
+        store.save("test.ttl");
+
+        BasicStore *store2 = BasicStore::load(QUrl("file:test.ttl"));
+	QVERIFY(store2);
+
+	store2->save("test2.ttl");
+	
+	QCOMPARE(store2->match(Triple()).size(), count);
+	QCOMPARE(store2->match
+		 (Triple(Node(Node::URI, ":fred"), Node(), Node())).size(),
+		 fromFred);
+	QCOMPARE(store2->match
+		 (Triple(Node(), Node(), Node(Node::URI, ":alice"))).size(),
+		 toAlice);
+	
+	delete store2;
+	
+	store.clear();
+	store.import(QUrl("file:test2.ttl"),
+		     BasicStore::ImportFailOnDuplicates);
+	
+	QCOMPARE(store.match(Triple()).size(), count);
+	QCOMPARE(store.match
+		 (Triple(Node(Node::URI, ":fred"), Node(), Node())).size(),
+		 fromFred);
+	QCOMPARE(store.match
+		 (Triple(Node(), Node(), Node(Node::URI, ":alice"))).size(),
+		 toAlice);
+    }	
 
 private:
     BasicStore store;
