@@ -17,7 +17,7 @@ LIBS += ../libdataquay.a  -lsord-0 -lserd-0
 #HEADERS += TestObjects.h
 #SOURCES += TestDataquay.cpp
 
-HEADERS += TestBasicStore.h TestDatatypes.h
+HEADERS += TestBasicStore.h TestDatatypes.h TestImportOptions.h
 SOURCES += TestDatatypes.cpp main.cpp
 
 exists(./platform.pri) {
