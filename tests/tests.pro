@@ -1,6 +1,7 @@
 
 TEMPLATE = app
 CONFIG += debug
+QT += testlib
 TARGET = test-dataquay
 
 INCLUDEPATH += . ..
@@ -13,8 +14,11 @@ MOC_DIR = o
 
 LIBS += ../libdataquay.a  -lsord-0 -lserd-0
 
-HEADERS += TestObjects.h
-SOURCES += TestDataquay.cpp
+#HEADERS += TestObjects.h
+#SOURCES += TestDataquay.cpp
+
+HEADERS += TestBasicStore.h
+SOURCES += main.cpp
 
 exists(./platform.pri) {
     include(./platform.pri)
