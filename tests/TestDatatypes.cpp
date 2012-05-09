@@ -31,28 +31,15 @@
     authorization.
 */
 
-#include <QtTest>
-#include "TestBasicStore.h"
 #include "TestDatatypes.h"
 
-int main(int argc, char *argv[])
-{
-    int good = 0, bad = 0;
-
-    QApplication app(argc, argv);
-
-    Dataquay::TestBasicStore tbs;
-    if (QTest::qExec(&tbs, argc, argv) == 0) ++good;
-    else ++bad;
-
-    Dataquay::TestDatatypes td;
-    if (QTest::qExec(&td, argc, argv) == 0) ++good;
-    else ++bad;
-
-    if (bad > 0) {
-	std::cerr << "********* " << bad << " test(s) failed!" << std::endl;
-	return 1;
-    }
-    return 0;
+QDataStream &operator<<(QDataStream &out, StreamableValueType v) {
+    return out << int(v);
 }
 
+QDataStream &operator>>(QDataStream &in, StreamableValueType &v) {
+    int i;
+    in >> i;
+    v = StreamableValueType(i);
+    return in;
+}

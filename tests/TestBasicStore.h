@@ -50,6 +50,7 @@ class TestBasicStore : public QObject
 private slots:
 
     void initTestCase() {
+	store.setBaseUri(Uri("http://breakfastquay.com/rdf/dataquay/tests"));
 	base = store.getBaseUri().toString();
 	count = 0;
 	fromFred = 0;
