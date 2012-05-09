@@ -95,13 +95,20 @@ private slots:
 			Node::fromVariant(QVariant(42)))));
         ++count;
         ++fromFred;
+	Triples triples = store.match
+	    (Triple(Node(Node::URI, ":fred"),
+		    Node(Node::URI, ":age"),
+		    Node()));
+	QCOMPARE(triples.size(), 1);
+	QCOMPARE(triples[0].c.toVariant().toInt(), 42);
     }	
     void addFromVariantURI() {
         // variant conversion
 	QVERIFY(store.add
 		(Triple(":fred",
 			":has_some_local_uri",
-			Node::fromVariant(QVariant::fromValue(store.expand(":pootle"))))));
+			Node::fromVariant
+			(QVariant::fromValue(store.expand(":pootle"))))));
         ++count;
         ++fromFred;
     }
@@ -122,6 +129,12 @@ private slots:
 			Node::fromVariant(true))));
         ++count;
         ++fromFred;
+        Triples triples = store.match
+	    (Triple(Node(Node::URI, ":fred"),
+		    Node(Node::URI, ":is_sadly_deluded"),
+		    Node()));
+	QCOMPARE(triples.size(), 1);
+	QCOMPARE(triples[0].c.toVariant().toBool(), true);
     }
     void addFromVariantList() {
         // variant conversion
@@ -136,6 +149,13 @@ private slots:
 			Node::fromVariant(QVariant(colours)))));
         ++count;
         ++fromFred;
+	Triples triples = store.match
+	    (Triple(Node(Node::URI, ":fred"),
+		    Node(Node::URI, ":favourite_colours_are"),
+		    Node()));
+	QCOMPARE(triples.size(), 1);
+	QStringList retrievedColours = triples[0].c.toVariant().toStringList();
+	QCOMPARE(colours, retrievedColours);
     }
     void addWithRdfTypeBuiltin() {
         // rdf:type builtin
@@ -226,15 +246,6 @@ private slots:
 	QCOMPARE(store.match
 		 (Triple(Node(), Node(), Node(Node::URI, ":alice"))).size(),
 		 toAlice);
-    }
-    void matchToVariants() {
-	// basic matching to variant type
-	Triples triples = store.match
-	    (Triple(Node(Node::URI, ":fred"),
-		    Node(Node::URI, ":age"),
-		    Node()));
-	QCOMPARE(triples.size(), 1);
-	QCOMPARE(triples[0].c.toVariant().toInt(), 42);
     }
 
 private:
