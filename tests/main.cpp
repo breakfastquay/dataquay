@@ -34,6 +34,7 @@
 #include <QtTest>
 #include "TestBasicStore.h"
 #include "TestDatatypes.h"
+#include "TestTransactionalStore.h"
 #include "TestImportOptions.h"
 
 int main(int argc, char *argv[])
@@ -48,6 +49,10 @@ int main(int argc, char *argv[])
 
     Dataquay::TestDatatypes td;
     if (QTest::qExec(&td, argc, argv) == 0) ++good;
+    else ++bad;
+
+    Dataquay::TestTransactionalStore tts;
+    if (QTest::qExec(&tts, argc, argv) == 0) ++good;
     else ++bad;
 
     Dataquay::TestImportOptions ti;
