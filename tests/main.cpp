@@ -36,6 +36,7 @@
 #include "TestDatatypes.h"
 #include "TestTransactionalStore.h"
 #include "TestImportOptions.h"
+#include "TestObjectMapper.h"
 
 int main(int argc, char *argv[])
 {
@@ -57,6 +58,10 @@ int main(int argc, char *argv[])
 
     Dataquay::TestImportOptions ti;
     if (QTest::qExec(&ti, argc, argv) == 0) ++good;
+    else ++bad;
+
+    Dataquay::TestObjectMapper tom;
+    if (QTest::qExec(&tom, argc, argv) == 0) ++good;
     else ++bad;
 
     if (bad > 0) {
