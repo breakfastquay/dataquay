@@ -34,14 +34,14 @@
 #ifndef _TEST_TRANSACTIONAL_STORE_H_
 #define _TEST_TRANSACTIONAL_STORE_H_
 
-#include <QObject>
-#include <QtTest>
-
 #include <dataquay/Node.h>
 #include <dataquay/BasicStore.h>
 #include <dataquay/RDFException.h>
 #include <dataquay/TransactionalStore.h>
 #include <dataquay/Connection.h>
+
+#include <QObject>
+#include <QtTest>
 
 namespace Dataquay {
 
@@ -118,7 +118,7 @@ private slots:
 	try {
 	    t->add(Triple(Node(),
 			  Node(Node::URI, "http://xmlns.com/foaf/0.1/name"),
-			  Node(Node::Literal, "The Man Who Wasn't There")));
+			  Node(Node::Literal, "this_statement_is_incomplete")));
 	    QVERIFY(0);
 	} catch (RDFException) {
 	    QVERIFY(1);

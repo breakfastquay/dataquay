@@ -31,12 +31,12 @@
     authorization.
 */
 
-#include <QtTest>
 #include "TestBasicStore.h"
 #include "TestDatatypes.h"
 #include "TestTransactionalStore.h"
 #include "TestImportOptions.h"
 #include "TestObjectMapper.h"
+#include <QtTest>
 
 int main(int argc, char *argv[])
 {

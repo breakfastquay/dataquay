@@ -34,12 +34,12 @@
 #ifndef _TEST_BASIC_STORE_H_
 #define _TEST_BASIC_STORE_H_
 
-#include <QObject>
-#include <QtTest>
-
 #include <dataquay/Node.h>
 #include <dataquay/BasicStore.h>
 #include <dataquay/RDFException.h>
+
+#include <QObject>
+#include <QtTest>
 
 namespace Dataquay {
 
@@ -308,26 +308,6 @@ private slots:
         QVERIFY(!t2.matches(t1));
     }
 
-    void remove() {
-	// check we can remove a triple
-	QVERIFY(store.remove
-		(Triple(":fred",
-			"http://xmlns.com/foaf/0.1/knows",
-			Node(Node::URI, ":alice"))));
-	--count;
-	--fromFred;
-	--toAlice;
-
-	// check we can't remove a triple that does not exist in store
-        QVERIFY(!store.remove
-		(Triple(":fred",
-			"http://xmlns.com/foaf/0.1/knows",
-			Node(Node::URI, ":tammy"))));
-
-        Triples triples = store.match(Triple());
-	QCOMPARE(triples.size(), count);
-    }
-
     void query() {
 	
         QString q = QString(" SELECT ?a "
@@ -385,6 +365,37 @@ private slots:
 		 (Triple(Node(), Node(), Node(Node::URI, ":alice"))).size(),
 		 toAlice);
     }	
+
+    void remove() {
+	// check we can remove a triple
+	QVERIFY(store.remove
+		(Triple(":fred",
+			"http://xmlns.com/foaf/0.1/knows",
+			Node(Node::URI, ":alice"))));
+	--count;
+	--fromFred;
+	--toAlice;
+
+	// check we can't remove a triple that does not exist in store
+        QVERIFY(!store.remove
+		(Triple(":fred",
+			"http://xmlns.com/foaf/0.1/knows",
+			Node(Node::URI, ":tammy"))));
+
+        Triples triples = store.match(Triple());
+	QCOMPARE(triples.size(), count);
+    }
+
+    void removeMatch() {
+	// check we can remove triples matching wildcard pattern
+	QVERIFY(store.remove(Triple(store.expand(":fred"), Node(), Node())));
+        Triples triples = store.match(Triple());
+	QCOMPARE(triples.size(), count - fromFred);
+        
+	QVERIFY(store.remove(Triple(Node(), Node(), Node())));
+        triples = store.match(Triple());
+	QCOMPARE(triples.size(), 0);
+    }
 
 private:
     BasicStore store;

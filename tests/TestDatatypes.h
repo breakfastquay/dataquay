@@ -34,12 +34,12 @@
 #ifndef _TEST_DATATYPES_H_
 #define _TEST_DATATYPES_H_
 
-#include <QObject>
-#include <QtTest>
-
 #include <dataquay/Node.h>
 #include <dataquay/BasicStore.h>
 #include <dataquay/RDFException.h>
+
+#include <QObject>
+#include <QtTest>
 
 /* StreamableValueType is a type that can be streamed to QDataStream
  * and thus converted automatically to QVariant, but that will not be

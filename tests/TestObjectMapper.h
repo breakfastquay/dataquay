@@ -34,14 +34,9 @@
 #ifndef _TEST_OBJECT_MAPPER_H_
 #define _TEST_OBJECT_MAPPER_H_
 
-#include <QObject>
-#include <QtTest>
-#include <QMetaType>
-#include <QStringList>
-#include <QSet>
-
 #include <dataquay/Node.h>
 #include <dataquay/BasicStore.h>
+#include <dataquay/TransactionalStore.h>
 #include <dataquay/RDFException.h>
 
 #include <dataquay/objectmapper/TypeMapping.h>
@@ -51,6 +46,12 @@
 #include <dataquay/objectmapper/ObjectBuilder.h>
 #include <dataquay/objectmapper/ContainerBuilder.h>
 #include <dataquay/objectmapper/ObjectMapperExceptions.h>
+
+#include <QObject>
+#include <QtTest>
+#include <QMetaType>
+#include <QStringList>
+#include <QSet>
 
 // Object types to be used in the tests
 
@@ -390,8 +391,298 @@ private slots:
 	test = store.match(Triple(pnode, "property:objectName", Node()));
 	QCOMPARE(test.size(), 1);
 	QCOMPARE(test[0].c.value, QString("Test Object"));
+
+        delete c;
+        delete a;
+        delete a1;
+        delete b;
+        delete b0;
+        delete b1;
+        delete b2;
+        delete c1;
+        delete c2;
+        delete o;
     }
 
+    void mapperSimpleAdd() {
+        
+	QObject *o = new QObject;
+	o->setObjectName("Test Object");
+	A *a = new A(o);
+
+        // prime things by storing one object
+        ObjectStorer storer(&store);
+        storer.store(o);
+
+        TransactionalStore ts(&store);
+        ObjectMapper mapper(&ts);
+        
+        try {
+            // This should not be possible: the object lacks a URI,
+            // has not been added to the store before, and needs to be
+            // added, not just managed
+            mapper.manage(a);
+            QVERIFY(0);
+        } catch (NoUriException) {
+            QVERIFY(1);
+        }
+
+        // this should work, though, because o has been stored
+        mapper.manage(o);
+
+        mapper.add(a);
+
+        // We haven't committed the add yet, so added object should
+        // have no node yet
+        Node anode = mapper.getNodeForObject(a);
+        QCOMPARE(anode, Node());
+        
+        // But the object that was stored earlier should have
+        Node onode = mapper.getNodeForObject(o);
+        QVERIFY(onode != Node());
+        
+        // now commit the add
+        mapper.commit();
+
+        // check properties of o
+        Triples t = ts.match(Triple(onode, Node(), Node()));
+        QCOMPARE(t.size(), 2); // type, name
+
+        t = ts.match(Triple(onode, "a", Node()));
+        QCOMPARE(t.size(), 1);
+        QCOMPARE(t[0].c, Node(store.expand("type:QObject")));
+
+        t = ts.match(Triple(onode, store.expand("property:objectName"), Node()));
+        QCOMPARE(t.size(), 1);
+        QCOMPARE(t[0].c, Node(Node::Literal, "Test Object"));
+
+        // and a should have a node now
+        anode = mapper.getNodeForObject(a);
+        QVERIFY(anode != Node());
+
+        t = ts.match(Triple(anode, Node(), Node()));
+        QCOMPARE(t.size(), 2); // type, parent
+
+        t = ts.match(Triple(anode, "a", Node()));
+        QCOMPARE(t.size(), 1);
+        QCOMPARE(t[0].c, Node(store.expand("type:A")));
+
+        t = ts.match(Triple(anode, store.expand("rel:parent"), Node()));
+        QCOMPARE(t.size(), 1);
+        QCOMPARE(t[0].c, onode);
+
+        delete o; // also deletes a, as it's a child of o
+    }
+
+    void mapperSimplePropertyUpdate() {
+
+	C *c = new C;
+
+        TransactionalStore ts(&store);
+        ObjectMapper mapper(&ts);
+
+        mapper.add(c);
+        mapper.commit();
+
+        Node n = mapper.getNodeForObject(c);
+        QVERIFY(n != Node());
+
+        Triple t = ts.matchFirst(Triple(n, "property:string", Node()));
+        QCOMPARE(t.c, Node());
+
+        c->setString("Lone string");
+
+        // should not have affected the store yet
+        t = ts.matchFirst(Triple(n, "property:string", Node()));
+        QCOMPARE(t.c, Node());
+
+        mapper.commit();
+
+        // now it should
+        t = ts.matchFirst(Triple(n, "property:string", Node()));
+        QCOMPARE(t.c.value, QString("Lone string"));
+
+        c->setString("New lone string");
+
+        t = ts.matchFirst(Triple(n, "property:string", Node()));
+        QCOMPARE(t.c.value, QString("Lone string"));
+
+        mapper.commit();
+
+        t = ts.matchFirst(Triple(n, "property:string", Node()));
+        QCOMPARE(t.c.value, QString("New lone string"));
+
+        Transaction *tx = ts.startTransaction();
+        QVERIFY(tx->remove(Triple(n, "property:string", Node())));
+        tx->commit();
+        delete tx;
+
+        // deleting the property should have caused the object to be
+        // reloaded
+
+        QCOMPARE(c->getString(), QString());
+        
+        tx = ts.startTransaction();
+        QVERIFY(tx->add(Triple(n, "property:string",
+                           Node(Node::Literal, "Another lone string"))));
+        tx->commit();
+        delete tx;
+
+        QCOMPARE(c->getString(), QString("Another lone string"));
+
+        delete c;
+    }
+
+    void mapperListPropertyUpdate() {
+        
+	C *c = new C;
+
+        TransactionalStore ts(&store);
+        ObjectMapper mapper(&ts);
+
+        mapper.add(c);
+        mapper.commit();
+
+        Node n = mapper.getNodeForObject(c);
+        QVERIFY(n != Node());
+
+        QStringList strings;
+        strings << "First string";
+        strings << "Second string";
+
+        c->setStrings(strings);
+
+        Triple t = ts.matchFirst(Triple(n, "property:strings", Node()));
+        QCOMPARE(t.c, Node());
+
+        mapper.commit();
+
+        t = ts.matchFirst(Triple(n, "property:strings", Node()));
+        QVERIFY(t.c.type == Node::Blank); // list starts with blank node
+
+        Triple v = ts.matchFirst(Triple(t.c, "rdf:first", Node()));
+        QCOMPARE(v.c.value, QString("First string"));
+
+        t = ts.matchFirst(Triple(t.c, "rdf:rest", Node()));
+        QVERIFY(t.c.type == Node::Blank);
+
+        v = ts.matchFirst(Triple(t.c, "rdf:first", Node()));
+        QCOMPARE(v.c.value, QString("Second string"));
+
+        t = ts.matchFirst(Triple(t.c, "rdf:rest", Node()));
+        QCOMPARE(t.c, Node(store.expand("rdf:nil")));
+
+        strings.clear();
+        strings << "Replacement string";
+
+        c->setStrings(strings);
+        mapper.commit();
+
+        t = ts.matchFirst(Triple(n, "property:strings", Node()));
+        QVERIFY(t.c.type == Node::Blank);
+
+        v = ts.matchFirst(Triple(t.c, "rdf:first", Node()));
+        QCOMPARE(v.c.value, QString("Replacement string"));
+
+        t = ts.matchFirst(Triple(t.c, "rdf:rest", Node()));
+        QCOMPARE(t.c, Node(store.expand("rdf:nil")));
+
+        // check the former strings are now gone
+
+        t = ts.matchFirst(Triple(Node(), Node(), Node(Node::Literal, "First string")));
+        QCOMPARE(t, Triple());
+
+        t = ts.matchFirst(Triple(Node(), Node(), Node(Node::Literal, "Second string")));
+        QCOMPARE(t, Triple());
+
+        delete c;
+        mapper.commit();
+
+        // all properties should now be gone, as c has been deleted
+        t = ts.matchFirst(Triple());
+        QCOMPARE(t, Triple());
+    }
+        
+    void mapperResyncOnParentRemoval() {
+
+        // This is a test for a very specific situation -- we cause to
+        // be deleted the parent of a managed object, by removing all
+        // references to the parent from the store so that the mapper
+        // deletes the parent when the transaction is committed.  This
+        // causes the child to be deleted by Qt; is the mapper clever
+        // enough to realise that this is a different deletion signal
+        // from that of the parent, and re-sync the child accordingly?
+
+	QObject *o = new QObject;
+	o->setObjectName("Test Object");
+	A *a = new A(o);
+
+        TransactionalStore ts(&store);
+        ObjectMapper mapper(&ts);
+
+        mapper.add(o);
+        mapper.add(a);
+        mapper.commit();
+
+        Node onode = mapper.getNodeForObject(o);
+        QVERIFY(onode != Node());
+
+        Node anode = mapper.getNodeForObject(a);
+        QVERIFY(anode != Node());
+
+        Triples t = ts.match(Triple(anode, Node(), Node()));
+        QCOMPARE(t.size(), 2); // type and parent
+
+        Transaction *tx = ts.startTransaction();
+        // remove all properties of the parent of a
+        tx->remove(Triple(onode, Node(), Node()));
+        tx->commit();
+        delete tx;
+
+        mapper.commit();
+
+        t = ts.match(Triple(anode, Node(), Node()));
+        QCOMPARE(t.size(), 0); // a should have been removed
+    }
+
+    void loaderPropertyOfParent() {
+        
+        // Another very specific one involving cycles -- an object
+        // that is referred to as a property of its own parent.  On
+        // loading through the child with follow-parent set, we should
+        // find that the object has the correct parent and that the
+        // parent refers to the correct object in its property (and
+        // not that the loader has instantiated the child without a
+        // parent in order to fill the parent's property in a
+        // recursive call while instantiating the parent for the
+        // child)
+
+        Node child(store.getUniqueUri(":child_"));
+        Node parent(store.getUniqueUri(":parent_"));
+        store.add(Triple(child, "a", store.expand("type:A")));
+        store.add(Triple(child, "rel:parent", parent));
+        store.add(Triple(parent, "a", store.expand("type:B")));
+        store.add(Triple(parent, "property:aref", child));
+
+        ObjectLoader loader(&store);
+
+        loader.setFollowPolicy(ObjectLoader::FollowObjectProperties |
+                               ObjectLoader::FollowParent);
+        ObjectLoader::NodeObjectMap testMap;
+        loader.reload(Nodes() << child, testMap);
+
+        QCOMPARE(testMap.size(), 2);
+        QVERIFY(testMap.contains(parent));
+        QVERIFY(testMap.contains(child));
+        QVERIFY(testMap.value(parent));
+        QVERIFY(testMap.value(child));
+        QVERIFY(qobject_cast<A*>(testMap.value(child)));
+        QVERIFY(qobject_cast<B*>(testMap.value(parent)));
+        QCOMPARE(testMap.value(child)->parent(), testMap.value(parent).data());
+        QCOMPARE(testMap.value(parent)->children().size(), 1);
+        QCOMPARE(testMap.value(parent)->children()[0], testMap.value(child).data());
+        QCOMPARE(qobject_cast<B*>(testMap.value(parent))->getA(), testMap.value(child).data());
+    }
 
 private:
     BasicStore store;
