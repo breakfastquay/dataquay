@@ -307,6 +307,7 @@ private:
     }
 
     struct BuilderBase {
+        virtual ~BuilderBase() { }
         virtual QObject *build(QObject *) = 0;
     };
 
@@ -326,6 +327,7 @@ private:
     BuilderMap m_builders;
 
     struct ExtractorBase {
+        virtual ~ExtractorBase() { }
         virtual QObject *extract(const QVariant &v) = 0;
         virtual QVariant inject(QObject *) = 0;
     };
