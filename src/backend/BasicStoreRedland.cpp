@@ -411,6 +411,7 @@ public:
             if (librdf_parser_parse_into_model
                 (parser, luri, base_uri, m_model)) {
                 librdf_free_parser(parser);
+                DEBUG << "librdf_parser_parse_into_model failed" << endl;
                 throw RDFException("Failed to import model from URL",
                                    url.toString());
             }
@@ -440,7 +441,10 @@ public:
 
             try { // so as to free parser and im on exception
 
+                //!!! This appears to be returning success even on a
+                //!!! syntax error -- can this be correct?
                 if (librdf_parser_parse_into_model(parser, luri, base_uri, im)) {
+                    DEBUG << "librdf_parser_parse_into_model failed" << endl;
                     throw RDFException("Failed to import model from URL",
                                        url.toString());
                 }
