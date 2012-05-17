@@ -39,7 +39,9 @@ class Node;
 }
 
 // Declare this early, to avoid any problems with instantiation order
-// arising from inclusion "races"
+// arising from inclusion "races".  If this is not found when
+// compiling, hoist this header so that it is included earlier than
+// any other header that includes <QHash>
 extern unsigned int qHash(const Dataquay::Node &);
 
 #include "Uri.h"

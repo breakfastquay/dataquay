@@ -112,8 +112,10 @@ public:
         QMutexLocker locker(&m_backendLock);
         DEBUG << "BasicStore::clear" << endl;
         if (m_model) sord_free(m_model);
-        //!!! are these the right indices?
-        m_model = sord_new(m_w.getWorld(), SORD_SPO|SORD_OPS, false);
+        // Sord can only perform wildcard matches if at least one of
+        // the non-wildcard nodes in the matched triple is the primary
+        // term for one of its indices
+        m_model = sord_new(m_w.getWorld(), SORD_SPO|SORD_OPS|SORD_POS, false);
         if (!m_model) throw RDFInternalError("Failed to create RDF data model");
     }
 
@@ -785,8 +787,9 @@ private:
         case SERD_SUCCESS: return "Success";
         case SERD_FAILURE: return "Non-fatal failure";
         case SERD_ERR_UNKNOWN: return "Unknown error";
-        case SERD_ERR_BAD_SYNTAX: return "Invalid syntax or bad argument";
+        case SERD_ERR_BAD_SYNTAX: return "Invalid syntax";
         case SERD_ERR_NOT_FOUND: return "Not found";
+        case SERD_ERR_BAD_ARG: return "Bad argument";
         }
         return QString("Unknown Serd error type");
     }

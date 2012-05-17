@@ -61,9 +61,10 @@ namespace Dataquay
  *
  * Call startTransaction to obtain a new Transaction object and start
  * its transaction; use the Transaction's Store interface for all
- * accesses associated with that transaction; delete the Transaction
- * object once done, to finish and commit the transaction; or call
- * Transaction::rollback() if you decide you do not wish to commit it.
+ * accesses associated with that transaction; call commit on the
+ * Transaction object once done, to finish the transaction, and then
+ * delete the object; or call Transaction::rollback() if you decide
+ * you do not wish to commit it.
  *
  * TransactionalStore is thread-safe.
  *
