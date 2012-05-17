@@ -393,6 +393,8 @@ private slots:
 	QCOMPARE(test.size(), 1);
 	QCOMPARE(test[0].c.value, QString("Test Object"));
 
+        store.save("test-complex-graph.ttl");
+
         delete c;
         delete a;
         delete a1;
@@ -403,6 +405,37 @@ private slots:
         delete c1;
         delete c2;
         delete o;
+    }
+
+    void complexGraphReload() {
+
+        // relies on test-complex-graph.ttl having been saved in
+        // previous test
+
+        ObjectLoader loader(&store);
+        QObjectList objects = loader.loadAll();
+        QCOMPARE(objects.size(), 0);
+
+        store.import(QUrl("file:test-complex-graph.ttl"),
+                     Store::ImportIgnoreDuplicates);
+        
+        objects = loader.loadAll();
+        QCOMPARE(objects.size(), 10);
+
+        // Delete the objects we loaded -- but carefully as some are
+        // children of others. Count the number of these so as
+        // to test that the graph has similar shape to before
+        int haveParent = 0;
+        QObjectList toDelete;
+        foreach (QObject *o, objects) {
+            if (!o->parent()) toDelete.push_back(o);
+            else ++haveParent;
+        }
+        foreach (QObject *o, toDelete) {
+            delete o;
+        }
+
+        QCOMPARE(haveParent, 2);
     }
 
     void mapperSimpleAdd() {
