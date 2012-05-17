@@ -53,7 +53,7 @@ private slots:
     void initTestCase() {
 
 	count = 0;
-	store.setBaseUri(Uri("http://breakfastquay.com/rdf/dataquay/tests"));
+	store.setBaseUri(Uri("http://breakfastquay.com/rdf/dataquay/tests#"));
 
 	// If TestBasicStore has passed, these should be no problem
 

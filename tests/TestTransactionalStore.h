@@ -51,7 +51,7 @@ class TestTransactionalStore : public QObject
 
 private slots:
     void initTestCase() {
-	store.setBaseUri(Uri("http://breakfastquay.com/rdf/dataquay/tests"));
+	store.setBaseUri(Uri("http://breakfastquay.com/rdf/dataquay/tests#"));
 	ts = new TransactionalStore(&store);
     }
 

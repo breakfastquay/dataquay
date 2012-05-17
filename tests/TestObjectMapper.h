@@ -159,6 +159,7 @@ public:
 
 private slots:
     void initTestCase() {
+	store.setBaseUri(Uri("http://breakfastquay.com/rdf/dataquay/tests#"));
 	store.addPrefix("type", storer.getTypeMapping().getObjectTypePrefix());
 	store.addPrefix("property", storer.getTypeMapping().getPropertyPrefix());
 	store.addPrefix("rel", storer.getTypeMapping().getRelationshipPrefix());

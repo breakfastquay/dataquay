@@ -93,6 +93,7 @@ private:
 
 private slots:
     void initTestCase() {
+	store.setBaseUri(Uri("http://breakfastquay.com/rdf/dataquay/tests#"));
 	qRegisterMetaType<StreamableValueType>("StreamableValueType");
 	qRegisterMetaType<NonStreamableValueType>("NonStreamableValueType");
 	qRegisterMetaTypeStreamOperators<StreamableValueType>("StreamableValueType");

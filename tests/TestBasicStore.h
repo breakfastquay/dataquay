@@ -50,10 +50,11 @@ class TestBasicStore : public QObject
 private slots:
 
     void initTestCase() {
-	store.setBaseUri(Uri("http://breakfastquay.com/rdf/dataquay/tests"));
+	store.setBaseUri(Uri("http://breakfastquay.com/rdf/dataquay/tests#"));
 	base = store.getBaseUri().toString();
 	count = 0;
 	fromFred = 0;
+        usingKnows = 0;
 	toAlice = 0;
     }
 
@@ -72,6 +73,7 @@ private slots:
 			Node(Node::URI, ":alice"))));
 	++count;
 	++fromFred;
+        ++usingKnows;
 	++toAlice;
     }
     void simpleLookup() {
@@ -218,6 +220,7 @@ private slots:
 			Node(Node::URI, "foaf:name"),
 			Node(Node::Literal, QString("Alice Banquet")))));
               
+        ++usingKnows;
         ++count;
         ++count;
     }
@@ -238,6 +241,7 @@ private slots:
 		(Triple(":alice",
 			"http://xmlns.com/foaf/0.1/knows",
 			Node(Node::URI, "foaf:fred"))));
+        ++usingKnows;
         ++count;
     }
 
@@ -273,11 +277,15 @@ private slots:
     }
 
     void matchCounts() {
-	// must run after adds
+	// Must run after adds. Check match-all, and matches with each
+	// of S, P and O primary
 	QCOMPARE(store.match(Triple()).size(), count);
 	QCOMPARE(store.match
 		 (Triple(Node(Node::URI, ":fred"), Node(), Node())).size(),
 		 fromFred);
+	QCOMPARE(store.match
+		 (Triple(Node(), Node(Node::URI, "foaf:knows"), Node())).size(),
+		 usingKnows);
 	QCOMPARE(store.match
 		 (Triple(Node(), Node(), Node(Node::URI, ":alice"))).size(),
 		 toAlice);
@@ -402,6 +410,7 @@ private:
     QString base;
     int count;
     int fromFred;
+    int usingKnows;
     int toAlice;
 };
 
