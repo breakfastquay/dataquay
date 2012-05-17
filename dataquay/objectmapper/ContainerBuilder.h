@@ -182,6 +182,7 @@ private:
     }
 
     struct ContainerExtractorBase {
+        virtual ~ContainerExtractorBase() { }
         virtual QVariantList extract(const QVariant &v) = 0;
         virtual QVariant inject(const QVariantList &) = 0;
         virtual QString getTypeName() const = 0;
