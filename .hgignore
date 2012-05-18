@@ -2,5 +2,10 @@ syntax: glob
 
 re:^doc/html/
 re:^o/
+re:^tests/o/
 *.a
 *~
+*.gcda
+*.gcno
+*.gcov
+*.ttl

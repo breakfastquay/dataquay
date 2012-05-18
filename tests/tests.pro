@@ -29,3 +29,5 @@ exists(./platform.pri) {
     }
 }
 
+!win32:QMAKE_POST_LINK=./$${TARGET}
+win32:QMAKE_POST_LINK=$${TARGET}.exe
