@@ -224,7 +224,7 @@ public:
      * when a triple is encountered that already exists in the store
      * is controlled by the ImportDuplicatesMode.
      * 
-     * May throw RDFException.
+     * May throw RDFException or RDFDuplicateImportException.
      *
      * Note that the URL must be a URL, not just a filename
      * (i.e. local files need the file: prefix).
