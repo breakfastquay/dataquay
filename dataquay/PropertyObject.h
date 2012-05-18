@@ -113,6 +113,15 @@ public:
 
     /**
      * Construct a PropertyObject acting on the given Store, with the
+     * default prefix for properties taken from the global default
+     * (see setDefaultPropertyPrefix) and the given "subject" node.
+     * This is provided so as to permit querying the properties of
+     * blank nodes or nodes returned from other queries.
+     */
+    PropertyObject(Store *s, Node myNode);
+
+    /**
+     * Construct a PropertyObject acting on the given Store, with the
      * given default prefix (which will itself be prefix expanded) for
      * properties and the given "subject" URI.
      */
@@ -129,9 +138,9 @@ public:
      * Construct a PropertyObject acting on the given Store, with the
      * given default prefix for properties and the given node as its
      * subject.  This is provided so as to permit querying the
-     * properties of blank nodes.
+     * properties of blank nodes or nodes returned from other queries.
      */
-    PropertyObject(Store *s, QString propertyPrefix, Node myUri);
+    PropertyObject(Store *s, QString propertyPrefix, Node myNode);
 
     ~PropertyObject();
 

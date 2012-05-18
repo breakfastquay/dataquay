@@ -56,6 +56,12 @@ PropertyObject::PropertyObject(Store *s, QString uri) :
     m_upfx = m_store->expand(m_pfx);
 }
 
+PropertyObject::PropertyObject(Store *s, Node node) :
+    m_store(s), m_pfx(m_defaultPrefix), m_node(node)
+{
+    m_upfx = m_store->expand(m_pfx);
+}
+
 PropertyObject::PropertyObject(Store *s, QString pfx, Uri uri) :
     m_store(s), m_pfx(pfx), m_node(uri)
 {
