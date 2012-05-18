@@ -374,6 +374,65 @@ private slots:
 		 toAlice);
     }	
 
+    void multiImport() {
+        // save two stores with different base URIs to files, check we
+        // can reload them into the same store (i.e. that we resolve
+        // the CURIEs properly relative to file base URI not target
+        // store base URI on loading)
+        BasicStore *otherStore = new BasicStore;
+        otherStore->setBaseUri(Uri("http://breakfastquay.com/rdf/dataquay/tests/other#"));
+        // this must be a triple we have already added to the first
+        // store, using a local URI -- we are checking here for
+        // duplicates on import
+	QVERIFY(otherStore->add
+		(Triple(Node(Node::URI, ":fred"),
+			Node(Node::URI, "http://xmlns.com/foaf/0.1/name"),
+			Node(Node::Literal, "Fred Jenkins"))));
+
+        // and this is to test that the reloaded :fred, despite having
+        // the same name, is a different individual from the :fred in
+        // our first store
+        QVERIFY(otherStore->add
+		(Triple(":fred",
+			":age",
+			Node::fromVariant(QVariant(3)))));
+        
+        store.save("multi-a.ttl");
+        otherStore->save("multi-b.ttl");
+
+        BasicStore *target = BasicStore::load(QUrl("file:multi-a.ttl"));
+        QVERIFY(target);
+
+        QCOMPARE(target->getBaseUri(), store.getBaseUri());
+
+        target->import(QUrl("file:multi-b.ttl"), Store::ImportFailOnDuplicates);
+
+        QVERIFY(target->contains
+                (Triple(Node(Node::URI, ":fred"),
+                        Node(Node::URI, "http://xmlns.com/foaf/0.1/name"),
+                        Node(Node::Literal, "Fred Jenkins"))));
+            
+        QVERIFY(target->contains
+                (Triple(Node(Node::URI, "http://breakfastquay.com/rdf/dataquay/tests#fred"),
+                        Node(Node::URI, "http://xmlns.com/foaf/0.1/name"),
+                        Node(Node::Literal, "Fred Jenkins"))));
+            
+        QVERIFY(target->contains
+                (Triple(Node(Node::URI, "http://breakfastquay.com/rdf/dataquay/tests/other#fred"),
+                        Node(Node::URI, "http://xmlns.com/foaf/0.1/name"),
+                        Node(Node::Literal, "Fred Jenkins"))));
+            
+        QVERIFY(target->contains
+                (Triple(Node(Node::URI, "http://breakfastquay.com/rdf/dataquay/tests/other#fred"),
+                        Node(Node::URI, "http://breakfastquay.com/rdf/dataquay/tests/other#age"),
+                        Node(Node::Literal, "3", store.expand("xsd:integer")))));
+            
+        QVERIFY(target->contains
+                (Triple(Node(Node::URI, "http://breakfastquay.com/rdf/dataquay/tests#fred"),
+                        Node(Node::URI, ":age"),
+                        Node(Node::Literal, "42", store.expand("xsd:integer")))));
+    }
+
     void remove() {
 	// check we can remove a triple
 	QVERIFY(store.remove

@@ -414,9 +414,11 @@ public:
                 m_baseUri = uri;
                 m_prefixes[""] = m_baseUri;
             } else {
+/* -- no, this is the expected case when loading more than one file into store
                 if (uri != m_baseUri) {
                     std::cerr << "BasicStore::import: NOTE: Base URI of loaded file differs from base URI of store (<" << uri.toString().toStdString() << "> != <" << m_baseUri.toString().toStdString() << ">)" << std::endl;
                 }
+*/
             }
         }
 
