@@ -56,6 +56,16 @@ SOURCES += src/Connection.cpp \
            src/objectmapper/ObjectStorer.cpp \
            src/objectmapper/TypeMapping.cpp
 
+linux* {
+        libraries.path = /usr/local/lib
+        libraries.files = libdataquay.a
+        includes.path = /usr/local/include
+        includes.files = dataquay
+        pkgconfig.path = /usr/local/lib/pkgconfig
+        pkgconfig.files = deploy/dataquay.pc
+        INSTALLS += libraries includes pkgconfig
+}
+
 exists(platform.pri) {
 	include(./platform.pri)
 }
