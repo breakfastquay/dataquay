@@ -131,6 +131,22 @@ public:
         foreach (Triple t, other) ++b[t];
         return a == b;
     }
+
+    Nodes a() {
+        Nodes result;
+        foreach (Triple t, *this) result.push_back(t.a);
+        return result;
+    }
+    Nodes b() {
+        Nodes result;
+        foreach (Triple t, *this) result.push_back(t.b);
+        return result;
+    }
+    Nodes c() {
+        Nodes result;
+        foreach (Triple t, *this) result.push_back(t.c);
+        return result;
+    }
 };
 
 }

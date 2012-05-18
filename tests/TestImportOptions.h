@@ -118,7 +118,6 @@ private slots:
     void duplicatesIgnored() {
 	store.clear();
 	store.import(fileUrl, BasicStore::ImportFailOnDuplicates);
-	bool caught = false;
 	store.import(fileUrl, BasicStore::ImportIgnoreDuplicates);
 	// note -- the number of triples after import is only the same
 	// as count because there are no blank nodes involved, so all
@@ -133,7 +132,6 @@ private slots:
     void duplicatesPermitted() {
 	store.clear();
 	store.import(fileUrl, BasicStore::ImportFailOnDuplicates);
-	bool caught = false;
 	store.import(fileUrl, BasicStore::ImportPermitDuplicates);
 	// we can say nothing about the number of triples in store
 	// here as it all depends on the back end (this is not a

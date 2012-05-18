@@ -316,6 +316,25 @@ private slots:
         QVERIFY(!t2.matches(t1));
     }
 
+    void sliceTriples() {
+        Triples tt = store.match(Triple());
+        QCOMPARE(tt.size(), count);
+        Nodes nna = tt.a();
+        QCOMPARE(nna.size(), count);
+        foreach (Node n, nna) {
+            QVERIFY(n.type == Node::URI || n.type == Node::Blank);
+        }
+        Nodes nnb = tt.b();
+        QVERIFY(nnb != nna);
+        QCOMPARE(nnb.size(), count);
+        foreach (Node n, nnb) {
+            QVERIFY(n.type == Node::URI);
+        }
+        Nodes nnc = tt.c();
+        QVERIFY(nnc != nna);
+        QCOMPARE(nnc.size(), count);
+    }
+
     void query() {
 	
         QString q = QString(" SELECT ?a "
