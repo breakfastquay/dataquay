@@ -38,6 +38,7 @@
 #include <QVariant>
 #include <QMutex>
 #include <QHash>
+#include <QRegExp>
 
 #include <iostream>
 
@@ -46,6 +47,7 @@
 #endif
 
 #include "Debug.h"
+#include "RDFException.h"
 
 namespace Dataquay
 {
@@ -94,16 +96,32 @@ Uri::metaTypeId()
 }
 
 void
-Uri::checkComplete() const
+Uri::checkComplete()
 {
-#ifndef NDEBUG
-    if (!m_uri.isEmpty() && m_uri[0] != '#' &&
-	!m_uri.contains(QRegExp("^[a-zA-Z]+://")) &&
-        !m_uri.startsWith("file:")) { // file uri may be relative: file:x.wav
-	std::cerr << "WARNING: URI <" << m_uri.toStdString()
-		  << "> is not complete; lacks scheme" << std::endl;
+    static QRegExp schemeRE("^[a-zA-Z]+://");
+
+    // An RDF URI must be absolute, with a few special cases
+
+    if (m_uri == "a") {
+
+        m_uri = rdfTypeUri().toString();
+    
+    } else if (m_uri.isEmpty() || m_uri[0] == '#') {
+
+        throw RDFIncompleteURI
+            ("Uri::Uri: Given string is a null URI", m_uri);
+
+    } else if (!m_uri.contains(schemeRE)) {
+
+        // we are generous with file URIs: if we get file:x, convert
+        // it to file://x
+        if (m_uri.startsWith("file:")) {
+            m_uri = "file://" + m_uri.right(m_uri.length() - 5);
+        } else {
+            throw RDFIncompleteURI
+                ("Uri::Uri: Given string is not an absolute URI", m_uri);
+        }
     }
-#endif
 }
 
 QString
@@ -130,6 +148,12 @@ bool
 Uri::isUri(const QVariant &v)
 {
     return (v.type() == QVariant::UserType && v.userType() == metaTypeId());
+}
+
+Uri
+Uri::rdfTypeUri()
+{
+    return Uri("http://www.w3.org/1999/02/22-rdf-syntax-ns#type");
 }
 
 QDataStream &operator<<(QDataStream &out, const Uri &u) {

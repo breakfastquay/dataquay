@@ -75,8 +75,8 @@ public:
      * statements with subject and predicate both URIs.
      */
     Triple(QString a_uri, QString b_uri, Node _c) :
-        a(Node::URI, a_uri),
-        b(Node::URI, b_uri),
+        a(Uri(a_uri)),
+        b(Uri(b_uri)),
         c(_c) { }
 
     /**
@@ -84,7 +84,7 @@ public:
      */
     Triple(Node _a, QString b_uri, Node _c) :
         a(_a),
-        b(Node::URI, b_uri),
+        b(Uri(b_uri)),
         c(_c) { }
 
     ~Triple() { }

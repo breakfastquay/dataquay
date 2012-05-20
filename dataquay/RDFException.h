@@ -71,6 +71,22 @@ protected:
 };
 
 /**
+ * \class RDFIncompleteURI RDFException.h <dataquay/RDFException.h>
+ * 
+ * RDFIncompleteURI is thrown when an attempt is made to construct a
+ * Uri from an incomplete URI string, such as a relative URI or a
+ * string with no scheme. Relative URIs should be represented as plain
+ * strings, and expanded by the store using its base URI into Uri
+ * objects.
+ */
+class RDFIncompleteURI : virtual public RDFException
+{
+public:
+    RDFIncompleteURI(QString message, QString data) throw() :
+        RDFException(message, data) { }
+};
+
+/**
  * \class RDFInternalError RDFException.h <dataquay/RDFException.h>
  *
  * RDFInternalError is an exception that results from an internal

@@ -58,34 +58,34 @@ private slots:
 	// If TestBasicStore has passed, these should be no problem
 
 	QVERIFY(store.add
-		(Triple(Node(Node::URI, ":fred"),
-			Node(Node::URI, "http://xmlns.com/foaf/0.1/name"),
-			Node(Node::Literal, "Fred Jenkins"))));
+		(Triple(store.expand(":fred"),
+			Uri("http://xmlns.com/foaf/0.1/name"),
+			Node("Fred Jenkins"))));
 	++count;
 
 	QVERIFY(store.add
-		(Triple(":fred",
-			":age",
+		(Triple(store.expand(":fred"),
+			store.expand(":age"),
 			Node::fromVariant(QVariant(42)))));
 	++count;
 
 	QVERIFY(store.add
-		(Triple(":fred",
-			":has_some_uri",
+		(Triple(store.expand(":fred"),
+			store.expand(":has_some_uri"),
 			Node::fromVariant(QVariant::fromValue
 					  (Uri("http://breakfastquay.com/rdf/person/fred"))))));
 	++count;
 
 	QVERIFY(store.add
-		(Triple(":fred",
-			":has_some_local_uri",
+		(Triple(store.expand(":fred"),
+			store.expand(":has_some_local_uri"),
 			Node::fromVariant(QVariant::fromValue
 					  (store.expand(":pootle"))))));
 	++count;
 
 	QVERIFY(store.add
-		(Triple(":fred",
-			":likes_to_think_his_age_is",
+		(Triple(store.expand(":fred"),
+			store.expand(":likes_to_think_his_age_is"),
 			Node::fromVariant(QVariant(21.9)))));
 	++count;
 

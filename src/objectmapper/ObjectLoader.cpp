@@ -474,12 +474,12 @@ private:
         Node itr = node;
         Node nil = m_s->expand("rdf:nil");
         
-        while ((t = m_s->matchFirst(Triple(itr, "rdf:first", Node())))
+        while ((t = m_s->matchFirst(Triple(itr, m_s->expand("rdf:first"), Node())))
                != Triple()) {
 
             nn << t.c;
 
-            t = m_s->matchFirst(Triple(itr, "rdf:rest", Node()));
+            t = m_s->matchFirst(Triple(itr, m_s->expand("rdf:rest"), Node()));
             if (t == Triple()) break;
 
             itr = t.c;

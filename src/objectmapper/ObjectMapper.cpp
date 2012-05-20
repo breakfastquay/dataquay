@@ -320,7 +320,8 @@ public:
         Node nil = m_s->expand("rdf:nil");
 
         while (1) {
-            Node next = m_s->matchFirst(Triple(itr, "rdf:rest", Node())).c;
+            Node next = m_s->matchFirst
+                (Triple(itr, m_s->expand("rdf:rest"), Node())).c;
             if (next == Node()) { // This is not a list node at all!
                 DEBUG << "addListNodesForProperty: Strange, node " << itr
                       << " (from property URI " << puri << " of object node "

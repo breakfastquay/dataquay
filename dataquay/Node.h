@@ -78,11 +78,9 @@ public:
     /**
      * Construct a node with a URI node type and the given URI.
      *
-     * Note that URIs using namespace prefixes will need to be
-     * expanded before they can safely be represented in a Uri.  Call
-     * Store::expand() to achieve this.  In general you should ensure
-     * that URIs are expanded when placed in a Node object rather than
-     * being stored in prefixed form.
+     * Note that relative URIs (using namespace prefixes) must be
+     * expanded before they be represented in a Uri.  Call
+     * Store::expand() to achieve this.
      *
      * (One basic principle of this RDF library is that we use QString
      * to represent URIs that may be local or namespace prefixed, and
@@ -91,15 +89,15 @@ public:
     Node(Uri u) : type(URI), value(u.toString()) { }
 
     /**
-     * Construct a node with the given node type and value, and with
-     * no defined datatype.
+     * Construct a literal node with the given value, and with no
+     * defined datatype.
      */
-    Node(Type t, QString v) : type(t), value(v) { }
+    Node(QString v) : type(Literal), value(v) { }
 
     /**
-     * Construct a node with the given node type, value, and datatype.
+     * Construct a literal node with the given value and datatype.
      */
-    Node(Type t, QString v, Uri dt) : type(t), value(v), datatype(dt) { }
+    Node(QString v, Uri dt) : type(Literal), value(v), datatype(dt) { }
 
     Node(const Node &n) :
         type(n.type), value(n.value), datatype(n.datatype) {

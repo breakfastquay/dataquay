@@ -82,14 +82,14 @@ private slots:
 	QCOMPARE(triples.size(), added);
 
 	// this is the bogus value we added and then removed in addThings
-	QVERIFY(!ts->contains(Triple(":fred",
-				    ":age",
-				    Node::fromVariant(QVariant(43)))));
+	QVERIFY(!ts->contains(Triple(store.expand(":fred"),
+                                     store.expand(":age"),
+                                     Node::fromVariant(QVariant(43)))));
     
 	// this is the value we actually retained
-	QVERIFY(ts->contains(Triple(":fred",
-				   ":age",
-				   Node::fromVariant(QVariant(42)))));
+	QVERIFY(ts->contains(Triple(store.expand(":fred"),
+                                    store.expand(":age"),
+                                    Node::fromVariant(QVariant(42)))));
 
 	delete t;
     }
@@ -117,8 +117,8 @@ private slots:
 	// Add incomplete statement to provoke an exception
 	try {
 	    t->add(Triple(Node(),
-			  Node(Node::URI, "http://xmlns.com/foaf/0.1/name"),
-			  Node(Node::Literal, "this_statement_is_incomplete")));
+			  Uri("http://xmlns.com/foaf/0.1/name"),
+			  Node("this_statement_is_incomplete")));
 	    QVERIFY(0);
 	} catch (RDFException) {
 	    QVERIFY(1);
@@ -126,8 +126,8 @@ private slots:
 	
 	// Now everything should fail on this tx
 	try {
-	    t->add(Triple(":fred2",
-			  ":is_sadly_deluded",
+	    t->add(Triple(store.expand(":fred2"),
+			  store.expand(":is_sadly_deluded"),
 			  Node::fromVariant(true)));
 	    QVERIFY2(0, "add succeeded after auto-rollback, should have failed");
 	} catch (RDFException) {
@@ -217,9 +217,9 @@ private slots:
 	// Test that we can't use the transaction after a rollback
 	t->rollback();
 	try {
-	    QVERIFY(!t->add(Triple(":fred2",
+	    QVERIFY(!t->add(Triple(store.expand(":fred2"),
 				   "http://xmlns.com/foaf/0.1/knows",
-				   Node(Node::URI, ":samuel"))));
+				   store.expand(":samuel"))));
 	    QVERIFY(0);
 	} catch (RDFException) {
 	    QVERIFY(1);
@@ -293,13 +293,13 @@ private slots:
 	QCOMPARE(triples.size(), added);
 
 	// this is the bogus value we added and then removed in addThings
-	QVERIFY(!ts->contains(Triple(":fred",
-				     ":age",
+	QVERIFY(!ts->contains(Triple(store.expand(":fred"),
+				     store.expand(":age"),
 				     Node::fromVariant(QVariant(43)))));
     
 	// this is the value we actually retained
-	QVERIFY(ts->contains(Triple(":fred",
-				    ":age",
+	QVERIFY(ts->contains(Triple(store.expand(":fred"),
+				    store.expand(":age"),
 				    Node::fromVariant(QVariant(42)))));
     }
 
@@ -332,8 +332,8 @@ private slots:
         triples = ts->match(Triple());
         QCOMPARE(triples.size(), added);
 
-        c->add(Triple(":fred",
-                     ":likes_to_think_his_age_is",
+        c->add(Triple(store.expand(":fred"),
+                     store.expand(":likes_to_think_his_age_is"),
                      Node::fromVariant(QVariant(21.9))));
 
         ++added;
@@ -370,24 +370,24 @@ private:
     bool addThings(Store *t, int &added) {
 	added = 0;
 	// These add calls are things we've tested in testBasicStore already
-	if (!t->add(Triple(Node(Node::URI, ":fred"),
-			   Node(Node::URI, "http://xmlns.com/foaf/0.1/name"),
-			   Node(Node::Literal, "Fred Jenkins")))) return false;
+	if (!t->add(Triple(store.expand(":fred"),
+			   Uri("http://xmlns.com/foaf/0.1/name"),
+			   Node("Fred Jenkins")))) return false;
 	++added;
-	if (!t->add(Triple(":fred",
+	if (!t->add(Triple(store.expand(":fred"),
 			   "http://xmlns.com/foaf/0.1/knows",
-			   Node(Node::URI, ":alice")))) return false;
+			   store.expand(":alice")))) return false;
 	++added;
-	t->add(Triple(":fred",
-		      ":age",
+	t->add(Triple(store.expand(":fred"),
+		      store.expand(":age"),
 		      Node::fromVariant(QVariant(43))));
 	++added;
-	if (!t->remove(Triple(":fred",
-			      ":age",
+	if (!t->remove(Triple(store.expand(":fred"),
+			      store.expand(":age"),
 			      Node()))) return false;
 	--added;
-	if (!t->add(Triple(":fred",
-			   ":age",
+	if (!t->add(Triple(store.expand(":fred"),
+			   store.expand(":age"),
 			   Node::fromVariant(QVariant(42))))) return false;
 	++added;
 	return true;

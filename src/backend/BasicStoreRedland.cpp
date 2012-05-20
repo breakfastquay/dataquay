@@ -58,9 +58,6 @@ class BasicStore::D
 {
 public:
     D() : m_storage(0), m_model(0), m_counter(0) {
-        m_baseUri = Uri("#");
-        m_prefixes[""] = m_baseUri;
-        // note this is also hardcoded in expand():
         m_prefixes["rdf"] = Uri("http://www.w3.org/1999/02/22-rdf-syntax-ns#");
         m_prefixes["xsd"] = Uri("http://www.w3.org/2001/XMLSchema#");
         clear();
@@ -273,24 +270,21 @@ public:
         DEBUG << "BasicStore::getUniqueUri: prefix " << prefix << endl;
         int base = (int)(long)this; // we don't care at all about overflow
         bool good = false;
-        QString uri;
+        Uri uri;
         while (!good) {
             QString s = getNewString();
-            uri = prefix + s;
-            Triples t =
-                doMatch(Triple(Node(Node::URI, uri), Node(), Node()), true);
+            uri = expand(prefix + s);
+            Triples t = doMatch(Triple(uri, Node(), Node()), true);
             if (t.empty()) good = true;
             else collision();
         }
-        return expand(uri);
+        return uri;
     }
 
     Uri expand(QString shrt) const {
 
         if (shrt == "a") {
-            static Uri rdfTypeUri
-                ("http://www.w3.org/1999/02/22-rdf-syntax-ns#type");
-            return rdfTypeUri;
+            return Uri::rdfTypeUri();
         }
 
         int index = shrt.indexOf(':');
@@ -505,11 +499,16 @@ public:
             const char *pfx = librdf_parser_get_namespaces_seen_prefix(parser, i);
             librdf_uri *uri = librdf_parser_get_namespaces_seen_uri(parser, i);
             QString qpfx = QString::fromUtf8(pfx);
-            Uri quri = lrdfUriToUri(uri);
+            Uri quri;
+            try {
+                quri = lrdfUriToUri(uri);
+            } catch (RDFIncompleteURI &) {
+                continue;
+            }
             DEBUG << "namespace " << i << ": " << qpfx << " -> " << quri << endl;
-            if (qpfx == "" && quri != Uri("#")) {
+            if (qpfx == "") {
                 // base uri
-                if (m_baseUri == Uri("#")) {
+                if (m_baseUri == Uri()) {
                     std::cerr << "BasicStore::import: NOTE: Loading file into store with no base URI; setting base URI to <" << quri.toString().toStdString() << "> from file" << std::endl;
                     m_baseUri = quri;
                     m_prefixes[""] = m_baseUri;
@@ -944,6 +943,7 @@ BasicStore *
 BasicStore::load(QUrl url, QString format)
 {
     BasicStore *s = new BasicStore();
+    s->setBaseUri(Uri(url));
     // store is empty, ImportIgnoreDuplicates is faster
     s->import(url, ImportIgnoreDuplicates, format);
     return s;

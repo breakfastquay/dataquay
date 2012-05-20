@@ -268,7 +268,8 @@ Node::fromVariant(const QVariant &v)
         return Node(v.value<Uri>());
     }
     if (v.type() == QVariant::Url) {
-        return Node(Node::URI, v.toUrl().toString());
+        //!!! not good -- may throw an exception -- fix
+        return Node(Uri(v.toUrl().toString()));
     }
 
     int id = v.userType();

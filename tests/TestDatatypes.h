@@ -104,7 +104,7 @@ private slots:
     }
 
     void basicConversions() {
-	Node n(Node::Literal, "Fred Jenkins", Uri());
+	Node n("Fred Jenkins", Uri());
 	QVariant v = n.toVariant();
 	QCOMPARE(v.userType(), (int)QMetaType::QString);
 	QCOMPARE(Node::fromVariant(v).datatype, n.datatype);
@@ -119,7 +119,7 @@ private slots:
 	Node n0 = t.c;
 	QCOMPARE(n0.datatype, n.datatype);
 	
-	n = Node(Node::Literal, "1", store.expand("xsd:integer"));
+	n = Node("1", store.expand("xsd:integer"));
 	v = n.toVariant();
 	QCOMPARE(v.userType(), (int)QMetaType::Long);
 

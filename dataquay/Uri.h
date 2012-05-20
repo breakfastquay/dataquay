@@ -69,12 +69,6 @@ namespace Dataquay
  * a Uri, while foaf:name is just a string.  Never store the latter
  * form in a Uri object without expanding it first.
  *
- * (Wherever a method in Dataquay accepts a URI as a QString type, it
- * is safe to assume that it will expand any prefixes used in the URI
- * before use.  Some methods may exist in alternative forms with Uri
- * or QString arguments; in this case the QString form does prefix
- * expansion, while the Uri form does not.)
- *
  * Dataquay uses Uri in preference to QUrl because the latter is
  * relatively slow to convert to and from string forms.  Uri imposes
  * no overhead over a string, it simply aids type safety.
@@ -90,25 +84,30 @@ public:
 
     /**
      * Construct a URI from the given string, which is expected to
-     * contain the text of a complete well-formed URI.  To construct a
-     * Uri from an abbreviated URI via prefix expansion, use
-     * Store::expand() instead.  This constructor is intentionally
-     * marked explicit; no silent conversion is available.
+     * contain the text of a complete well-formed URI.  May throw
+     * RDFIncompleteURI.
+     *
+     * As special cases, file: URIs are allowed to be relative
+     * ("file:x" will be expanded to "file://x" automatically) and "a"
+     * will be expanded to the rdf:type URI.
+     *
+     * To construct a Uri from an abbreviated URI via prefix
+     * expansion, use Store::expand() instead.
+     *
+     * This constructor is intentionally marked explicit; no silent
+     * conversion is available.
      */
     explicit Uri(const QString &s) : m_uri(s) {
-#ifndef NDEBUG
 	checkComplete();
-#endif
     }
 
     /**
      * Construct a URI from the given QUrl, which is expected to
-     * contain a complete well-formed URI.
+     * contain a complete well-formed URI.  May throw
+     * RDFIncompleteURI.
      */
     explicit Uri(const QUrl &u) : m_uri(u.toString()) {
-#ifndef NDEBUG
 	checkComplete();
-#endif
     }
     ~Uri() {
     }
@@ -126,10 +125,19 @@ public:
 
     static QString metaTypeName();
     static int metaTypeId();
+
+    /**
+     * Return true if the given variant has metatype metatypeId()
+     */
     static bool isUri(const QVariant &);
+
+    /**
+     * Return the rdf:type URI.
+     */
+    static Uri rdfTypeUri();
     
 private:
-    void checkComplete() const;
+    void checkComplete();
     QString m_uri;
 };
 

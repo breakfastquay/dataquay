@@ -216,7 +216,7 @@ private slots:
     void customTypeStoreRecall() {
 	
 	A *a = new A;
-	a->setProperty("uri", QVariant::fromValue<Uri>(Uri(":a")));
+	a->setProperty("uri", QVariant::fromValue<Uri>(store.expand(":a")));
 	Uri uri = storer.store(a);
 	QVERIFY(uri != Uri());
 
@@ -372,12 +372,12 @@ private slots:
 	QCOMPARE(test.size(), 3);
 
 	// pull out the b0 object node and check some of its properties
-	test = store.match(Triple(Node(), "property:objectName",
-				  Node(Node::Literal, "b0")));
+	test = store.match(Triple(Node(), store.expand("property:objectName"),
+				  Node("b0")));
 	QCOMPARE(test.size(), 1);
 
 	Node b0node = test[0].a;
-	test = store.match(Triple(b0node, "property:aref",
+	test = store.match(Triple(b0node, store.expand("property:aref"),
 				  Node()));
 	QCOMPARE(test.size(), 1);
 
@@ -385,11 +385,11 @@ private slots:
 	test = store.match(Triple(anode, "a", store.expand("type:A")));
 	QCOMPARE(test.size(), 1);
 
-	test = store.match(Triple(anode, "rel:parent", Node()));
+	test = store.match(Triple(anode, store.expand("rel:parent"), Node()));
 	QCOMPARE(test.size(), 1);
 
 	Node pnode = test[0].c;
-	test = store.match(Triple(pnode, "property:objectName", Node()));
+	test = store.match(Triple(pnode, store.expand("property:objectName"), Node()));
 	QCOMPARE(test.size(), 1);
 	QCOMPARE(test[0].c.value, QString("Test Object"));
 
@@ -488,7 +488,7 @@ private slots:
 
         t = ts.match(Triple(onode, store.expand("property:objectName"), Node()));
         QCOMPARE(t.size(), 1);
-        QCOMPARE(t[0].c, Node(Node::Literal, "Test Object"));
+        QCOMPARE(t[0].c, Node("Test Object"));
 
         // and a should have a node now
         anode = mapper.getNodeForObject(a);
@@ -521,33 +521,33 @@ private slots:
         Node n = mapper.getNodeForObject(c);
         QVERIFY(n != Node());
 
-        Triple t = ts.matchFirst(Triple(n, "property:string", Node()));
+        Triple t = ts.matchFirst(Triple(n, store.expand("property:string"), Node()));
         QCOMPARE(t.c, Node());
 
         c->setString("Lone string");
 
         // should not have affected the store yet
-        t = ts.matchFirst(Triple(n, "property:string", Node()));
+        t = ts.matchFirst(Triple(n, store.expand("property:string"), Node()));
         QCOMPARE(t.c, Node());
 
         mapper.commit();
 
         // now it should
-        t = ts.matchFirst(Triple(n, "property:string", Node()));
+        t = ts.matchFirst(Triple(n, store.expand("property:string"), Node()));
         QCOMPARE(t.c.value, QString("Lone string"));
 
         c->setString("New lone string");
 
-        t = ts.matchFirst(Triple(n, "property:string", Node()));
+        t = ts.matchFirst(Triple(n, store.expand("property:string"), Node()));
         QCOMPARE(t.c.value, QString("Lone string"));
 
         mapper.commit();
 
-        t = ts.matchFirst(Triple(n, "property:string", Node()));
+        t = ts.matchFirst(Triple(n, store.expand("property:string"), Node()));
         QCOMPARE(t.c.value, QString("New lone string"));
 
         Transaction *tx = ts.startTransaction();
-        QVERIFY(tx->remove(Triple(n, "property:string", Node())));
+        QVERIFY(tx->remove(Triple(n, store.expand("property:string"), Node())));
         tx->commit();
         delete tx;
 
@@ -557,8 +557,8 @@ private slots:
         QCOMPARE(c->getString(), QString());
         
         tx = ts.startTransaction();
-        QVERIFY(tx->add(Triple(n, "property:string",
-                           Node(Node::Literal, "Another lone string"))));
+        QVERIFY(tx->add(Triple(n, store.expand("property:string"),
+                           Node("Another lone string"))));
         tx->commit();
         delete tx;
 
@@ -586,24 +586,24 @@ private slots:
 
         c->setStrings(strings);
 
-        Triple t = ts.matchFirst(Triple(n, "property:strings", Node()));
+        Triple t = ts.matchFirst(Triple(n, store.expand("property:strings"), Node()));
         QCOMPARE(t.c, Node());
 
         mapper.commit();
 
-        t = ts.matchFirst(Triple(n, "property:strings", Node()));
+        t = ts.matchFirst(Triple(n, store.expand("property:strings"), Node()));
         QVERIFY(t.c.type == Node::Blank); // list starts with blank node
 
-        Triple v = ts.matchFirst(Triple(t.c, "rdf:first", Node()));
+        Triple v = ts.matchFirst(Triple(t.c, store.expand("rdf:first"), Node()));
         QCOMPARE(v.c.value, QString("First string"));
 
-        t = ts.matchFirst(Triple(t.c, "rdf:rest", Node()));
+        t = ts.matchFirst(Triple(t.c, store.expand("rdf:rest"), Node()));
         QVERIFY(t.c.type == Node::Blank);
 
-        v = ts.matchFirst(Triple(t.c, "rdf:first", Node()));
+        v = ts.matchFirst(Triple(t.c, store.expand("rdf:first"), Node()));
         QCOMPARE(v.c.value, QString("Second string"));
 
-        t = ts.matchFirst(Triple(t.c, "rdf:rest", Node()));
+        t = ts.matchFirst(Triple(t.c, store.expand("rdf:rest"), Node()));
         QCOMPARE(t.c, Node(store.expand("rdf:nil")));
 
         strings.clear();
@@ -612,21 +612,21 @@ private slots:
         c->setStrings(strings);
         mapper.commit();
 
-        t = ts.matchFirst(Triple(n, "property:strings", Node()));
+        t = ts.matchFirst(Triple(n, store.expand("property:strings"), Node()));
         QVERIFY(t.c.type == Node::Blank);
 
-        v = ts.matchFirst(Triple(t.c, "rdf:first", Node()));
+        v = ts.matchFirst(Triple(t.c, store.expand("rdf:first"), Node()));
         QCOMPARE(v.c.value, QString("Replacement string"));
 
-        t = ts.matchFirst(Triple(t.c, "rdf:rest", Node()));
+        t = ts.matchFirst(Triple(t.c, store.expand("rdf:rest"), Node()));
         QCOMPARE(t.c, Node(store.expand("rdf:nil")));
 
         // check the former strings are now gone
 
-        t = ts.matchFirst(Triple(Node(), Node(), Node(Node::Literal, "First string")));
+        t = ts.matchFirst(Triple(Node(), Node(), Node("First string")));
         QCOMPARE(t, Triple());
 
-        t = ts.matchFirst(Triple(Node(), Node(), Node(Node::Literal, "Second string")));
+        t = ts.matchFirst(Triple(Node(), Node(), Node("Second string")));
         QCOMPARE(t, Triple());
 
         delete c;
@@ -694,9 +694,9 @@ private slots:
         Node child(store.getUniqueUri(":child_"));
         Node parent(store.getUniqueUri(":parent_"));
         store.add(Triple(child, "a", store.expand("type:A")));
-        store.add(Triple(child, "rel:parent", parent));
+        store.add(Triple(child, store.expand("rel:parent"), parent));
         store.add(Triple(parent, "a", store.expand("type:B")));
-        store.add(Triple(parent, "property:aref", child));
+        store.add(Triple(parent, store.expand("property:aref"), child));
 
         ObjectLoader loader(&store);
 

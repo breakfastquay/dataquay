@@ -65,7 +65,7 @@ int main(int argc, char *argv[])
     else ++bad;
 
     if (bad > 0) {
-	std::cerr << "\n********* " << bad << " test(s) failed!" << std::endl;
+	std::cerr << "\n********* " << bad << " test case(s) failed!\n" << std::endl;
 	return 1;
     } else {
         std::cerr << "All tests passed" << std::endl;

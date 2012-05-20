@@ -58,9 +58,6 @@ class BasicStore::D
 {
 public:
     D() : m_model(0) {
-        m_baseUri = Uri("#");
-        m_prefixes[""] = m_baseUri;
-        // note this is also hardcoded in expand():
         m_prefixes["rdf"] = Uri("http://www.w3.org/1999/02/22-rdf-syntax-ns#");
         m_prefixes["xsd"] = Uri("http://www.w3.org/2001/XMLSchema#");
         clear();
@@ -256,24 +253,21 @@ public:
         QMutexLocker locker(&m_backendLock);
         DEBUG << "BasicStore::getUniqueUri: prefix " << prefix << endl;
         bool good = false;
-        QString uri;
+        Uri uri;
         while (!good) {
             QString s = getNewString();
-            uri = prefix + s;
-            Triples t =
-                doMatch(Triple(Node(Node::URI, uri), Node(), Node()), true);
+            uri = expand(prefix + s);
+            Triples t = doMatch(Triple(uri, Node(), Node()), true);
             if (t.empty()) good = true;
             else collision();
         }
-        return expand(uri);
+        return uri;
     }
 
     Uri expand(QString shrt) const {
 
         if (shrt == "a") {
-            static Uri rdfTypeUri
-                ("http://www.w3.org/1999/02/22-rdf-syntax-ns#type");
-            return rdfTypeUri;
+            return Uri::rdfTypeUri();
         }
 
         int index = shrt.indexOf(':');
@@ -407,9 +401,9 @@ public:
 
         DEBUG << "namespace: " << pfx << " -> " << uri << endl;
 
-        if (pfx == "" && uri != Uri("#")) {
+        if (pfx == "") {
             // base uri
-            if (m_baseUri == Uri("#")) {
+            if (m_baseUri == Uri()) {
                 std::cerr << "BasicStore::import: NOTE: Loading file into store with no base URI; setting base URI to <" << uri.toString().toStdString() << "> from file" << std::endl;
                 m_baseUri = uri;
                 m_prefixes[""] = m_baseUri;
@@ -437,10 +431,15 @@ public:
 
         D *d = (D *)handle;
 
-        QString qpfx(QString::fromUtf8((const char *)name->buf, name->n_bytes));
-        Uri quri(QString::fromUtf8((const char *)uri->buf, uri->n_bytes));
+        try {
 
-        d->addPrefixOnImport(qpfx, quri);
+            QString qpfx(QString::fromUtf8((const char *)name->buf, name->n_bytes));
+            Uri quri(QString::fromUtf8((const char *)uri->buf, uri->n_bytes));
+
+            d->addPrefixOnImport(qpfx, quri);
+
+        } catch (RDFIncompleteURI &) {
+        }
 
         return SERD_SUCCESS;
     }
@@ -931,6 +930,7 @@ BasicStore *
 BasicStore::load(QUrl url, QString format)
 {
     BasicStore *s = new BasicStore();
+    s->setBaseUri(Uri(url));
     // store is empty, ImportIgnoreDuplicates is faster
     s->import(url, ImportIgnoreDuplicates, format);
     return s;

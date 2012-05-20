@@ -628,7 +628,7 @@ ObjectStorer::D::removeUnusedNode(Node node)
     // check for a list tail (query first, but then delete our own
     // triples first so that the existence of this rdf:rest
     // relationship isn't seen as a reason not to delete the tail)
-    Triples tails(m_s->match(Triple(node, "rdf:rest", Node())));
+    Triples tails(m_s->match(Triple(node, m_s->expand("rdf:rest"), Node())));
 
     DEBUG << "... removing everything with it as subject" << endl;
     m_s->remove(Triple(node, Node(), Node()));
@@ -743,7 +743,7 @@ ObjectStorer::D::listToPropertyNode(StoreState &state, QVariantList list)
             //!!! node it contains -- but we have no way to ensure
             //!!! that this is unique... hm
             if (pnode.type == Node::URI) {
-                node = Node(Node::URI, pnode.value + "_listnode");
+                node = Node(Uri(pnode.value + "_listnode"));
             } else {
                 node = Node(m_s->getUniqueUri(":listnode_"));
             }
@@ -752,18 +752,18 @@ ObjectStorer::D::listToPropertyNode(StoreState &state, QVariantList list)
         if (first == Node()) first = node;
 
         if (previous != Node()) {
-            m_s->remove(Triple(previous, "rdf:rest", Node()));
-            m_s->add(Triple(previous, "rdf:rest", node));
+            m_s->remove(Triple(previous, m_s->expand("rdf:rest"), Node()));
+            m_s->add(Triple(previous, m_s->expand("rdf:rest"), node));
         }
 
-        m_s->remove(Triple(node, "rdf:first", Node()));
-        m_s->add(Triple(node, "rdf:first", pnode));
+        m_s->remove(Triple(node, m_s->expand("rdf:first"), Node()));
+        m_s->add(Triple(node, m_s->expand("rdf:first"), pnode));
         previous = node;
     }
 
     if (node != Node()) {
-        m_s->remove(Triple(node, "rdf:rest", Node()));
-        m_s->add(Triple(node, "rdf:rest", m_s->expand("rdf:nil")));
+        m_s->remove(Triple(node, m_s->expand("rdf:rest"), Node()));
+        m_s->add(Triple(node, m_s->expand("rdf:rest"), m_s->expand("rdf:nil")));
     }
 
     return first;
