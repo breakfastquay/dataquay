@@ -179,9 +179,9 @@ public:
         return m_store->query(sparql);
     }
 
-    Triple matchFirst(const Transaction *tx, Triple t) const {
+    Triple matchOnce(const Transaction *tx, Triple t) const {
         Operation op(this, tx);
-        return m_store->matchFirst(t);
+        return m_store->matchOnce(t);
     }
 
     Node queryFirst(const Transaction *tx, QString sparql,
@@ -479,10 +479,10 @@ public:
         }
     }
 
-    Triple matchFirst(Triple t) const {
+    Triple matchOnce(Triple t) const {
         check();
         try {
-            return m_td->matchFirst(m_tx, t);
+            return m_td->matchOnce(m_tx, t);
         } catch (RDFException &) {
             abandon();
             throw;
@@ -693,10 +693,10 @@ TransactionalStore::query(QString s) const
 }
 
 Triple
-TransactionalStore::matchFirst(Triple t) const
+TransactionalStore::matchOnce(Triple t) const
 {
     D::NonTransactionalAccess ntxa(m_d);
-    return m_d->getStore()->matchFirst(t);
+    return m_d->getStore()->matchOnce(t);
 }
 
 Node
@@ -782,9 +782,9 @@ TransactionalStore::TSTransaction::query(QString sparql) const
 }
 
 Triple
-TransactionalStore::TSTransaction::matchFirst(Triple t) const
+TransactionalStore::TSTransaction::matchOnce(Triple t) const
 {
-    return m_d->matchFirst(t);
+    return m_d->matchOnce(t);
 }
 
 Node

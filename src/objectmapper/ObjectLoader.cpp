@@ -388,12 +388,12 @@ private:
     }
 
     bool nodeHasTypeInStore(Node node) {
-        Triple t = m_s->matchFirst(Triple(node, "a", Node()));
+        Triple t = m_s->matchOnce(Triple(node, "a", Node()));
         return (t.c.type == Node::URI);
     }
 
     Node parentOf(Node node) {
-        Triple t = m_s->matchFirst(Triple(node, m_parentProp, Node()));
+        Triple t = m_s->matchOnce(Triple(node, m_parentProp, Node()));
         if (t != Triple()) return t.c;
         else return Node();
     }
@@ -406,13 +406,13 @@ private:
     }
 
     Node prevSiblingOf(Node node) {
-        Triple t = m_s->matchFirst(Triple(node, m_followProp, Node()));
+        Triple t = m_s->matchOnce(Triple(node, m_followProp, Node()));
         if (t != Triple()) return t.c;
         else return Node();
     }
 
     Node nextSiblingOf(Node node) {
-        Triple t = m_s->matchFirst(Triple(Node(), m_followProp, node));
+        Triple t = m_s->matchOnce(Triple(Node(), m_followProp, node));
         if (t != Triple()) return t.a;
         else return Node();
     }
@@ -474,12 +474,12 @@ private:
         Node itr = node;
         Node nil = m_s->expand("rdf:nil");
         
-        while ((t = m_s->matchFirst(Triple(itr, m_s->expand("rdf:first"), Node())))
+        while ((t = m_s->matchOnce(Triple(itr, m_s->expand("rdf:first"), Node())))
                != Triple()) {
 
             nn << t.c;
 
-            t = m_s->matchFirst(Triple(itr, m_s->expand("rdf:rest"), Node()));
+            t = m_s->matchOnce(Triple(itr, m_s->expand("rdf:rest"), Node()));
             if (t == Triple()) break;
 
             itr = t.c;
@@ -954,7 +954,7 @@ QString
 ObjectLoader::D::getClassNameForNode(Node node)
 {
     Uri typeUri;
-    Triple t = m_s->matchFirst(Triple(node, "a", Node()));
+    Triple t = m_s->matchOnce(Triple(node, "a", Node()));
     if (t.c.type == Node::URI) typeUri = Uri(t.c.value);
 
     QString className;

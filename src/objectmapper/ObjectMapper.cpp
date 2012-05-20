@@ -312,7 +312,7 @@ public:
         }
 
         //!!! should be matching all, surely?
-        Node itr = m_s->matchFirst(Triple(n, puri, Node())).c;
+        Node itr = m_s->matchOnce(Triple(n, puri, Node())).c;
         if (itr == Node()) {
             return; // property has no values
         }
@@ -320,7 +320,7 @@ public:
         Node nil = m_s->expand("rdf:nil");
 
         while (1) {
-            Node next = m_s->matchFirst
+            Node next = m_s->matchOnce
                 (Triple(itr, m_s->expand("rdf:rest"), Node())).c;
             if (next == Node()) { // This is not a list node at all!
                 DEBUG << "addListNodesForProperty: Strange, node " << itr

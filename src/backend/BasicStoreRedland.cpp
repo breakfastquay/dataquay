@@ -225,17 +225,17 @@ public:
         return result;
     }
 
-    Triple matchFirst(Triple t) const {
+    Triple matchOnce(Triple t) const {
         if (t.c != Node() && t.b != Node() && t.a != Node()) {
             // triple is complete: short-circuit to a single lookup
             if (contains(t)) return t;
             else return Triple();
         }
         QMutexLocker locker(&m_librdfLock);
-        DEBUG << "BasicStore::matchFirst: " << t << endl;
+        DEBUG << "BasicStore::matchOnce: " << t << endl;
         Triples result = doMatch(t, true);
 #ifndef NDEBUG
-        DEBUG << "BasicStore::matchFirst result:" << endl;
+        DEBUG << "BasicStore::matchOnce result:" << endl;
         for (int i = 0; i < result.size(); ++i) {
             DEBUG << i << ". " << result[i] << endl;
         }
@@ -898,9 +898,9 @@ BasicStore::query(QString sparql) const
 }
 
 Triple
-BasicStore::matchFirst(Triple t) const
+BasicStore::matchOnce(Triple t) const
 {
-    return m_d->matchFirst(t);
+    return m_d->matchOnce(t);
 }
 
 Node

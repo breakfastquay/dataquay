@@ -521,29 +521,29 @@ private slots:
         Node n = mapper.getNodeForObject(c);
         QVERIFY(n != Node());
 
-        Triple t = ts.matchFirst(Triple(n, store.expand("property:string"), Node()));
+        Triple t = ts.matchOnce(Triple(n, store.expand("property:string"), Node()));
         QCOMPARE(t.c, Node());
 
         c->setString("Lone string");
 
         // should not have affected the store yet
-        t = ts.matchFirst(Triple(n, store.expand("property:string"), Node()));
+        t = ts.matchOnce(Triple(n, store.expand("property:string"), Node()));
         QCOMPARE(t.c, Node());
 
         mapper.commit();
 
         // now it should
-        t = ts.matchFirst(Triple(n, store.expand("property:string"), Node()));
+        t = ts.matchOnce(Triple(n, store.expand("property:string"), Node()));
         QCOMPARE(t.c.value, QString("Lone string"));
 
         c->setString("New lone string");
 
-        t = ts.matchFirst(Triple(n, store.expand("property:string"), Node()));
+        t = ts.matchOnce(Triple(n, store.expand("property:string"), Node()));
         QCOMPARE(t.c.value, QString("Lone string"));
 
         mapper.commit();
 
-        t = ts.matchFirst(Triple(n, store.expand("property:string"), Node()));
+        t = ts.matchOnce(Triple(n, store.expand("property:string"), Node()));
         QCOMPARE(t.c.value, QString("New lone string"));
 
         Transaction *tx = ts.startTransaction();
@@ -586,24 +586,24 @@ private slots:
 
         c->setStrings(strings);
 
-        Triple t = ts.matchFirst(Triple(n, store.expand("property:strings"), Node()));
+        Triple t = ts.matchOnce(Triple(n, store.expand("property:strings"), Node()));
         QCOMPARE(t.c, Node());
 
         mapper.commit();
 
-        t = ts.matchFirst(Triple(n, store.expand("property:strings"), Node()));
+        t = ts.matchOnce(Triple(n, store.expand("property:strings"), Node()));
         QVERIFY(t.c.type == Node::Blank); // list starts with blank node
 
-        Triple v = ts.matchFirst(Triple(t.c, store.expand("rdf:first"), Node()));
+        Triple v = ts.matchOnce(Triple(t.c, store.expand("rdf:first"), Node()));
         QCOMPARE(v.c.value, QString("First string"));
 
-        t = ts.matchFirst(Triple(t.c, store.expand("rdf:rest"), Node()));
+        t = ts.matchOnce(Triple(t.c, store.expand("rdf:rest"), Node()));
         QVERIFY(t.c.type == Node::Blank);
 
-        v = ts.matchFirst(Triple(t.c, store.expand("rdf:first"), Node()));
+        v = ts.matchOnce(Triple(t.c, store.expand("rdf:first"), Node()));
         QCOMPARE(v.c.value, QString("Second string"));
 
-        t = ts.matchFirst(Triple(t.c, store.expand("rdf:rest"), Node()));
+        t = ts.matchOnce(Triple(t.c, store.expand("rdf:rest"), Node()));
         QCOMPARE(t.c, Node(store.expand("rdf:nil")));
 
         strings.clear();
@@ -612,28 +612,28 @@ private slots:
         c->setStrings(strings);
         mapper.commit();
 
-        t = ts.matchFirst(Triple(n, store.expand("property:strings"), Node()));
+        t = ts.matchOnce(Triple(n, store.expand("property:strings"), Node()));
         QVERIFY(t.c.type == Node::Blank);
 
-        v = ts.matchFirst(Triple(t.c, store.expand("rdf:first"), Node()));
+        v = ts.matchOnce(Triple(t.c, store.expand("rdf:first"), Node()));
         QCOMPARE(v.c.value, QString("Replacement string"));
 
-        t = ts.matchFirst(Triple(t.c, store.expand("rdf:rest"), Node()));
+        t = ts.matchOnce(Triple(t.c, store.expand("rdf:rest"), Node()));
         QCOMPARE(t.c, Node(store.expand("rdf:nil")));
 
         // check the former strings are now gone
 
-        t = ts.matchFirst(Triple(Node(), Node(), Node("First string")));
+        t = ts.matchOnce(Triple(Node(), Node(), Node("First string")));
         QCOMPARE(t, Triple());
 
-        t = ts.matchFirst(Triple(Node(), Node(), Node("Second string")));
+        t = ts.matchOnce(Triple(Node(), Node(), Node("Second string")));
         QCOMPARE(t, Triple());
 
         delete c;
         mapper.commit();
 
         // all properties should now be gone, as c has been deleted
-        t = ts.matchFirst(Triple());
+        t = ts.matchOnce(Triple());
         QCOMPARE(t, Triple());
     }
         

@@ -72,8 +72,7 @@ class Store
 {
 public:
     /**
-     * Add a triple to the store.  Prefix expansion is performed on
-     * URI nodes in the triple.  Return false if the triple was
+     * Add a triple to the store.  Return false if the triple was
      * already in the store.  (Dataquay does not permit duplicate
      * triples in a store.)  Throw RDFException if the triple can not
      * be added for some other reason.
@@ -81,8 +80,7 @@ public:
     virtual bool add(Triple t) = 0;
     
     /**
-     * Remove a triple from the store.  Prefix expansion is performed
-     * on URI nodes in the triple.  If some nodes in the triple are
+     * Remove a triple from the store.  If some nodes in the triple are
      * Nothing nodes, remove all matching triples.  Return false if no
      * matching triple was found in the store.  Throw RDFException if
      * removal failed for some other reason.
@@ -106,8 +104,7 @@ public:
     
     /**
      * Return true if the store contains the given triple, false
-     * otherwise.  Prefix expansion is performed on URI nodes in the
-     * triple.  Throw RDFException if the triple is not complete or if
+     * otherwise.  Throw RDFException if the triple is not complete or if
      * the test failed for any other reason.
      */
     virtual bool contains(Triple t) const = 0;
@@ -115,8 +112,7 @@ public:
     /**
      * Return all triples matching the given wildcard triple.  A node
      * of type Nothing in any part of the triple matches any node in
-     * the data store.  Prefix expansion is performed on URI nodes in
-     * the triple.  Return an empty list if there are no matches; may
+     * the data store.  Return an empty list if there are no matches; may
      * throw RDFException if matching fails in some other way.
      */
     virtual Triples match(Triple t) const = 0;
@@ -139,13 +135,13 @@ public:
     virtual ResultSet query(QString sparql) const = 0;
 
     /**
-     * Return the first triple to match the given wildcard triple.  A
-     * node of type Nothing in any part of the triple matches any node
-     * in the data store.  Prefix expansion is performed on URI nodes
-     * in the triple.  Return an empty triple (three Nothing nodes) if
-     * there are no matches.  May throw RDFException.
+     * Return a triple from the store that matches the given wildcard
+     * triple, or the empty triple if none matches.  A node of type
+     * Nothing in any part of the triple matches any node in the data
+     * store.  If more than one triple matches, the returned value may
+     * arbitrarily be any of them.  May throw RDFException.
      */
-    virtual Triple matchFirst(Triple t) const = 0;
+    virtual Triple matchOnce(Triple t) const = 0;
 
     /**
      * Run a SPARQL query against the store and return the node of

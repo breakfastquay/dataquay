@@ -615,7 +615,7 @@ ObjectStorer::D::removeUnusedNode(Node node)
     // everything it refers to.  If it happens to be a list node, then
     // we also want to recurse to its tail.
 
-    if (m_s->matchFirst(Triple(Node(), Node(), node)) != Triple()) {
+    if (m_s->matchOnce(Triple(Node(), Node(), node)) != Triple()) {
         // The node is still a target of some predicate, leave it alone
         DEBUG << "removeUnusedNode: Blank or list node " << node
               << " is still a target for another predicate, leaving" << endl;

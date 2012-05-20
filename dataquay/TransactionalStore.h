@@ -128,7 +128,7 @@ public:
     bool contains(Triple t) const;
     Triples match(Triple t) const;
     ResultSet query(QString sparql) const;
-    Triple matchFirst(Triple t) const;
+    Triple matchOnce(Triple t) const;
     Node queryFirst(QString sparql, QString bindingName) const;
     Uri getUniqueUri(QString prefix) const;
     Node addBlankNode();
@@ -171,7 +171,7 @@ private:
         bool contains(Triple t) const;
         Triples match(Triple t) const;
         ResultSet query(QString sparql) const;
-        Triple matchFirst(Triple t) const;
+        Triple matchOnce(Triple t) const;
         Node queryFirst(QString sparql, QString bindingName) const;
         Uri getUniqueUri(QString prefix) const;
         Node addBlankNode();

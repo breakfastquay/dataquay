@@ -486,7 +486,7 @@ private slots:
         BasicStore s1;
         s1.setBaseUri(Uri("http://wox/"));
         s1.import(QUrl("file:test3.ttl"), BasicStore::ImportIgnoreDuplicates);
-        Triple t = s1.matchFirst(Triple(Node(), "a", Node()));
+        Triple t = s1.matchOnce(Triple(Node(), "a", Node()));
         QCOMPARE(t.a, Node(Uri("http://wox/#thing")));
         QCOMPARE(t.c, Node(Uri("http://wox/#wotsit")));
 
@@ -494,7 +494,7 @@ private slots:
         // URL
 
         BasicStore *s2 = BasicStore::load(QUrl("file://test3.ttl"));
-        t = s2->matchFirst(Triple(Node(), "a", Node()));
+        t = s2->matchOnce(Triple(Node(), "a", Node()));
         QCOMPARE(t.a, Node(Uri("file://test3.ttl#thing")));
         QCOMPARE(t.c, Node(Uri("file://test3.ttl#wotsit")));
     }

@@ -115,7 +115,7 @@ private slots:
 	QVERIFY(store.add(t));
 
 	t.c = Node();
-	Triple t0(store.matchFirst(t));
+	Triple t0(store.matchOnce(t));
 	Node n0 = t.c;
 	QCOMPARE(n0.datatype, n.datatype);
 	
@@ -132,7 +132,7 @@ private slots:
 	QVERIFY(store.add(t));
 
 	t.c = Node();
-	t0 = store.matchFirst(t);
+	t0 = store.matchOnce(t);
 	n0 = t0.c;
 	QCOMPARE(n0.datatype, n.datatype);
     }
@@ -165,7 +165,7 @@ private slots:
 	QVERIFY(store.add(t));
 
 	t.c = Node();
-	Triple t0 = store.matchFirst(t);
+	Triple t0 = store.matchOnce(t);
 	Node n0 = t0.c;
 	QCOMPARE(n0.datatype, n.datatype);
 	
@@ -195,7 +195,7 @@ private slots:
 	QVERIFY(store.add(t));
 
 	t.c = Node();
-	Triple t0 = store.matchFirst(t);
+	Triple t0 = store.matchOnce(t);
 	Node n0 = t0.c;
 	QCOMPARE(n0.datatype, n.datatype);
 	

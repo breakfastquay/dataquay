@@ -93,7 +93,7 @@ PropertyObject::getNode() const
 Uri
 PropertyObject::getObjectType() const
 {
-    Triple t = m_store->matchFirst(Triple(m_node, "a", Node()));
+    Triple t = m_store->matchOnce(Triple(m_node, "a", Node()));
     if (t != Triple()) {
         return Uri(t.c.value);
     } else {
@@ -105,7 +105,7 @@ Uri
 PropertyObject::getObjectType(Transaction *tx) const
 {
     Store *s = getStore(tx);
-    Triple t = s->matchFirst(Triple(m_node, "a", Node()));
+    Triple t = s->matchOnce(Triple(m_node, "a", Node()));
     if (t != Triple()) {
         return Uri(t.c.value);
     } else {
@@ -117,7 +117,7 @@ bool
 PropertyObject::hasProperty(QString name) const
 {
     Uri property = getPropertyUri(name);
-    Triple r = m_store->matchFirst(Triple(m_node, property, Node()));
+    Triple r = m_store->matchOnce(Triple(m_node, property, Node()));
     return (r != Triple());
 }
 
@@ -126,7 +126,7 @@ PropertyObject::hasProperty(Transaction *tx, QString name) const
 {
     Store *s = getStore(tx);
     Uri property = getPropertyUri(name);
-    Triple r = s->matchFirst(Triple(m_node, property, Node()));
+    Triple r = s->matchOnce(Triple(m_node, property, Node()));
     return (r != Triple());
 }
 
@@ -134,7 +134,7 @@ QVariant
 PropertyObject::getProperty(QString name) const
 {
     Uri property = getPropertyUri(name);
-    Triple r = m_store->matchFirst(Triple(m_node, property, Node()));
+    Triple r = m_store->matchOnce(Triple(m_node, property, Node()));
     if (r == Triple()) return QVariant();
     return r.c.toVariant();
 }
@@ -144,7 +144,7 @@ PropertyObject::getProperty(Transaction *tx, QString name) const
 {
     Store *s = getStore(tx);
     Uri property = getPropertyUri(name);
-    Triple r = s->matchFirst(Triple(m_node, property, Node()));
+    Triple r = s->matchOnce(Triple(m_node, property, Node()));
     if (r == Triple()) return QVariant();
     return r.c.toVariant();
 }
@@ -178,7 +178,7 @@ Node
 PropertyObject::getPropertyNode(QString name) const
 {
     Uri property = getPropertyUri(name);
-    Triple r = m_store->matchFirst(Triple(m_node, property, Node()));
+    Triple r = m_store->matchOnce(Triple(m_node, property, Node()));
     return r.c;
 }
 
@@ -187,7 +187,7 @@ PropertyObject::getPropertyNode(Transaction *tx, QString name) const
 {
     Store *s = getStore(tx);
     Uri property = getPropertyUri(name);
-    Triple r = s->matchFirst(Triple(m_node, property, Node()));
+    Triple r = s->matchOnce(Triple(m_node, property, Node()));
     return r.c;
 }
 
