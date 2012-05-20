@@ -184,10 +184,10 @@ public:
         return m_store->matchOnce(t);
     }
 
-    Node queryFirst(const Transaction *tx, QString sparql,
+    Node queryOnce(const Transaction *tx, QString sparql,
                     QString bindingName) const {
         Operation op(this, tx);
-        return m_store->queryFirst(sparql, bindingName);
+        return m_store->queryOnce(sparql, bindingName);
     }
 
     Uri getUniqueUri(const Transaction *tx, QString prefix) const {
@@ -489,10 +489,10 @@ public:
         }
     }
 
-    Node queryFirst(QString sparql, QString bindingName) const {
+    Node queryOnce(QString sparql, QString bindingName) const {
         check();
         try {
-            return m_td->queryFirst(m_tx, sparql, bindingName);
+            return m_td->queryOnce(m_tx, sparql, bindingName);
         } catch (RDFException &) {
             abandon();
             throw;
@@ -700,10 +700,10 @@ TransactionalStore::matchOnce(Triple t) const
 }
 
 Node
-TransactionalStore::queryFirst(QString s, QString b) const
+TransactionalStore::queryOnce(QString s, QString b) const
 {
     D::NonTransactionalAccess ntxa(m_d);
-    return m_d->getStore()->queryFirst(s, b);
+    return m_d->getStore()->queryOnce(s, b);
 }
 
 Uri
@@ -788,10 +788,10 @@ TransactionalStore::TSTransaction::matchOnce(Triple t) const
 }
 
 Node
-TransactionalStore::TSTransaction::queryFirst(QString sparql,
+TransactionalStore::TSTransaction::queryOnce(QString sparql,
                                                   QString bindingName) const
 {
-    return m_d->queryFirst(sparql, bindingName);
+    return m_d->queryOnce(sparql, bindingName);
 }
 
 Uri

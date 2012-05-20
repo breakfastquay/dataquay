@@ -149,7 +149,7 @@ public:
      * shorthand for use with queries that are only expected to have
      * one result.  May throw RDFException.
      */
-    virtual Node queryFirst(QString sparql, QString bindingName) const = 0;
+    virtual Node queryOnce(QString sparql, QString bindingName) const = 0;
     
     /**
      * Get a new URI, starting with the given prefix (e.g. ":event_"),
@@ -242,7 +242,7 @@ public:
      * to it).  All current Store implementations support this feature.
      *
      * QueryFeature: The store supports SPARQL queries through the
-     * query and queryFirst methods.  A store that does not support
+     * query and queryOnce methods.  A store that does not support
      * queries will throw RDFUnsupportedError when these functions are
      * called.
      *

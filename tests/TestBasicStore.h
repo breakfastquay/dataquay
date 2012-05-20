@@ -423,7 +423,7 @@ private slots:
 	    results = store.query(q);
 	    QCOMPARE(results.size(), 1);
 
-	    Node v = store.queryFirst(q, "a");
+	    Node v = store.queryOnce(q, "a");
 	    QString expected = base + "alice";
 	    QCOMPARE(v.type, Node::URI);
 	    QCOMPARE(v.value, expected);

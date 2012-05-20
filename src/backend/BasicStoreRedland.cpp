@@ -251,9 +251,9 @@ public:
         return rs;
     }
 
-    Node queryFirst(QString sparql, QString bindingName) const {
+    Node queryOnce(QString sparql, QString bindingName) const {
         QMutexLocker locker(&m_librdfLock);
-        DEBUG << "BasicStore::queryFirst: " << bindingName << " from " << sparql << endl;
+        DEBUG << "BasicStore::queryOnce: " << bindingName << " from " << sparql << endl;
         ResultSet rs = runQuery(sparql);
         if (rs.empty()) return Node();
         for (ResultSet::const_iterator i = rs.begin(); i != rs.end(); ++i) {
@@ -904,9 +904,9 @@ BasicStore::matchOnce(Triple t) const
 }
 
 Node
-BasicStore::queryFirst(QString sparql, QString bindingName) const
+BasicStore::queryOnce(QString sparql, QString bindingName) const
 {
-    return m_d->queryFirst(sparql, bindingName);
+    return m_d->queryOnce(sparql, bindingName);
 }
 
 Uri

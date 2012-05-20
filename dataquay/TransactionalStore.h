@@ -129,7 +129,7 @@ public:
     Triples match(Triple t) const;
     ResultSet query(QString sparql) const;
     Triple matchOnce(Triple t) const;
-    Node queryFirst(QString sparql, QString bindingName) const;
+    Node queryOnce(QString sparql, QString bindingName) const;
     Uri getUniqueUri(QString prefix) const;
     Node addBlankNode();
     Uri expand(QString uri) const;
@@ -172,7 +172,7 @@ private:
         Triples match(Triple t) const;
         ResultSet query(QString sparql) const;
         Triple matchOnce(Triple t) const;
-        Node queryFirst(QString sparql, QString bindingName) const;
+        Node queryOnce(QString sparql, QString bindingName) const;
         Uri getUniqueUri(QString prefix) const;
         Node addBlankNode();
         Uri expand(QString uri) const;

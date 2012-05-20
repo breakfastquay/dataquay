@@ -243,7 +243,7 @@ public:
              sparql);
     }
 
-    Node queryFirst(QString sparql, QString bindingName) const {
+    Node queryOnce(QString sparql, QString bindingName) const {
         throw RDFUnsupportedError
             ("SPARQL queries are not supported with Sord backend",
              sparql);
@@ -891,9 +891,9 @@ BasicStore::matchOnce(Triple t) const
 }
 
 Node
-BasicStore::queryFirst(QString sparql, QString bindingName) const
+BasicStore::queryOnce(QString sparql, QString bindingName) const
 {
-    return m_d->queryFirst(sparql, bindingName);
+    return m_d->queryOnce(sparql, bindingName);
 }
 
 Uri

@@ -110,7 +110,7 @@ public:
     ResultSet query(QString sparql) const;
 
     Triple matchOnce(Triple t) const;
-    Node queryFirst(QString sparql, QString bindingName) const;
+    Node queryOnce(QString sparql, QString bindingName) const;
 
     Uri getUniqueUri(QString prefix) const;
     Node addBlankNode();
