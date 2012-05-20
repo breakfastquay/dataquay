@@ -392,18 +392,18 @@ private slots:
     void sliceTriples() {
         Triples tt = store.match(Triple());
         QCOMPARE(tt.size(), count);
-        Nodes nna = tt.a();
+        Nodes nna = tt.subjects();
         QCOMPARE(nna.size(), count);
         foreach (Node n, nna) {
             QVERIFY(n.type == Node::URI || n.type == Node::Blank);
         }
-        Nodes nnb = tt.b();
+        Nodes nnb = tt.predicates();
         QVERIFY(nnb != nna);
         QCOMPARE(nnb.size(), count);
         foreach (Node n, nnb) {
             QVERIFY(n.type == Node::URI);
         }
-        Nodes nnc = tt.c();
+        Nodes nnc = tt.objects();
         QVERIFY(nnc != nna);
         QCOMPARE(nnc.size(), count);
     }

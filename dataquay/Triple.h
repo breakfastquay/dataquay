@@ -150,17 +150,17 @@ public:
         return a == b;
     }
 
-    Nodes a() {
+    Nodes subjects() {
         Nodes result;
         foreach (Triple t, *this) result.push_back(t.a);
         return result;
     }
-    Nodes b() {
+    Nodes predicates() {
         Nodes result;
         foreach (Triple t, *this) result.push_back(t.b);
         return result;
     }
-    Nodes c() {
+    Nodes objects() {
         Nodes result;
         foreach (Triple t, *this) result.push_back(t.c);
         return result;
