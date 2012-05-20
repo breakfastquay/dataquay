@@ -89,6 +89,24 @@ public:
 
     ~Triple() { }
 
+    /**
+     * Return the subject node. This is synonymous with accessing the
+     * data member a.
+     */
+    Node subject() { return a; }
+
+    /**
+     * Return the predicate node. This is synonymous with accessing
+     * the data member b.
+     */
+    Node predicate() { return b; }
+
+    /**
+     * Return the object node. This is synonymous with accessing the
+     * data member c.
+     */
+    Node object() { return c; }
+    
     bool operator<(const Triple &t) const {
         if (a != t.a) return a < t.a;
         if (b != t.b) return b < t.b;
