@@ -144,6 +144,8 @@ class RDFDuplicateImportException : virtual public RDFException
 public:
     RDFDuplicateImportException(QString message, QString data = "") throw() :
         RDFException(message, data) { }
+    RDFDuplicateImportException(QString message, const Triple &t) throw() :
+        RDFException(message, t) { }
 };
 
 }

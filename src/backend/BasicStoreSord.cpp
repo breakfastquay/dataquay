@@ -421,21 +421,6 @@ public:
 
         DEBUG << "namespace: " << pfx << " -> " << uri << endl;
 
-        if (pfx == "") {
-            // base uri
-            if (m_baseUri == Uri()) {
-                std::cerr << "BasicStore::import: NOTE: Loading file into store with no base URI; setting base URI to <" << uri.toString().toStdString() << "> from file" << std::endl;
-                m_baseUri = uri;
-                m_prefixes[""] = m_baseUri;
-            } else {
-/* -- no, this is the expected case when loading more than one file into store
-                if (uri != m_baseUri) {
-                    std::cerr << "BasicStore::import: NOTE: Base URI of loaded file differs from base URI of store (<" << uri.toString().toStdString() << "> != <" << m_baseUri.toString().toStdString() << ">)" << std::endl;
-                }
-*/
-            }
-        }
-
         // don't call addPrefix; it tries to lock the mutex,
         // and anyway we want to add the prefix only if it
         // isn't already there (to avoid surprisingly changing
@@ -472,12 +457,18 @@ public:
         QMutexLocker plocker(&m_prefixLock);
 
         //!!! todo: format?
+        
+        QString base = m_baseUri.toString();
+        if (base == "") {
+            // No base URI in store: use file URL as base
+            base = url.toString();
+        }
 
-        QByteArray bb = m_baseUri.toString().toUtf8();
+        QByteArray bb = base.toUtf8();
         SerdURI bu;
 
         if (serd_uri_parse((uint8_t *)bb.data(), &bu) != SERD_SUCCESS) {
-            throw RDFInternalError("Failed to parse base URI", m_baseUri);
+            throw RDFInternalError("Failed to parse base URI", base);
         }
 
         SerdNode bn = serd_node_from_string(SERD_URI, (uint8_t *)bb.data());
@@ -549,11 +540,12 @@ public:
                     SordQuad q;
                     sord_iter_get(itr, q);
                     if (sord_contains(m_model, q)) {
+                        Triple culprit = statementToTriple(q);
                         sord_iter_free(itr);
                         freeStatement(templ);
                         sord_free(im);
                         serd_env_free(env);
-                        throw RDFDuplicateImportException("Duplicate statement encountered on import in ImportFailOnDuplicates mode");
+                        throw RDFDuplicateImportException("Duplicate statement encountered on import in ImportFailOnDuplicates mode", culprit);
                     }
                     sord_iter_next(itr);
                 }

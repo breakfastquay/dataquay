@@ -409,8 +409,14 @@ public:
         QMutexLocker wlocker(&m_librdfLock);
         QMutexLocker plocker(&m_prefixLock);
 
+        QString base = m_baseUri.toString();
+        if (base == "") {
+            // No base URI in store: use file URL as base
+            base = url.toString();
+        }
+
         librdf_uri *luri = uriToLrdfUri(Uri(url));
-        librdf_uri *base_uri = uriToLrdfUri(m_baseUri);
+        librdf_uri *base_uri = uriToLrdfUri(Uri(base));
 
         if (format == "") format = "guess";
 
@@ -526,20 +532,6 @@ public:
                 continue;
             }
             DEBUG << "namespace " << i << ": " << qpfx << " -> " << quri << endl;
-            if (qpfx == "") {
-                // base uri
-                if (m_baseUri == Uri()) {
-                    std::cerr << "BasicStore::import: NOTE: Loading file into store with no base URI; setting base URI to <" << quri.toString().toStdString() << "> from file" << std::endl;
-                    m_baseUri = quri;
-                    m_prefixes[""] = m_baseUri;
-                } else {
-/* -- no, this is the expected case when loading more than one file into store
-                    if (quri != m_baseUri) {
-                        std::cerr << "BasicStore::import: NOTE: Base URI of loaded file differs from base URI of store (<" << quri.toString().toStdString() << "> != <" << m_baseUri.toString().toStdString() << ">)" << std::endl;
-                    }
-*/
-                }
-            }
             // don't call addPrefix; it tries to lock the mutex,
             // and anyway we want to add the prefix only if it
             // isn't already there (to avoid surprisingly changing
