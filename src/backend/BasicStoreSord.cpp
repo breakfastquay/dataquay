@@ -492,6 +492,14 @@ public:
 
             SerdReader *reader = sord_new_reader(m_model, env, SERD_TURTLE, NULL);
 
+            // if we have data in the store already, then we must add
+            // a prefix for the new blank nodes we're importing to
+            // disambiguate them
+            if (!doMatch(Triple(), true).empty()) {
+                serd_reader_add_blank_prefix
+                    (reader, (uint8_t *)(getNewString().toUtf8().data()));
+            }
+
             SerdStatus rv = serd_reader_read_file
                 (reader, (const uint8_t *)fileUri.toLocal8Bit().data());
 
@@ -514,6 +522,14 @@ public:
             SordModel *im = sord_new(m_w.getWorld(), 0, false); // no index
             
             SerdReader *reader = sord_new_reader(im, env, SERD_TURTLE, NULL);
+
+            // if we have data in the store already, then we must add
+            // a prefix for the new blank nodes we're importing to
+            // disambiguate them
+            if (!doMatch(Triple(), true).empty()) {
+                serd_reader_add_blank_prefix
+                    (reader, (uint8_t *)(getNewString().toUtf8().data()));
+            }
 
             SerdStatus rv = serd_reader_read_file
                 (reader, (const uint8_t *)fileUri.toLocal8Bit().data());

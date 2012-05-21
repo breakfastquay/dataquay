@@ -607,6 +607,44 @@ private slots:
                         Node("42", store.expand("xsd:integer")))));
     }
 
+    void loadCompetingBlanks() {
+
+        // import from two files which use the same blank genid for
+        // different purposes and establish that the two don't
+        // conflict with each other
+
+        {
+            QFile f("test-blank-1.ttl");
+            QVERIFY(f.open(QFile::WriteOnly | QFile::Truncate));
+            QTextStream ts(&f);
+            ts << "@prefix : <#> ." << endl;
+            ts << ":thing :has _:genid1 ." << endl;
+            ts << "_:genid1 :name \"weevil\" ." << endl;
+            ts.flush();
+            f.close();
+        }
+
+        {
+            QFile f("test-blank-2.ttl");
+            QVERIFY(f.open(QFile::WriteOnly | QFile::Truncate));
+            QTextStream ts(&f);
+            ts << "@prefix : <#> ." << endl;
+            ts << ":other :has _:genid1 ." << endl;
+            ts << "_:genid1 :name \"squidlet\" ." << endl;
+            ts.flush();
+            f.close();
+        }
+
+        BasicStore *s = BasicStore::load(QUrl("file:test-blank-1.ttl"));
+        s->import(QUrl("file:test-blank-2.ttl"), Store::ImportFailOnDuplicates);
+
+        Triple t1 = s->matchOnce(Triple(Node(), Node(), Node("weevil")));
+        Triple t2 = s->matchOnce(Triple(Node(), Node(), Node("squidlet")));
+        QVERIFY(t1.a != t2.a);
+
+        delete s;
+    }
+
     void remove() {
 	// check we can remove a triple
 	QVERIFY(store.remove
