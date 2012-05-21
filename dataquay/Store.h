@@ -135,6 +135,17 @@ public:
     virtual ResultSet query(QString sparql) const = 0;
 
     /**
+     * Given a triple in which any two nodes are specified and the
+     * other is a wildcard node of type Nothing, return a node that
+     * can be substituted for the Nothing node in order to complete a
+     * triple that exists in the store. If no matching triple can be
+     * found, return a null node.  If more than one triple matches,
+     * the returned value may arbitrarily be from any of them. May
+     * throw RDFException.
+     */
+    virtual Node complete(Triple t) const = 0;
+
+    /**
      * Return a triple from the store that matches the given wildcard
      * triple, or the empty triple if none matches.  A node of type
      * Nothing in any part of the triple matches any node in the data

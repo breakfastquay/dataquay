@@ -218,6 +218,26 @@ public:
         return result;
     }
 
+    Node complete(Triple t) const {
+        int count = 0, match = 0;
+        if (t.a == Node()) { ++count; match = 0; }
+        if (t.b == Node()) { ++count; match = 1; }
+        if (t.c == Node()) { ++count; match = 2; }
+        if (count != 1) {
+            throw RDFException("Cannot complete triple unless it has only a single wildcard node", t);
+        }
+        QMutexLocker locker(&m_backendLock);
+        DEBUG << "BasicStore::complete: " << t << endl;
+        Triples result = doMatch(t, true);
+        if (result.empty()) return Node();
+        else switch (match) {
+            case 0: return result[0].a;
+            case 1: return result[0].b;
+            case 2: return result[0].c;
+            default: return Node();
+            }
+    }
+
     Triple matchOnce(Triple t) const {
         if (t.c != Node() && t.b != Node() && t.a != Node()) {
             // triple is complete: short-circuit to a single lookup
@@ -881,6 +901,12 @@ ResultSet
 BasicStore::query(QString sparql) const
 {
     return m_d->query(sparql);
+}
+
+Node
+BasicStore::complete(Triple t) const
+{
+    return m_d->complete(t);
 }
 
 Triple

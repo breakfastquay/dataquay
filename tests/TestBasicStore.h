@@ -435,6 +435,52 @@ private slots:
 	}
     }
 
+    void complete() {
+        
+        Node n = store.complete
+            (Triple(store.expand(":alice"),
+                    store.expand("foaf:name"),
+                    Node()));
+
+        QCOMPARE(n, Node("Alice Banquet"));
+
+        n = store.complete
+            (Triple(store.expand(":alice"),
+                    Node(),
+                    Node("Alice Banquet")));
+        
+        QCOMPARE(n, Node(store.expand("foaf:name")));
+
+        n = store.complete
+            (Triple(Node(),
+                    store.expand("foaf:name"),
+                    Node("Alice Banquet")));
+
+        QCOMPARE(n, Node(store.expand(":alice")));
+
+        try {
+            n = store.complete
+                (Triple(store.expand(":alice"),
+                        store.expand("foaf:name"),
+                        Node("Alice Banquet")));
+            QVERIFY(0);
+        } catch (RDFException &) {
+            // can't complete a complete triple
+            QVERIFY(1);
+        }
+
+        try {
+            n = store.complete
+                (Triple(Node(),
+                        store.expand("foaf:name"),
+                        Node()));
+            QVERIFY(0);
+        } catch (RDFException &) {
+            // can't complete an underspecified triple
+            QVERIFY(1);
+        }
+    }
+
     void saveAndLoad() {
 	
         store.save("test.ttl");

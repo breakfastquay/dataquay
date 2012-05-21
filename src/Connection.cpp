@@ -52,6 +52,7 @@ public:
     bool contains(Triple t) const;
     Triples match(Triple t) const;
     ResultSet query(QString sparql) const;
+    Node complete(Triple t) const;
     Triple matchOnce(Triple t) const;
     Node queryOnce(QString sparql, QString bindingName) const;
     Uri getUniqueUri(QString prefix) const;
@@ -177,6 +178,12 @@ Connection::D::query(QString sparql) const
     return getStore()->query(sparql);
 }
 
+Node
+Connection::D::complete(Triple t) const
+{
+    return getStore()->complete(t);
+}
+
 Triple
 Connection::D::matchOnce(Triple t) const
 {
@@ -282,6 +289,12 @@ ResultSet
 Connection::query(QString sparql) const
 {
     return m_d->query(sparql);
+}
+
+Node 
+Connection::complete(Triple t) const
+{
+    return m_d->complete(t);
 }
 
 Triple 
