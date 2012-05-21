@@ -122,8 +122,8 @@ public:
     }
 
     void updatePropertyNames() {
-        m_parentProp = m_tm.getRelationshipPrefix().toString() + "parent";
-        m_followProp = m_tm.getRelationshipPrefix().toString() + "follows";
+        m_parentProp = Uri(m_tm.getRelationshipPrefix().toString() + "parent");
+        m_followProp = Uri(m_tm.getRelationshipPrefix().toString() + "follows");
     }
 
     void removeObject(Node n) {
@@ -186,8 +186,8 @@ private:
     BlankNodePolicy m_bp;
     FollowPolicy m_fp;
     QList<StoreCallback *> m_storeCallbacks;
-    QString m_parentProp;
-    QString m_followProp;
+    Uri m_parentProp;
+    Uri m_followProp;
 
     void collect(StoreState &state) {
 
@@ -454,7 +454,7 @@ ObjectStorer::D::getUriFrom(QObject *o) const
     QVariant uriVar = o->property("uri");
     
     if (uriVar != QVariant()) {
-        if (Uri::isUri(uriVar)) {
+        if (Uri::hasUriType(uriVar)) {
             uri = uriVar.value<Uri>();
         } else {
             uri = m_s->expand(uriVar.toString());
@@ -798,7 +798,7 @@ ObjectStorer::D::store(StoreState &state, QObject *o)
     if (parent) {
         Node pn = state.map.value(parent);
         if (pn != Node()) {
-            replacePropertyNodes(node, Uri(m_parentProp), pn);
+            replacePropertyNodes(node, m_parentProp, pn);
         }
     } else {
         DEBUG << "ObjectStorer::store: Node " << node
@@ -835,7 +835,7 @@ ObjectStorer::D::store(StoreState &state, QObject *o)
 
                 DEBUG << "ObjectStorer::store: Node " << node
                       << " follows sibling " << sn << endl;
-                replacePropertyNodes(node, Uri(m_followProp), sn);
+                replacePropertyNodes(node, m_followProp, sn);
                 followsWritten = true;
 
             } else {
@@ -908,7 +908,7 @@ void
 ObjectStorer::D::storeSingle(StoreState &state, QObject *o, Node node)
 {
     QString className = o->metaObject()->className();
-    m_s->add(Triple(node, "a", m_tm.synthesiseTypeUriForClass(className)));
+    m_s->add(Triple(node, Uri("a"), m_tm.synthesiseTypeUriForClass(className)));
     storeProperties(state, o, node);
     state.toStore.remove(o);
 }

@@ -264,12 +264,14 @@ Node::fromVariant(const QVariant &v)
     DEBUG << "Node::fromVariant: QVariant type is " << v.userType()
           << " (" << int(v.userType()) << "), variant is " << v << endl;
 
-    if (Uri::isUri(v)) {
+    if (Uri::hasUriType(v)) {
         return Node(v.value<Uri>());
     }
     if (v.type() == QVariant::Url) {
-        //!!! not good -- may throw an exception -- fix
-        return Node(Uri(v.toUrl().toString()));
+        QString s = v.toUrl().toString();
+        if (Uri::isCompleteUri(s)) {
+            return Node(Uri(s));
+        }
     }
 
     int id = v.userType();
@@ -414,12 +416,10 @@ operator<<(std::ostream &out, const Node &n)
         out << "[]";
         break;
     case Node::URI:
-        if (n.value.contains("://") || n.value.startsWith('#')) {
-            out << "<" << n.value.toStdString() << ">";
-        } else if (n.value == "") {
+        if (n.value == "") {
             out << "[empty-uri]";
         } else {
-            out << n.value.toStdString();
+            out << "<" << n.value.toStdString() << ">";
         }
         break;
     case Node::Literal:
@@ -441,12 +441,10 @@ operator<<(QTextStream &out, const Node &n)
         out << "[]";
         break;
     case Node::URI:
-        if (n.value.contains("://") || n.value.startsWith('#')) {
-            out << "<" << n.value << ">";
-        } else if (n.value == "") {
+        if (n.value == "") {
             out << "[empty-uri]";
         } else {
-            out << n.value;
+            out << "<" << n.value << ">";
         }
         break;
     case Node::Literal:

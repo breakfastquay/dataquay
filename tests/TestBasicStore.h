@@ -131,17 +131,19 @@ private slots:
     }
 
     void simpleAdd() {
+
 	// check triple can be added
 	QVERIFY(store.add
 		(Triple(store.expand(":fred"),
-			"http://xmlns.com/foaf/0.1/name",
+			Uri("http://xmlns.com/foaf/0.1/name"),
 			Node("Fred Jenkins"))));
 	++count;
 	++fromFred;
+
         // alternative Triple constructor
 	QVERIFY(store.add
 		(Triple(store.expand(":fred"),
-			"http://xmlns.com/foaf/0.1/knows",
+			Uri("http://xmlns.com/foaf/0.1/knows"),
 			store.expand(":alice"))));
 	++count;
 	++fromFred;
@@ -267,7 +269,7 @@ private slots:
         // rdf:type builtin
 	QVERIFY(store.add
 		(Triple(store.expand(":fred"),
-			"a",
+			Uri("a"),
 			store.expand(":person"))));
 	QVERIFY(store.contains
 		(Triple(store.expand(":fred"),
@@ -289,10 +291,9 @@ private slots:
 			Node(Uri("http://xmlns.com/foaf/0.1/knows")),
 			store.expand(":fred"))));
         QVERIFY(store.add
-		(Triple(store.expand(":alice"),
-			store.expand("foaf:name"),
-			Node(QString("Alice Banquet")))));
-              
+                (Triple(store.expand(":alice"),
+                        store.expand("foaf:name"),
+                        Node(QString("Alice Banquet")))));              
         ++usingKnows;
         ++count;
         ++count;
@@ -303,8 +304,8 @@ private slots:
         // duplicate of an already-added one -- this should be ignored
         // (returning false) and we do not increment our count
 	QVERIFY(!store.add
-		(Triple(base + "alice",
-			"http://xmlns.com/foaf/0.1/name",
+		(Triple(Uri(base + "alice"),
+			Uri("http://xmlns.com/foaf/0.1/name"),
 			Node(QString("Alice Banquet")))));
 
         // now we try to add a triple a bit like an existing one but
@@ -312,7 +313,7 @@ private slots:
         // our count, although this is not a very useful statement
 	QVERIFY(store.add
 		(Triple(store.expand(":alice"),
-			"http://xmlns.com/foaf/0.1/knows",
+			Uri("http://xmlns.com/foaf/0.1/knows"),
 			store.expand("foaf:fred"))));
         ++usingKnows;
         ++count;
@@ -323,7 +324,7 @@ private slots:
         Node blankNode = store.addBlankNode();
         QVERIFY(store.add
 		(Triple(store.expand(":fred"),
-			"http://xmlns.com/foaf/0.1/maker",
+			Uri("http://xmlns.com/foaf/0.1/maker"),
 			blankNode)));
         ++count;
         ++fromFred;
@@ -486,7 +487,7 @@ private slots:
         BasicStore s1;
         s1.setBaseUri(Uri("http://wox/"));
         s1.import(QUrl("file:test3.ttl"), BasicStore::ImportIgnoreDuplicates);
-        Triple t = s1.matchOnce(Triple(Node(), "a", Node()));
+        Triple t = s1.matchOnce(Triple(Node(), Uri("a"), Node()));
         QCOMPARE(t.a, Node(Uri("http://wox/#thing")));
         QCOMPARE(t.c, Node(Uri("http://wox/#wotsit")));
 
@@ -494,7 +495,7 @@ private slots:
         // URL
 
         BasicStore *s2 = BasicStore::load(QUrl("file://test3.ttl"));
-        t = s2->matchOnce(Triple(Node(), "a", Node()));
+        t = s2->matchOnce(Triple(Node(), Uri("a"), Node()));
         QCOMPARE(t.a, Node(Uri("file://test3.ttl#thing")));
         QCOMPARE(t.c, Node(Uri("file://test3.ttl#wotsit")));
     }
@@ -564,7 +565,7 @@ private slots:
 	// check we can remove a triple
 	QVERIFY(store.remove
 		(Triple(store.expand(":fred"),
-			"http://xmlns.com/foaf/0.1/knows",
+			Uri("http://xmlns.com/foaf/0.1/knows"),
 			store.expand(":alice"))));
 	--count;
 	--fromFred;
@@ -573,7 +574,7 @@ private slots:
 	// check we can't remove a triple that does not exist in store
         QVERIFY(!store.remove
 		(Triple(store.expand(":fred"),
-			"http://xmlns.com/foaf/0.1/knows",
+			Uri("http://xmlns.com/foaf/0.1/knows"),
 			store.expand(":tammy"))));
 
         Triples triples = store.match(Triple());

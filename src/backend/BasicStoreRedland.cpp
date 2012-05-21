@@ -638,8 +638,7 @@ private:
         }
             break;
         case Node::URI: {
-            Uri value = expand(v.value);
-            librdf_uri *uri = uriToLrdfUri(value);
+            librdf_uri *uri = uriToLrdfUri(Uri(v.value));
             if (!uri) throw RDFException("Failed to construct URI from value ", v.value);
             node = librdf_new_node_from_uri(m_w.getWorld(), uri);
             if (!node) throw RDFException("Failed to construct node from URI");

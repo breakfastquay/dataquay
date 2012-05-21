@@ -218,7 +218,7 @@ private slots:
 	t->rollback();
 	try {
 	    QVERIFY(!t->add(Triple(store.expand(":fred2"),
-				   "http://xmlns.com/foaf/0.1/knows",
+				   Uri("http://xmlns.com/foaf/0.1/knows"),
 				   store.expand(":samuel"))));
 	    QVERIFY(0);
 	} catch (RDFException) {
@@ -375,7 +375,7 @@ private:
 			   Node("Fred Jenkins")))) return false;
 	++added;
 	if (!t->add(Triple(store.expand(":fred"),
-			   "http://xmlns.com/foaf/0.1/knows",
+			   Uri("http://xmlns.com/foaf/0.1/knows"),
 			   store.expand(":alice")))) return false;
 	++added;
 	t->add(Triple(store.expand(":fred"),

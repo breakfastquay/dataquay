@@ -331,21 +331,21 @@ private slots:
 	// results match (in case the storer is generating new URIs or
 	// blank nodes for things that already have them in the map).
 
-	Triples test = store.match(Triple(Node(), "a", Node()));
+	Triples test = store.match(Triple(Node(), Uri("a"), Node()));
 	QCOMPARE(test.size(), 10);
 
 	storer.store(o, map);
 	
-	test = store.match(Triple(Node(), "a", Node()));
+	test = store.match(Triple(Node(), Uri("a"), Node()));
 	QCOMPARE(test.size(), 10);
 	
 	// Now the rest of the content tests
 
-	test = store.match(Triple(Node(), "a", store.expand("type:QObject")));
+	test = store.match(Triple(Node(), Uri("a"), store.expand("type:QObject")));
 	QCOMPARE(test.size(), 1);
 	QCOMPARE(test[0].a.type, Node::URI);
 
-	test = store.match(Triple(Node(), "a", store.expand("type:A")));
+	test = store.match(Triple(Node(), Uri("a"), store.expand("type:A")));
 	QCOMPARE(test.size(), 2);
 
 	int blankCount = 0, uriCount = 0;
@@ -356,7 +356,7 @@ private slots:
 	QCOMPARE(blankCount, 1);
 	QCOMPARE(uriCount, 1);
 
-	test = store.match(Triple(Node(), "a", store.expand("type:B")));
+	test = store.match(Triple(Node(), Uri("a"), store.expand("type:B")));
 	QCOMPARE(test.size(), 4);
 
 /*!!! not a good test -- one of the Bs ("b") will be given a URI because it's a top-level node rather than a property
@@ -368,7 +368,7 @@ private slots:
     }
 */
 
-	test = store.match(Triple(Node(), "a", store.expand("type:C")));
+	test = store.match(Triple(Node(), Uri("a"), store.expand("type:C")));
 	QCOMPARE(test.size(), 3);
 
 	// pull out the b0 object node and check some of its properties
@@ -382,7 +382,7 @@ private slots:
 	QCOMPARE(test.size(), 1);
 
 	Node anode = test[0].c;
-	test = store.match(Triple(anode, "a", store.expand("type:A")));
+	test = store.match(Triple(anode, Uri("a"), store.expand("type:A")));
 	QCOMPARE(test.size(), 1);
 
 	test = store.match(Triple(anode, store.expand("rel:parent"), Node()));
@@ -482,7 +482,7 @@ private slots:
         Triples t = ts.match(Triple(onode, Node(), Node()));
         QCOMPARE(t.size(), 2); // type, name
 
-        t = ts.match(Triple(onode, "a", Node()));
+        t = ts.match(Triple(onode, Uri("a"), Node()));
         QCOMPARE(t.size(), 1);
         QCOMPARE(t[0].c, Node(store.expand("type:QObject")));
 
@@ -497,7 +497,7 @@ private slots:
         t = ts.match(Triple(anode, Node(), Node()));
         QCOMPARE(t.size(), 2); // type, parent
 
-        t = ts.match(Triple(anode, "a", Node()));
+        t = ts.match(Triple(anode, Uri("a"), Node()));
         QCOMPARE(t.size(), 1);
         QCOMPARE(t[0].c, Node(store.expand("type:A")));
 
@@ -693,9 +693,9 @@ private slots:
 
         Node child(store.getUniqueUri(":child_"));
         Node parent(store.getUniqueUri(":parent_"));
-        store.add(Triple(child, "a", store.expand("type:A")));
+        store.add(Triple(child, Uri("a"), store.expand("type:A")));
         store.add(Triple(child, store.expand("rel:parent"), parent));
-        store.add(Triple(parent, "a", store.expand("type:B")));
+        store.add(Triple(parent, Uri("a"), store.expand("type:B")));
         store.add(Triple(parent, store.expand("property:aref"), child));
 
         ObjectLoader loader(&store);

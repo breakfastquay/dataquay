@@ -178,8 +178,8 @@ public:
     }
 
     void updatePropertyNames() {
-        m_parentProp = m_tm.getRelationshipPrefix().toString() + "parent";
-        m_followProp = m_tm.getRelationshipPrefix().toString() + "follows";
+        m_parentProp = Uri(m_tm.getRelationshipPrefix().toString() + "parent");
+        m_followProp = Uri(m_tm.getRelationshipPrefix().toString() + "follows");
     }
 
     QObject *load(Node node) {
@@ -218,7 +218,7 @@ public:
 
         Nodes nodes;
         
-        Triples candidates = m_s->match(Triple(Node(), "a", typeNode));
+        Triples candidates = m_s->match(Triple(Node(), Uri("a"), typeNode));
         foreach (Triple t, candidates) {
             if (t.c.type != Node::URI) continue;
             nodes.push_back(t.a);
@@ -248,7 +248,7 @@ public:
         
         Nodes nodes;
         
-        Triples candidates = m_s->match(Triple(Node(), "a", Node()));
+        Triples candidates = m_s->match(Triple(Node(), Uri("a"), Node()));
         foreach (Triple t, candidates) {
             if (t.c.type != Node::URI) continue;
             nodes.push_back(t.a);
@@ -293,8 +293,8 @@ private:
     AbsentPropertyPolicy m_ap;
     QList<LoadCallback *> m_immediateCallbacks;
     QList<LoadCallback *> m_finalCallbacks;
-    QString m_parentProp;
-    QString m_followProp;
+    Uri m_parentProp;
+    Uri m_followProp;
 
     void collect(LoadState &state) {
 
@@ -388,7 +388,7 @@ private:
     }
 
     bool nodeHasTypeInStore(Node node) {
-        Triple t = m_s->matchOnce(Triple(node, "a", Node()));
+        Triple t = m_s->matchOnce(Triple(node, Uri("a"), Node()));
         return (t.c.type == Node::URI);
     }
 
@@ -954,7 +954,7 @@ QString
 ObjectLoader::D::getClassNameForNode(Node node)
 {
     Uri typeUri;
-    Triple t = m_s->matchOnce(Triple(node, "a", Node()));
+    Triple t = m_s->matchOnce(Triple(node, Uri("a"), Node()));
     if (t.c.type == Node::URI) typeUri = Uri(t.c.value);
 
     QString className;

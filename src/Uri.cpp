@@ -98,29 +98,52 @@ Uri::metaTypeId()
 void
 Uri::checkComplete()
 {
+    QString s = m_uri;
+
+    if (!canBeComplete(s)) {
+        throw RDFIncompleteURI
+            ("Uri::Uri: Given string is not a complete absolute URI", s);
+    } else {
+        m_uri = s;
+    }
+}
+
+bool
+Uri::isCompleteUri(QString s)
+{
+    QString s0(s);
+    return canBeComplete(s0);
+}
+
+bool
+Uri::canBeComplete(QString &s)
+{
     static QRegExp schemeRE("^[a-zA-Z]+://");
 
     // An RDF URI must be absolute, with a few special cases
 
-    if (m_uri == "a") {
+    if (s == "a") {
 
-        m_uri = rdfTypeUri().toString();
+        s = rdfTypeUri().toString();
+        return true;
     
-    } else if (m_uri.isEmpty() || m_uri[0] == '#') {
+    } else if (s.isEmpty() || s[0] == '#') {
 
-        throw RDFIncompleteURI
-            ("Uri::Uri: Given string is a null URI", m_uri);
+        return false;
 
-    } else if (!m_uri.contains(schemeRE)) {
+    } else if (!s.contains(schemeRE)) {
 
         // we are generous with file URIs: if we get file:x, convert
         // it to file://x
-        if (m_uri.startsWith("file:")) {
-            m_uri = "file://" + m_uri.right(m_uri.length() - 5);
+        if (s.startsWith("file:")) {
+            s = "file://" + s.right(s.length() - 5);
+            return true;
         } else {
-            throw RDFIncompleteURI
-                ("Uri::Uri: Given string is not an absolute URI", m_uri);
+            return false;
         }
+    } else {
+
+        return true;
     }
 }
 
@@ -145,7 +168,7 @@ Uri::operator==(const Uri &u) const
 }
 
 bool
-Uri::isUri(const QVariant &v)
+Uri::hasUriType(const QVariant &v)
 {
     return (v.type() == QVariant::UserType && v.userType() == metaTypeId());
 }

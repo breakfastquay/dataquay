@@ -660,8 +660,7 @@ private:
         }
             break;
         case Node::URI: {
-            Uri value = expand(v.value);
-            node = uriToSordNode(value);
+            node = uriToSordNode(Uri(v.value));
             if (!node) throw RDFException("Failed to construct node from URI");
         }
             break;

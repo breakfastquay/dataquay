@@ -84,15 +84,19 @@ public:
 
     /**
      * Construct a URI from the given string, which is expected to
-     * contain the text of a complete well-formed URI.  May throw
-     * RDFIncompleteURI.
+     * contain the text of a complete well-formed absolute URI.
      *
      * As special cases, file: URIs are allowed to be relative
      * ("file:x" will be expanded to "file://x" automatically) and "a"
      * will be expanded to the rdf:type URI.
      *
-     * To construct a Uri from an abbreviated URI via prefix
-     * expansion, use Store::expand() instead.
+     * This will throw RDFIncompleteURI if given an incomplete or
+     * relative URI, so use care when constructing Uri objects from
+     * unvalidated input.  Call isComplete() if you wish to test
+     * whether a URI string will be accepted before constructing.
+     *
+     * To construct a Uri from an abbreviated or relative URI via
+     * prefix or base expansion, use Store::expand().
      *
      * This constructor is intentionally marked explicit; no silent
      * conversion is available.
@@ -123,13 +127,19 @@ public:
     inline bool operator<(const Uri &u) const { return m_uri < u.m_uri; }
     inline bool operator>(const Uri &u) const { return u < *this; }
 
+    /**
+     * Return true if the given string contains a complete URI,
+     * i.e. if it is possible to construct a Uri object from it.
+     */
+    static bool isCompleteUri(QString s);
+
     static QString metaTypeName();
     static int metaTypeId();
 
     /**
-     * Return true if the given variant has metatype metatypeId()
+     * Return true if the given variant has metatype metatypeId().
      */
-    static bool isUri(const QVariant &);
+    static bool hasUriType(const QVariant &);
 
     /**
      * Return the rdf:type URI.
@@ -139,6 +149,7 @@ public:
 private:
     void checkComplete();
     QString m_uri;
+    static bool canBeComplete(QString &s);
 };
 
 typedef QList<Uri> UriList;

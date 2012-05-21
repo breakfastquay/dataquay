@@ -61,31 +61,10 @@ public:
      * However, in order to be inserted in the RDF store, a triple
      * must have either URI or Blank type for its first (or subject)
      * node, URI for its second (or predicate) node, and either URI,
-     * Blank, or Literal type for its third (or object) node.  See the
-     * following constructor for some simple assistance in
-     * constructing typical statement triples.
+     * Blank, or Literal type for its third (or object) node.
      */
     Triple(Node _a, Node _b, Node _c) :
         a(_a), b(_b), c(_c) { }
-
-    /**
-     * Construct a triple of two URIs and an arbitrary node.
-     * 
-     * This constructor simplifies constructing complete RDF
-     * statements with subject and predicate both URIs.
-     */
-    Triple(QString a_uri, QString b_uri, Node _c) :
-        a(Uri(a_uri)),
-        b(Uri(b_uri)),
-        c(_c) { }
-
-    /**
-     * Construct a triple of Node, URI, and an arbitrary node.
-     */
-    Triple(Node _a, QString b_uri, Node _c) :
-        a(_a),
-        b(Uri(b_uri)),
-        c(_c) { }
 
     ~Triple() { }
 

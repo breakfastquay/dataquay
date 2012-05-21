@@ -93,7 +93,7 @@ PropertyObject::getNode() const
 Uri
 PropertyObject::getObjectType() const
 {
-    Triple t = m_store->matchOnce(Triple(m_node, "a", Node()));
+    Triple t = m_store->matchOnce(Triple(m_node, Uri("a"), Node()));
     if (t != Triple()) {
         return Uri(t.c.value);
     } else {
@@ -105,7 +105,7 @@ Uri
 PropertyObject::getObjectType(Transaction *tx) const
 {
     Store *s = getStore(tx);
-    Triple t = s->matchOnce(Triple(m_node, "a", Node()));
+    Triple t = s->matchOnce(Triple(m_node, Uri("a"), Node()));
     if (t != Triple()) {
         return Uri(t.c.value);
     } else {
@@ -427,7 +427,7 @@ Uri
 CacheingPropertyObject::getObjectType() const
 {
     encache();
-    Uri key = m_po.getStore(NoTransaction)->expand("a");
+    Uri key = Uri::rdfTypeUri();
     if (!m_cache.contains(key) || m_cache[key][0].type != Node::URI) {
         return Uri();
     }
