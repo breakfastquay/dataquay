@@ -1,4 +1,8 @@
 
+exists(debug.pri) {
+	include(./debug.pri)
+}
+
 TEMPLATE = lib
 CONFIG += warn_on staticlib
 QT -= gui
@@ -15,6 +19,8 @@ OBJECTS_DIR = o
 MOC_DIR = o
 
 INCLUDEPATH += dataquay
+
+!debug:DEFINES += NDEBUG
 
 HEADERS += dataquay/BasicStore.h \
            dataquay/Connection.h \
@@ -69,4 +75,3 @@ linux* {
 exists(platform.pri) {
 	include(./platform.pri)
 }
-
