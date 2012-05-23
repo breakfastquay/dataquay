@@ -12,7 +12,7 @@ PRE_TARGETDEPS += ../libdataquay.a
 OBJECTS_DIR = o
 MOC_DIR = o
 
-LIBS += ../libdataquay.a # -lsord-0 -lserd-0
+LIBS += ../libdataquay.a -lsord-0 -lserd-0
 
 #HEADERS += TestObjects.h
 #SOURCES += TestDataquay.cpp
@@ -29,5 +29,13 @@ exists(./platform.pri) {
     }
 }
 
-!win32:QMAKE_POST_LINK=./$${TARGET}
+!win32 {
+    !macx* {
+        QMAKE_POST_LINK=./$${TARGET}
+    }
+    macx* {
+        QMAKE_POST_LINK=./$${TARGET}.app/Contents/MacOS/$${TARGET}
+    }
+}
+
 win32:QMAKE_POST_LINK=$${TARGET}.exe
