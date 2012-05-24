@@ -4,7 +4,7 @@
     Dataquay
 
     A C++/Qt library for simple RDF datastore management.
-    Copyright 2009-2011 Chris Cannam.
+    Copyright 2009-2012 Chris Cannam.
   
     Permission is hereby granted, free of charge, to any person
     obtaining a copy of this software and associated documentation
