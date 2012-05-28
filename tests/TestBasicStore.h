@@ -106,6 +106,20 @@ private slots:
         uri = Uri("file:/a/b");
         QVERIFY(uri.toString() == "file:///a/b");
 
+        // but we don't like any other prefix without //
+        try {
+            uri = Uri("blah:a");
+            QVERIFY(0);
+        } catch (RDFIncompleteURI &) {
+            QVERIFY(1);
+        }
+        try {
+            uri = Uri("blah:/a");
+            QVERIFY(0);
+        } catch (RDFIncompleteURI &) {
+            QVERIFY(1);
+        }
+
         // succeed in creating absolute URI through store.expand
         uri = store.expand(":relative");
         QCOMPARE(uri.length(), store.getBaseUri().length() + 8);

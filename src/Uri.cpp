@@ -98,13 +98,9 @@ Uri::metaTypeId()
 void
 Uri::checkComplete()
 {
-    QString s = m_uri;
-
-    if (!canBeComplete(s)) {
+    if (!canBeComplete(m_uri)) { // may modify m_uri
         throw RDFIncompleteURI
-            ("Uri::Uri: Given string is not a complete absolute URI", s);
-    } else {
-        m_uri = s;
+            ("Uri::Uri: Given string is not a complete absolute URI", m_uri);
     }
 }
 
@@ -118,8 +114,6 @@ Uri::isCompleteUri(QString s)
 bool
 Uri::canBeComplete(QString &s)
 {
-    static QRegExp schemeRE("^[a-zA-Z]+://");
-
     // An RDF URI must be absolute, with a few special cases
 
     if (s == "a") {
@@ -127,11 +121,28 @@ Uri::canBeComplete(QString &s)
         s = rdfTypeUri().toString();
         return true;
     
-    } else if (s.isEmpty() || s[0] == '#') {
+    } else if (s.isEmpty() || s[0] == '#' || s[0] == ':') {
 
         return false;
 
-    } else if (!s.contains(schemeRE)) {
+    } else {
+
+        // look for scheme (and we know from the above that the first
+        // char is not ':')
+
+        bool hasScheme = false;
+
+        for (int i = 0; i < s.length(); ++i) {
+            if (s[i] == QChar(':')) {
+                if (s[i+1] != QChar('/')) break;
+                if (s[i+2] != QChar('/')) break;
+                hasScheme = true;
+                break;
+            }
+            if (!s[i].isLetter()) return false;
+        }
+
+        if (hasScheme) return true;
 
         // we are generous with file URIs: if we get file:x, convert
         // it to file://x
@@ -141,9 +152,6 @@ Uri::canBeComplete(QString &s)
         } else {
             return false;
         }
-    } else {
-
-        return true;
     }
 }
 
