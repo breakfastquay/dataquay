@@ -1,4 +1,4 @@
-prefix=/usr/local
+prefix=%PREFIX%
 exec_prefix=${prefix}
 libdir=${exec_prefix}/lib
 includedir=${prefix}/include
@@ -6,5 +6,5 @@ includedir=${prefix}/include
 Name: dataquay
 Version: 0.9
 Description: C++ API for an RDF data store using Qt4 classes and containers
-Libs: -L${libdir} -ldataquay
+Libs: -L${libdir} -ldataquay %EXTRALIBS%
 Cflags: -I${includedir} 

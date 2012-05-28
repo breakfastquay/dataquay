@@ -5,6 +5,9 @@ Dataquay
 Dataquay is a free open source library that provides a friendly C++
 API for an RDF data store using Qt4 classes and containers.
 
+This is version 0.9 of Dataquay.  Note that this is a pre-1.0 release
+and the API is still subject to change.
+
 Dataquay is simple to use and easy to integrate. It is principally
 intended for use in Qt-based applications that would like to use an
 RDF datastore as backing for in-memory project data, to avoid having
@@ -57,18 +60,20 @@ Dataquay provides these features:
    might find -- particularly for serious bugs -- but you have no
    obligation to do so.
 
-You will need to have the Raptor, Rasqal and Redland libraries
-installed in order to build and use Dataquay.
-
 
 Choice of datastore
 -------------------
 
 Dataquay can be built against either Redland (http://librdf.org) or
-Sord (http://drobilla.net/software/sord/).  To use Redland, ensure
-USE_REDLAND is defined in the build; to use Sord, ensure USE_SORD is
-defined.  The choice is made at compile time: Dataquay does not have
-any module or plugin system.  The default is to use Redland.
+Sord (http://drobilla.net/software/sord/).
+
+You will need to have the Raptor, Rasqal and Redland libraries
+installed in order to build and use Dataquay with Redland, or the Sord
+and Serd libraries installed in order to use Sord.
+
+To use Redland, ensure USE_REDLAND is defined in config.pri; to use
+Sord, ensure USE_SORD is defined.  The choice is made at compile time:
+Dataquay does not have any module or plugin system.
 
 Which to choose?  Sord is smaller and simpler, Redland more complete.
 SPARQL queries and data loading from a remote (e.g. HTTP) resource are
@@ -92,9 +97,6 @@ the build, or perform a release build. to eliminate this output.
 A test program is included in the tests/ directory -- this runs a
 series of unit tests and will bail out if any fails.  To use it, run
 qmake and make in the tests/ directory and then run ./test-dataquay .
-
-Note that this is a pre-1.0 release and the API is still subject to
-change.
 
 
 Chris Cannam

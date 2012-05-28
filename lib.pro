@@ -4,17 +4,16 @@ exists(debug.pri) {
 }
 
 TEMPLATE = lib
-CONFIG += warn_on staticlib
+CONFIG += warn_on
 QT -= gui
 
 TARGET = dataquay
 
-# Define this to use the Redland datastore (http://librdf.org/)
-#DEFINES += USE_REDLAND
+exists(config.pri) {
+	include(./config.pri)
+}
 
-# Define this to use the Sord datastore (http://drobilla.net/software/sord/)
-DEFINES += USE_SORD
-
+VERSION=0.9
 OBJECTS_DIR = o
 MOC_DIR = o
 
@@ -60,16 +59,20 @@ SOURCES += src/Connection.cpp \
            src/objectmapper/ObjectMapper.cpp \
            src/objectmapper/ObjectMapperForwarder.cpp \
            src/objectmapper/ObjectStorer.cpp \
-           src/objectmapper/TypeMapping.cpp
+           src/objectmapper/TypeMapping.cpp \
+           src/acsymbols.c
 
 linux* {
-        libraries.path = /usr/local/lib
-        libraries.files = libdataquay.a
-        includes.path = /usr/local/include
+	isEmpty(PREFIX) {
+		PREFIX = /usr/local
+	}
+        target.path = $${PREFIX}/lib
+        includes.path = $${PREFIX}/include
         includes.files = dataquay
-        pkgconfig.path = /usr/local/lib/pkgconfig
+        pkgconfig.path = $${PREFIX}/lib/pkgconfig
         pkgconfig.files = deploy/dataquay.pc
-        INSTALLS += libraries includes pkgconfig
+        pkgconfig.extra = sed -e "'"s.%PREFIX%.$${PREFIX}."'" -e "'"s.%EXTRALIBS%.$${EXTRALIBS}."'" deploy/dataquay.pc.in > deploy/dataquay.pc
+        INSTALLS += target includes pkgconfig
 }
 
 exists(platform.pri) {
