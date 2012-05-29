@@ -5,6 +5,8 @@ Dataquay
 Dataquay is a free open source library that provides a friendly C++
 API for an RDF data store using Qt4 classes and containers.
 
+  http://breakfastquay.com/dataquay/
+
 This is version 0.9 of Dataquay.  Note that this is a pre-1.0 release
 and the API is still subject to change.
 
@@ -85,18 +87,23 @@ build with Redland.
 Compiling Dataquay
 ------------------
 
-Run qmake then make.  There is no install step yet.
+Dataquay requires Qt 4.5 or newer with qmake.
 
-Dataquay requires Qt 4.5 or newer.
+Make sure your preferred datastore (see above) is selected in the
+config.pri file.
 
-The default debug build will print a lot of information to standard
-error during run time; this can be very helpful for debugging your
-application, but it can quickly become excessive.  Define NDEBUG in
-the build, or perform a release build. to eliminate this output.
+Run qmake, then make.
 
-A test program is included in the tests/ directory -- this runs a
-series of unit tests and will bail out if any fails.  To use it, run
-qmake and make in the tests/ directory and then run ./test-dataquay .
+This should compile the library and unit tests and automatically run
+the tests. If compilation succeeds but any unit tests fail, please do
+not use the library -- report the problem to me instead.
+
+Linux users can "make install" after building if desired.
+
+A debug build will print a lot of information to standard error during
+run time; this can be very helpful for debugging your application, but
+it can quickly become excessive.  Perform a release build to eliminate
+this output.
 
 
 Chris Cannam
