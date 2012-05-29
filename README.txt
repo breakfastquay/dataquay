@@ -92,7 +92,7 @@ Dataquay requires Qt 4.5 or newer with qmake.
 Make sure your preferred datastore (see above) is selected in the
 config.pri file.
 
-Run qmake, then make.
+Run "qmake dataquay.pro", then make.
 
 This should compile the library and unit tests and automatically run
 the tests. If compilation succeeds but any unit tests fail, please do
