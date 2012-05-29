@@ -478,7 +478,7 @@ public:
 
         // serd_uri_to_path doesn't like the brief file:blah
         // convention, it insists that file: is followed by //
-        // (technically correct, but a bit pedantic)
+        // (the opposite of Redland)
 
         if (fileUri.startsWith("file:") && !fileUri.startsWith("file://")) {
             // however, it's happy with scheme-less paths

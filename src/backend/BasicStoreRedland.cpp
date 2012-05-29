@@ -415,7 +415,15 @@ public:
             base = url.toString();
         }
 
-        librdf_uri *luri = uriToLrdfUri(Uri(url));
+        // Redland doesn't like file://x for relative file paths, it
+        // insists on file:x (the opposite of Serd)
+        QString fileUri = Uri(url).toString();
+        if (fileUri.startsWith("file://") && !fileUri.startsWith("file:///")) {
+            fileUri = "file:" + fileUri.right(fileUri.length()-7);
+        }
+
+        librdf_uri *luri = librdf_new_uri
+            (m_w.getWorld(), (const unsigned char *)fileUri.toUtf8().data());
         librdf_uri *base_uri = uriToLrdfUri(Uri(base));
 
         if (format == "") format = "guess";
