@@ -698,6 +698,8 @@ private slots:
         store.add(Triple(parent, Uri("a"), store.expand("type:B")));
         store.add(Triple(parent, store.expand("property:aref"), child));
 
+        store.save("test-pp.ttl");
+
         ObjectLoader loader(&store);
 
         loader.setFollowPolicy(ObjectLoader::FollowObjectProperties |
@@ -710,12 +712,14 @@ private slots:
         QVERIFY(testMap.contains(child));
         QVERIFY(testMap.value(parent));
         QVERIFY(testMap.value(child));
-        QVERIFY(qobject_cast<A*>(testMap.value(child)));
-        QVERIFY(qobject_cast<B*>(testMap.value(parent)));
-        QCOMPARE(testMap.value(child)->parent(), testMap.value(parent).data());
-        QCOMPARE(testMap.value(parent)->children().size(), 1);
-        QCOMPARE(testMap.value(parent)->children()[0], testMap.value(child).data());
-        QCOMPARE(qobject_cast<B*>(testMap.value(parent))->getA(), testMap.value(child).data());
+        A *testChild = qobject_cast<A*>(testMap.value(child).data());
+        B *testParent = qobject_cast<B*>(testMap.value(parent).data());
+        QVERIFY(testChild);
+        QVERIFY(testParent);
+        QCOMPARE(testChild->parent(), testParent);
+        QCOMPARE(testParent->children().size(), 1);
+        QCOMPARE(testParent->children()[0], testChild);
+        QCOMPARE(testParent->getA(), testChild);
     }
 
 private:
