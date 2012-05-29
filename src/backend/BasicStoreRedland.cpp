@@ -233,7 +233,7 @@ public:
         if (count != 1) {
             throw RDFException("Cannot complete triple unless it has only a single wildcard node", t);
         }
-        QMutexLocker locker(&m_backendLock);
+        QMutexLocker locker(&m_librdfLock);
         DEBUG << "BasicStore::complete: " << t << endl;
         Triples result = doMatch(t, true);
         if (result.empty()) return Node();
@@ -432,6 +432,7 @@ public:
                 (parser, luri, base_uri, m_model)) {
                 librdf_free_parser(parser);
                 DEBUG << "librdf_parser_parse_into_model failed" << endl;
+                DEBUG << "luri = " << (const char *)librdf_uri_as_string(luri) << ", base_uri = " << (const char *)librdf_uri_as_string(base_uri) << endl;
                 throw RDFException("Failed to import model from URL",
                                    url.toString());
             }
@@ -465,6 +466,7 @@ public:
                 //!!! syntax error -- can this be correct?
                 if (librdf_parser_parse_into_model(parser, luri, base_uri, im)) {
                     DEBUG << "librdf_parser_parse_into_model failed" << endl;
+                    DEBUG << "luri = " << (const char *)librdf_uri_as_string(luri) << ", base_uri = " << (const char *)librdf_uri_as_string(base_uri) << endl;
                     throw RDFException("Failed to import model from URL",
                                        url.toString());
                 }
@@ -758,11 +760,6 @@ private:
     }
 
     ResultSet runQuery(QString rawQuery) const {
-    
-        if (m_baseUri == Uri("#")) {
-            std::cerr << "BasicStore::runQuery: WARNING: Query requested on RDF store with default '#' base URI: results may be not as expected" << std::endl;
-            //!!! but in what way? explicate
-        }
 
         QString sparql;
         m_prefixLock.lock();
