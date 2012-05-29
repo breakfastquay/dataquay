@@ -10,10 +10,12 @@ exists(../config.pri) {
 
 INCLUDEPATH += . ..
 DEPENDPATH += . ..
-LIBPATH += ..
+QMAKE_LIBDIR += ..
 
 OBJECTS_DIR = o
 MOC_DIR = o
+
+!win32: LIBS += -Wl,-rpath,..
 
 LIBS += -L.. -ldataquay	$${EXTRALIBS}
 
