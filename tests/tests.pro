@@ -1,6 +1,6 @@
 
 TEMPLATE = app
-CONFIG += debug
+CONFIG += debug console
 QT += testlib
 TARGET = test-dataquay
 
