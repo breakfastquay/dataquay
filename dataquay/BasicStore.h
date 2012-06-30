@@ -62,9 +62,6 @@ public:
      * Set the base URI for the store.  This is used to expand the
      * empty URI prefix when adding and querying triples, and is also
      * used as the document base URI when exporting.
-     *
-     * The default base URI is "#" (resolve local URIs relative to
-     * this document).
      */
     void setBaseUri(Uri uri);
 

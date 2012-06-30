@@ -36,6 +36,7 @@
 #include "Uri.h"
 #include "Node.h"
 #include "Triple.h"
+#include "Debug.h"
 
 #include <QTextStream>
 
@@ -104,6 +105,7 @@ RDFException::setMessage(QString m)
 {
     if (m_message) free(m_message);
     m_message = strdup(m.toLocal8Bit().data());
+    DEBUG << "RDFException: " << m_message << endl;
 }
 
 }
