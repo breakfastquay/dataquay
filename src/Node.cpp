@@ -231,7 +231,7 @@ Node::registerDatatype(Uri dt, QString typeName, VariantEncoder *enc)
     int id = QMetaType::type(ba.data());
     if (id <= 0) {
         std::cerr << "WARNING: Node::registerDatatype: Type name \""
-                  << typeName.toStdString() << "\" is unknown to QMetaType, "
+                  << typeName.toLocal8Bit().data() << "\" is unknown to QMetaType, "
                   << "cannot register it here" << std::endl;
         return;
     }
@@ -419,15 +419,15 @@ operator<<(std::ostream &out, const Node &n)
         if (n.value == "") {
             out << "[empty-uri]";
         } else {
-            out << "<" << n.value.toStdString() << ">";
+            out << "<" << n.value.toLocal8Bit().data() << ">";
         }
         break;
     case Node::Literal:
-        out << "\"" << n.value.toStdString() << "\"";
+        out << "\"" << n.value.toLocal8Bit().data() << "\"";
         if (n.datatype != Uri()) out << "^^" << n.datatype;
         break;
     case Node::Blank:
-        out << "[blank " << n.value.toStdString() << "]";
+        out << "[blank " << n.value.toLocal8Bit().data() << "]";
         break;
     }
     return out;

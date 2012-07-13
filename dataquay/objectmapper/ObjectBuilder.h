@@ -38,8 +38,6 @@
 #include <QString>
 #include <QVariant>
 
-#include <iostream>
-
 namespace Dataquay {
 
 /**
@@ -261,10 +259,6 @@ public:
      */
     QString getClassNameForPointerName(QString pointerName) const {
         if (m_pcmap.contains(pointerName)) return m_pcmap[pointerName];
-        std::cerr << "getClassNameForPointerName: unknown pointerName " << pointerName.toStdString() << std::endl;
-        foreach (QString p, m_pcmap.keys()) {
-            std::cerr << " -> " << p.toStdString() << std::endl;
-        }
         return "";
     }
 

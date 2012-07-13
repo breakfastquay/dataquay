@@ -199,7 +199,7 @@ QDataStream &operator>>(QDataStream &in, Uri &u) {
 }
 
 std::ostream &operator<<(std::ostream &out, const Uri &u) {
-    return out << u.toString().toStdString();
+    return out << u.toString().toLocal8Bit().data();
 }
 
 QTextStream &operator<<(QTextStream &out, const Uri &u) {
