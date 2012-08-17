@@ -22,6 +22,10 @@ LIBS += -L.. -ldataquay	$${EXTRALIBS}
 HEADERS += TestBasicStore.h TestDatatypes.h TestTransactionalStore.h TestImportOptions.h TestObjectMapper.h
 SOURCES += TestDatatypes.cpp main.cpp
 
+exists(../../platform-dataquay.pri) {
+	include(../../platform-dataquay.pri)
+}
+
 exists(./platform.pri) {
     include(./platform.pri)
 }

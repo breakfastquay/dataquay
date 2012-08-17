@@ -75,6 +75,10 @@ linux* {
         INSTALLS += target includes pkgconfig
 }
 
+exists(../platform-dataquay.pri) {
+	include(../platform-dataquay.pri)
+}
+
 exists(platform.pri) {
 	include(./platform.pri)
 }
