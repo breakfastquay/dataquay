@@ -50,6 +50,7 @@
 
 #include <cstdlib>
 #include <iostream>
+#include <time.h>
 
 namespace Dataquay
 {
@@ -72,7 +73,7 @@ public:
         QString s =
             QString::fromLocal8Bit
             (QCryptographicHash::hash
-             (QString("%1").arg(random() + time(0)).toLocal8Bit(),
+             (QString("%1").arg(rand() + time(0)).toLocal8Bit(),
               QCryptographicHash::Sha1).toHex())
             .left(12);
         // This may be used as the whole of a name in some contexts,
@@ -91,7 +92,7 @@ public:
         static bool seeded = false;
         static QMutexLocker l(&m);
         if (!seeded) return;
-        srandom(time(0));
+        srand(time(0));
         seeded = true;
     }
 
