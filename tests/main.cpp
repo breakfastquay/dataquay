@@ -42,7 +42,7 @@ int main(int argc, char *argv[])
 {
     int good = 0, bad = 0;
 
-    QApplication app(argc, argv);
+    QCoreApplication app(argc, argv);
 
     Dataquay::TestBasicStore tbs;
     if (QTest::qExec(&tbs, argc, argv) == 0) ++good;
