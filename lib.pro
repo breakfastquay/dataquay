@@ -17,6 +17,8 @@ VERSION=0.9
 OBJECTS_DIR = o
 MOC_DIR = o
 
+QMAKE_LFLAGS_SHLIB *= $(LDFLAGS)
+
 INCLUDEPATH += dataquay
 
 !debug:DEFINES += NDEBUG
@@ -66,12 +68,15 @@ linux* {
 	isEmpty(PREFIX) {
 		PREFIX = /usr/local
 	}
-        target.path = $${PREFIX}/lib
+	isEmpty(LIBDIR) {
+		LIBDIR = $${PREFIX}/lib
+	}
+        target.path = $${LIBDIR}
         includes.path = $${PREFIX}/include
         includes.files = dataquay
         pkgconfig.path = $${PREFIX}/lib/pkgconfig
         pkgconfig.files = deploy/dataquay.pc
-        pkgconfig.extra = sed -e "'"s.%PREFIX%.$${PREFIX}."'" -e "'"s.%EXTRALIBS%.$${EXTRALIBS}."'" deploy/dataquay.pc.in > deploy/dataquay.pc
+        pkgconfig.extra = sed -e "'"s.%PREFIX%.$${PREFIX}."'" -e "'"s.%LIBDIR%.$${LIBDIR}."'" -e "'"s.%EXTRALIBS%.$${EXTRALIBS}."'" deploy/dataquay.pc.in > deploy/dataquay.pc
         INSTALLS += target includes pkgconfig
 }
 
