@@ -84,6 +84,7 @@ class RDFIncompleteURI : virtual public RDFException
 public:
     RDFIncompleteURI(QString message, QString data) throw() :
         RDFException(message, data) { }
+    virtual ~RDFIncompleteURI() throw() { }
 };
 
 /**
@@ -99,6 +100,7 @@ public:
         RDFException(message, data) { }
     RDFInternalError(QString message, const Uri &data) throw() :
         RDFException(message, data) { }
+    virtual ~RDFInternalError() throw() { }
 };
 
 /**
@@ -115,6 +117,7 @@ public:
         RDFException(message, data) { }
     RDFUnsupportedError(QString message, const Uri &data) throw() :
         RDFException(message, data) { }
+    virtual ~RDFUnsupportedError() throw() { }
 };
 
 /**
@@ -129,6 +132,7 @@ class RDFTransactionError : virtual public RDFException
 public:
     RDFTransactionError(QString message, QString data = "") throw() :
         RDFException(message, data) { }
+    virtual ~RDFTransactionError() throw() { }
 };
 
 /**
@@ -146,6 +150,7 @@ public:
         RDFException(message, data) { }
     RDFDuplicateImportException(QString message, const Triple &t) throw() :
         RDFException(message, t) { }
+    virtual ~RDFDuplicateImportException() throw() { }
 };
 
 }
