@@ -444,8 +444,7 @@ private slots:
 	    QCOMPARE(v.value, expected);
 
 	} catch (RDFUnsupportedError &e) {
-	    QSKIP("SPARQL queries not supported by current store backend",
-		  SkipSingle);
+	    QSKIP("SPARQL queries not supported by current store backend");
 	}
     }
 

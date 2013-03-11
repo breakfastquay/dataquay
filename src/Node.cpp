@@ -304,7 +304,7 @@ Node::fromVariant(const QVariant &v)
         Node n;
         n.type = Literal;
         n.datatype = encodedVariantTypeURI;
-        n.value = QString::fromAscii(qCompress(b).toBase64());        
+        n.value = QString::fromLatin1(qCompress(b).toBase64());        
         return n;
     }
 }
@@ -328,7 +328,7 @@ Node::toVariant() const
         // Opaque encoding used for "unknown" types.  If this is
         // encoding is in use, we must decode from it even if the type
         // is actually known
-        QByteArray benc = value.toAscii();
+        QByteArray benc = value.toLatin1();
         QByteArray b = qUncompress(QByteArray::fromBase64(benc));
         QDataStream ds(&b, QIODevice::ReadOnly);
         QVariant v;
