@@ -819,6 +819,9 @@ private:
         case SERD_ERR_BAD_SYNTAX: return "Invalid syntax";
         case SERD_ERR_NOT_FOUND: return "Not found";
         case SERD_ERR_BAD_ARG: return "Bad argument";
+        case SERD_ERR_ID_CLASH: return "Blank node ID clash";
+        case SERD_ERR_BAD_CURIE: return "Bad abbreviated URI";
+        case SERD_ERR_INTERNAL: return "Internal error in Serd";
         }
         return QString("Unknown Serd error type");
     }
