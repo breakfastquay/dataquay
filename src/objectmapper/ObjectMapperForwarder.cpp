@@ -74,7 +74,11 @@ ObjectMapperForwarder::ObjectMapperForwarder(ObjectMapper *m, QObject *o) :
         // through the public API.
 
         QString sig = QString("%1%2").arg(QSIGNAL_CODE)
+#if (QT_VERSION >= 0x050000)
             .arg(property.notifySignal().methodSignature().data());
+#else
+            .arg(property.notifySignal().signature());
+#endif
         QByteArray ba = sig.toLocal8Bit();
         
         if (!connect(o, ba.data(), this, SLOT(objectModified()))) {
