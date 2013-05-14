@@ -2,6 +2,7 @@
 TEMPLATE = app
 CONFIG += debug console
 QT += testlib
+QT -= gui
 TARGET = test-dataquay
 
 exists(../config.pri) {

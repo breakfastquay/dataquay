@@ -33,14 +33,16 @@
 
 #include "Store.h"
 
+#include <QDataStream>
+
 QDataStream &operator<<(QDataStream &out, const Dataquay::ChangeType &ct)
 {
-    return (out << (int)ct);
+    return (out << (qint32)ct);
 }
 
 QDataStream &operator>>(QDataStream &in, Dataquay::ChangeType &ct)
 {
-    int i;
+    qint32 i;
     in >> i;
     ct = (Dataquay::ChangeType)i;
     return in;
