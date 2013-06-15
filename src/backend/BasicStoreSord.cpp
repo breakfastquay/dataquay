@@ -967,7 +967,9 @@ BasicStore *
 BasicStore::load(QUrl url, QString format)
 {
     BasicStore *s = new BasicStore();
-    s->setBaseUri(Uri(url));
+    QString su = url.toString();
+    Uri baseUri(su.replace(" ", "%20"));
+    s->setBaseUri(baseUri);
     // store is empty, ImportIgnoreDuplicates is faster
     s->import(url, ImportIgnoreDuplicates, format);
     return s;

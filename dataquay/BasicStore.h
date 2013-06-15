@@ -128,9 +128,8 @@ public:
      * exceptions.
      *
      * Note that the URL must be a URL, not just a filename
-     * (i.e. local files need the file: prefix, and spaces and the
-     * characters '<' or '>' must be percent encoded). The file URL
-     * will also become the base URI of the store.
+     * (i.e. local files need the file: prefix). The file URL will
+     * also become the base URI of the store.
      *
      * If format is specified, it will be taken as the RDF parse
      * format (e.g. ntriples).  The set of supported format strings
