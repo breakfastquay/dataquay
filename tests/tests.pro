@@ -4,6 +4,7 @@ CONFIG += debug console
 QT += testlib
 QT -= gui
 TARGET = test-dataquay
+win*: TARGET = "TestDataquay"
 
 exists(../config.pri) {
 	include(../config.pri)
