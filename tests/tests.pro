@@ -39,7 +39,7 @@ exists(./platform.pri) {
 
 !win32 {
     !macx* {
-        QMAKE_POST_LINK=./$${TARGET}
+        QMAKE_POST_LINK=$${DESTDIR}/$${TARGET}
     }
     macx* {
         QMAKE_POST_LINK=./$${TARGET}.app/Contents/MacOS/$${TARGET}
