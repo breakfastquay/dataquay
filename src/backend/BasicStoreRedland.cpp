@@ -108,12 +108,12 @@ public:
 
     void clear() {
         QMutexLocker locker(&m_librdfLock);
-        DEBUG << "BasicStore::clear" << endl;
+        DQ_DEBUG << "BasicStore::clear" << endl;
         if (m_model) librdf_free_model(m_model);
         if (m_storage) librdf_free_storage(m_storage);
         m_storage = librdf_new_storage(m_w.getWorld(), "trees", 0, 0);
         if (!m_storage) {
-            DEBUG << "Failed to create RDF trees storage, falling back to default storage type" << endl;
+            DQ_DEBUG << "Failed to create RDF trees storage, falling back to default storage type" << endl;
             m_storage = librdf_new_storage(m_w.getWorld(), 0, 0, 0);
             if (!m_storage) throw RDFInternalError("Failed to create RDF data storage");
         }
@@ -128,22 +128,22 @@ public:
 
     bool add(Triple t) {
         QMutexLocker locker(&m_librdfLock);
-        DEBUG << "BasicStore::add: " << t << endl;
+        DQ_DEBUG << "BasicStore::add: " << t << endl;
         return doAdd(t);
     }
 
     bool remove(Triple t) {
         QMutexLocker locker(&m_librdfLock);
-        DEBUG << "BasicStore::remove: " << t << endl;
+        DQ_DEBUG << "BasicStore::remove: " << t << endl;
         if (t.a.type == Node::Nothing || 
             t.b.type == Node::Nothing ||
             t.c.type == Node::Nothing) {
             Triples tt = doMatch(t);
             if (tt.empty()) return false;
-            DEBUG << "BasicStore::remove: Removing " << tt.size() << " triple(s)" << endl;
+            DQ_DEBUG << "BasicStore::remove: Removing " << tt.size() << " triple(s)" << endl;
             for (int i = 0; i < tt.size(); ++i) {
                 if (!doRemove(tt[i])) {
-                    DEBUG << "Failed to remove matched triple in remove() with wildcards; triple was: " << tt[i] << endl;
+                    DQ_DEBUG << "Failed to remove matched triple in remove() with wildcards; triple was: " << tt[i] << endl;
                     throw RDFInternalError("Failed to remove matched statement in remove() with wildcards");
                 }
             }
@@ -155,7 +155,7 @@ public:
 
     void change(ChangeSet cs) {
         QMutexLocker locker(&m_librdfLock);
-        DEBUG << "BasicStore::change: " << cs.size() << " changes" << endl;
+        DQ_DEBUG << "BasicStore::change: " << cs.size() << " changes" << endl;
         for (int i = 0; i < cs.size(); ++i) {
             ChangeType type = cs[i].first;
             Triple triple = cs[i].second;
@@ -176,7 +176,7 @@ public:
 
     void revert(ChangeSet cs) {
         QMutexLocker locker(&m_librdfLock);
-        DEBUG << "BasicStore::revert: " << cs.size() << " changes" << endl;
+        DQ_DEBUG << "BasicStore::revert: " << cs.size() << " changes" << endl;
         for (int i = cs.size()-1; i >= 0; --i) {
             ChangeType type = cs[i].first;
             Triple triple = cs[i].second;
@@ -197,7 +197,7 @@ public:
 
     bool contains(Triple t) const {
         QMutexLocker locker(&m_librdfLock);
-        DEBUG << "BasicStore::contains: " << t << endl;
+        DQ_DEBUG << "BasicStore::contains: " << t << endl;
         librdf_statement *statement = tripleToStatement(t);
         if (!checkComplete(statement)) {
             librdf_free_statement(statement);
@@ -214,12 +214,12 @@ public:
     
     Triples match(Triple t) const {
         QMutexLocker locker(&m_librdfLock);
-        DEBUG << "BasicStore::match: " << t << endl;
+        DQ_DEBUG << "BasicStore::match: " << t << endl;
         Triples result = doMatch(t);
 #ifndef NDEBUG
-        DEBUG << "BasicStore::match result (size " << result.size() << "):" << endl;
+        DQ_DEBUG << "BasicStore::match result (size " << result.size() << "):" << endl;
         for (int i = 0; i < result.size(); ++i) {
-            DEBUG << i << ". " << result[i] << endl;
+            DQ_DEBUG << i << ". " << result[i] << endl;
         }
 #endif
         return result;
@@ -234,7 +234,7 @@ public:
             throw RDFException("Cannot complete triple unless it has only a single wildcard node", t);
         }
         QMutexLocker locker(&m_librdfLock);
-        DEBUG << "BasicStore::complete: " << t << endl;
+        DQ_DEBUG << "BasicStore::complete: " << t << endl;
         Triples result = doMatch(t, true);
         if (result.empty()) return Node();
         else switch (match) {
@@ -252,12 +252,12 @@ public:
             else return Triple();
         }
         QMutexLocker locker(&m_librdfLock);
-        DEBUG << "BasicStore::matchOnce: " << t << endl;
+        DQ_DEBUG << "BasicStore::matchOnce: " << t << endl;
         Triples result = doMatch(t, true);
 #ifndef NDEBUG
-        DEBUG << "BasicStore::matchOnce result:" << endl;
+        DQ_DEBUG << "BasicStore::matchOnce result:" << endl;
         for (int i = 0; i < result.size(); ++i) {
-            DEBUG << i << ". " << result[i] << endl;
+            DQ_DEBUG << i << ". " << result[i] << endl;
         }
 #endif
         if (result.empty()) return Triple();
@@ -266,14 +266,14 @@ public:
 
     ResultSet query(QString sparql) const {
         QMutexLocker locker(&m_librdfLock);
-        DEBUG << "BasicStore::query: " << sparql << endl;
+        DQ_DEBUG << "BasicStore::query: " << sparql << endl;
         ResultSet rs = runQuery(sparql);
         return rs;
     }
 
     Node queryOnce(QString sparql, QString bindingName) const {
         QMutexLocker locker(&m_librdfLock);
-        DEBUG << "BasicStore::queryOnce: " << bindingName << " from " << sparql << endl;
+        DQ_DEBUG << "BasicStore::queryOnce: " << bindingName << " from " << sparql << endl;
         ResultSet rs = runQuery(sparql);
         if (rs.empty()) return Node();
         for (ResultSet::const_iterator i = rs.begin(); i != rs.end(); ++i) {
@@ -287,7 +287,7 @@ public:
 
     Uri getUniqueUri(QString prefix) const {
         QMutexLocker locker(&m_librdfLock);
-        DEBUG << "BasicStore::getUniqueUri: prefix " << prefix << endl;
+        DQ_DEBUG << "BasicStore::getUniqueUri: prefix " << prefix << endl;
         int base = (int)(long)this; // we don't care at all about overflow
         bool good = false;
         Uri uri;
@@ -356,7 +356,7 @@ public:
         QMutexLocker wlocker(&m_librdfLock);
         QMutexLocker plocker(&m_prefixLock);
 
-        DEBUG << "BasicStore::save(" << filename << ")" << endl;
+        DQ_DEBUG << "BasicStore::save(" << filename << ")" << endl;
 
         librdf_uri *base_uri = uriToLrdfUri(m_baseUri);
         librdf_serializer *s = librdf_new_serializer(m_w.getWorld(), "turtle", 0, 0);
@@ -395,7 +395,7 @@ public:
 
         if (!QFile::remove(filename)) {
             // Not necessarily fatal
-            DEBUG << "BasicStore::save: Failed to remove former save file "
+            DQ_DEBUG << "BasicStore::save: Failed to remove former save file "
                   << filename << endl;
         }
         if (!QFile::rename(tmpFilename, filename)) {
@@ -439,8 +439,8 @@ public:
             if (librdf_parser_parse_into_model
                 (parser, luri, base_uri, m_model)) {
                 librdf_free_parser(parser);
-                DEBUG << "librdf_parser_parse_into_model failed" << endl;
-                DEBUG << "luri = " << (const char *)librdf_uri_as_string(luri) << ", base_uri = " << (const char *)librdf_uri_as_string(base_uri) << endl;
+                DQ_DEBUG << "librdf_parser_parse_into_model failed" << endl;
+                DQ_DEBUG << "luri = " << (const char *)librdf_uri_as_string(luri) << ", base_uri = " << (const char *)librdf_uri_as_string(base_uri) << endl;
                 throw RDFException("Failed to import model from URL",
                                    url.toString());
             }
@@ -473,8 +473,8 @@ public:
                 //!!! This appears to be returning success even on a
                 //!!! syntax error -- can this be correct?
                 if (librdf_parser_parse_into_model(parser, luri, base_uri, im)) {
-                    DEBUG << "librdf_parser_parse_into_model failed" << endl;
-                    DEBUG << "luri = " << (const char *)librdf_uri_as_string(luri) << ", base_uri = " << (const char *)librdf_uri_as_string(base_uri) << endl;
+                    DQ_DEBUG << "librdf_parser_parse_into_model failed" << endl;
+                    DQ_DEBUG << "luri = " << (const char *)librdf_uri_as_string(luri) << ", base_uri = " << (const char *)librdf_uri_as_string(base_uri) << endl;
                     throw RDFException("Failed to import model from URL",
                                        url.toString());
                 }
@@ -530,7 +530,7 @@ public:
         }
 
         int namespaces = librdf_parser_get_namespaces_seen_count(parser);
-        DEBUG << "Parser found " << namespaces << " namespaces" << endl;
+        DQ_DEBUG << "Parser found " << namespaces << " namespaces" << endl;
         for (int i = 0; i < namespaces; ++i) {
             const char *pfx = librdf_parser_get_namespaces_seen_prefix(parser, i);
             librdf_uri *uri = librdf_parser_get_namespaces_seen_uri(parser, i);
@@ -541,7 +541,7 @@ public:
             } catch (RDFIncompleteURI &) {
                 continue;
             }
-            DEBUG << "namespace " << i << ": " << qpfx << " -> " << quri << endl;
+            DQ_DEBUG << "namespace " << i << ": " << qpfx << " -> " << quri << endl;
             // don't call addPrefix; it tries to lock the mutex,
             // and anyway we want to add the prefix only if it
             // isn't already there (to avoid surprisingly changing
@@ -569,7 +569,7 @@ private:
         ~World() {
             QMutexLocker locker(&m_mutex);
             if (--m_refcount == 0) {
-                DEBUG << "Freeing world" << endl;
+                DQ_DEBUG << "Freeing world" << endl;
                 librdf_free_world(m_world);
                 m_world = 0;
             }
@@ -819,7 +819,7 @@ private:
         librdf_free_query_results(results);
         librdf_free_query(query);
 
-//        DEBUG << "runQuery: returning " << returned.size() << " result(s)" << endl;
+//        DQ_DEBUG << "runQuery: returning " << returned.size() << " result(s)" << endl;
         
         return returned;
     }

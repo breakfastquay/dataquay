@@ -192,7 +192,7 @@ public:
     
     void reload(Nodes nodes, NodeObjectMap &map) {
 
-        DEBUG << "reload: " << nodes << endl;
+        DQ_DEBUG << "reload: " << nodes << endl;
         
         LoadState state;
         state.requested = nodes;
@@ -331,7 +331,7 @@ private:
                 // the start of the candidates list
 
                 if (!nodeHasTypeInStore(node)) {
-                    DEBUG << "Node " << node
+                    DQ_DEBUG << "Node " << node
                           << " has no type in store, deleting and resetting"
                           << endl;
                     delete state.map.value(node);
@@ -365,26 +365,26 @@ private:
             }
         }
 
-        DEBUG << "ObjectLoader: collect: "
+        DQ_DEBUG << "ObjectLoader: collect: "
               << "requested = " << state.requested.size()
               << ", toAllocate = " << state.toAllocate.size()
               << ", toInitialise = " << state.toInitialise.size()
               << ", toPopulate = " << state.toPopulate.size()
               << endl;
 
-        DEBUG << "Requested:";
-        foreach (Node n, state.requested) DEBUG << n;
+        DQ_DEBUG << "Requested:";
+        foreach (Node n, state.requested) DQ_DEBUG << n;
 
-        DEBUG << "toAllocate:";
-        foreach (Node n, state.toAllocate) DEBUG << n;
+        DQ_DEBUG << "toAllocate:";
+        foreach (Node n, state.toAllocate) DQ_DEBUG << n;
 
-        DEBUG << "toInitialise:";
-        foreach (Node n, state.toInitialise) DEBUG << n;
+        DQ_DEBUG << "toInitialise:";
+        foreach (Node n, state.toInitialise) DQ_DEBUG << n;
 
-        DEBUG << "toPopulate:";
-        foreach (Node n, state.toPopulate) DEBUG << n;
+        DQ_DEBUG << "toPopulate:";
+        foreach (Node n, state.toPopulate) DQ_DEBUG << n;
 
-        DEBUG << endl;
+        DQ_DEBUG << endl;
     }
 
     bool nodeHasTypeInStore(Node node) {
@@ -442,7 +442,7 @@ private:
         Nodes ordered = orderedSiblingsOf(children[0]);
         remaining.subtract(NodeSet::fromList(ordered));
         foreach (Node n, remaining) ordered.push_back(n);
-        DEBUG << "orderedChildrenOf: Node " << node << " has " << ordered.size()
+        DQ_DEBUG << "orderedChildrenOf: Node " << node << " has " << ordered.size()
               << " children: " << ordered << endl;
         return ordered;
     }
@@ -487,7 +487,7 @@ private:
         }
 
         if (!nn.empty()) {
-            DEBUG << "sequenceStartingAt " << node << " has " << nn.size() << " item(s)" << endl;
+            DQ_DEBUG << "sequenceStartingAt " << node << " has " << nn.size() << " item(s)" << endl;
         }
 
         return nn;
@@ -495,12 +495,12 @@ private:
 
     void load(LoadState &state) {
         foreach (Node node, state.toAllocate) {
-            DEBUG << "load: calling allocate(" << node << ")" << endl;
+            DQ_DEBUG << "load: calling allocate(" << node << ")" << endl;
             try {
                 allocate(state, node);
             } catch (UnknownTypeException &e) {
                 if (state.loadFlags & LoadState::IgnoreUnknownTypes) {
-                    DEBUG << "load: IgnoreUnknownTypes is set, removing object of unknown type and continuing" << endl;
+                    DQ_DEBUG << "load: IgnoreUnknownTypes is set, removing object of unknown type and continuing" << endl;
                     delete state.map.value(node);
                     state.map.insert(node, 0);
                     state.toInitialise.remove(node);
@@ -515,7 +515,7 @@ private:
         // initialise to happen before children are added to a node --
         // this is just belt and braces
         foreach (Node node, state.toInitialise) {
-            DEBUG << "load: calling initialise(" << node << ")" << endl;
+            DQ_DEBUG << "load: calling initialise(" << node << ")" << endl;
             initialise(state, node);
         }
 
@@ -524,11 +524,11 @@ private:
         NodeSet tp = state.toPopulate;
 
         foreach (Node node, tp) {
-            DEBUG << "load: calling populate(" << node << ")" << endl;
+            DQ_DEBUG << "load: calling populate(" << node << ")" << endl;
             populate(state, node);
         }
         foreach (Node node, tp) {
-            DEBUG << "load: calling callLoadCallbacks(" << node << ")" << endl;
+            DQ_DEBUG << "load: calling callLoadCallbacks(" << node << ")" << endl;
             callLoadCallbacks(state, node, m_finalCallbacks);
         }
     }
@@ -572,7 +572,7 @@ private:
         QObject *o = allocateSingle(state, node, parentObject);
 
         if (state.toInitialise.contains(node)) {
-            DEBUG << "load: calling initialise(" << node << ") from allocate" << endl;
+            DQ_DEBUG << "load: calling initialise(" << node << ") from allocate" << endl;
             initialise(state, node);
         }
 
@@ -591,21 +591,21 @@ private:
 
     QObject *allocateSingle(LoadState &state, Node node, QObject *parentObject) {
 
-        DEBUG << "allocateSingle: " << node << " (parent = " << parentObject << ")" << endl;
+        DQ_DEBUG << "allocateSingle: " << node << " (parent = " << parentObject << ")" << endl;
 
         //!!! too many of these tests, some must be redundant
         if (!state.toAllocate.contains(node)) {
-            DEBUG << "already loaded: returning existing value (" << state.map.value(node) << ")" << endl;
+            DQ_DEBUG << "already loaded: returning existing value (" << state.map.value(node) << ")" << endl;
             return state.map.value(node);
         }
 
         QObject *o = allocateObject(node, parentObject);
 
-        DEBUG << "Setting object " << o << " to map for node " << node << endl;
+        DQ_DEBUG << "Setting object " << o << " to map for node " << node << endl;
 
         QObject *old = state.map.value(node);
         if (o != old) {
-            DEBUG << "Deleting old object " << old << endl;
+            DQ_DEBUG << "Deleting old object " << old << endl;
             delete old;
         }
 
@@ -613,7 +613,7 @@ private:
         state.toAllocate.remove(node);
 
         QObject *x = state.map.value(node);
-        DEBUG << "New value is " << x << endl;
+        DQ_DEBUG << "New value is " << x << endl;
 
         return o;
     }
@@ -623,7 +623,7 @@ private:
 
         QObject *o = state.map.value(node);
 
-        DEBUG << "callLoadCallbacks: " << node << " -> " << o << endl;
+        DQ_DEBUG << "callLoadCallbacks: " << node << " -> " << o << endl;
 
         if (!o) return;
 
@@ -720,7 +720,7 @@ ObjectLoader::D::loadProperties(LoadState &state, Node node,
             if (!literal && (loadType == LoadLiteralProperties)) continue;
         }
         
-        DEBUG << "For property " << pname << " of " << node << " have "
+        DQ_DEBUG << "For property " << pname << " of " << node << " have "
               << pnodes.size() << " node(s)" << endl;
 
         if (!haveProperty && m_ap == IgnoreAbsentProperties) continue;
@@ -733,7 +733,7 @@ ObjectLoader::D::loadProperties(LoadState &state, Node node,
                 if (m_ob->knows(cname)) {
                     defaultsObject = m_ob->build(cname, 0);
                 } else {
-                    DEBUG << "Can't reset absent property " << pname
+                    DQ_DEBUG << "Can't reset absent property " << pname
                           << " of object " << node << ": object builder "
                           << "doesn't know type " << cname << " so cannot "
                           << "build defaults object" << endl;
@@ -741,32 +741,32 @@ ObjectLoader::D::loadProperties(LoadState &state, Node node,
             }
 
             if (defaultsObject) {
-                DEBUG << "Resetting property " << pname << " to default" << endl;
+                DQ_DEBUG << "Resetting property " << pname << " to default" << endl;
                 value = defaultsObject->property(pnba.data());
             }
 
         } else {
             QString typeName = property.typeName();
-            DEBUG << "Setting property " << pname << " of type " << typeName << endl;
+            DQ_DEBUG << "Setting property " << pname << " of type " << typeName << endl;
             value = propertyNodeListToVariant(state, typeName, pnodes);
         }
 
         if (!value.isValid()) {
-            DEBUG << "Ignoring invalid variant for value of property "
+            DQ_DEBUG << "Ignoring invalid variant for value of property "
                   << pname << ", type " << property.typeName()
                   << " of object " << node << endl;
             continue;
         }
 
         if (!o->setProperty(pnba.data(), value)) {
-            DEBUG << "loadProperties: Property set failed "
+            DQ_DEBUG << "loadProperties: Property set failed "
                   << "for property " << pname << " of type "
                   << property.typeName() << " (" << property.userType()
                   << ") to value of type " << value.type() 
                   << " and value " << value
                   << " from (first) node " << pnodes[0].value
                   << endl;
-            DEBUG << "loadProperties: If the RDF datatype is correct, check "
+            DQ_DEBUG << "loadProperties: If the RDF datatype is correct, check "
                   << "[1] that the datatype is known to Dataquay::Node for "
                   << "node-variant conversion"
                   << "(datatype is one of the standard set, "
@@ -791,7 +791,7 @@ ObjectLoader::D::propertyNodeListToVariant(LoadState &state,
 
     Node firstNode = pnodes[0];
 
-    DEBUG << "propertyNodeListToVariant: typeName = " << typeName << endl;
+    DQ_DEBUG << "propertyNodeListToVariant: typeName = " << typeName << endl;
 
     if (typeName == "") {
         return firstNode.toVariant();
@@ -827,7 +827,7 @@ ObjectLoader::D::propertyNodeListToVariant(LoadState &state,
         if (obj) {
             v = m_ob->inject(typeName, obj);
             if (v == QVariant()) {
-                DEBUG << "propertyNodeListToVariant: "
+                DQ_DEBUG << "propertyNodeListToVariant: "
                       << "Type of node " << firstNode
                       << " is incompatible with expected "
                       << typeName << endl;
@@ -852,7 +852,7 @@ ObjectLoader::D::propertyNodeListToVariant(LoadState &state,
 }
 
 QVariant
-ObjectLoader::D::propertyNodeToVariant(LoadState &state,
+ObjectLoader::D::propertyNodeToVariant(LoadState & /* state */,
                                        QString typeName, Node pnode)
 {
     // Usually we can take the default conversion from node to
@@ -874,7 +874,7 @@ ObjectLoader::D::propertyNodeToVariant(LoadState &state,
     // We have to fail that one, because we're not in any position to
     // do general type conversion here.
 
-    DEBUG << "propertyNodeToVariant: typeName = " << typeName << endl;
+    DQ_DEBUG << "propertyNodeToVariant: typeName = " << typeName << endl;
 
     if (typeName == "") {
         return pnode.toVariant();
@@ -884,7 +884,7 @@ ObjectLoader::D::propertyNodeToVariant(LoadState &state,
 
     if (pnode.type == Node::URI && typeName != Uri::metaTypeName()) {
 
-        DEBUG << "ObjectLoader::propertyNodeListToVariant: "
+        DQ_DEBUG << "ObjectLoader::propertyNodeListToVariant: "
               << "Non-URI property is target for RDF URI, converting" << endl;
         
         acceptDefault = false;
@@ -893,7 +893,7 @@ ObjectLoader::D::propertyNodeToVariant(LoadState &state,
                pnode.datatype == Uri() && // no datatype
                typeName != QMetaType::typeName(QMetaType::QString)) {
 
-        DEBUG << "ObjectLoader::propertyNodeListToVariant: "
+        DQ_DEBUG << "ObjectLoader::propertyNodeListToVariant: "
               << "No datatype for RDF literal, deducing from typename \""
               << typeName << "\"" << endl;
 
@@ -918,7 +918,7 @@ ObjectLoader::D::propertyNodeToObject(LoadState &state, Node pnode)
     if (pnode.type == Node::URI || pnode.type == Node::Blank) {
         o = allocateSingle(state, pnode);
     } else {
-        DEBUG << "Not an object node, ignoring" << endl;
+        DQ_DEBUG << "Not an object node, ignoring" << endl;
     }
 
     return o;
@@ -939,14 +939,14 @@ ObjectLoader::D::propertyNodeToList(LoadState &state,
         QVariant value = propertyNodeListToVariant(state, typeName, vnodes);
 
         if (value.isValid()) {
-            DEBUG << "Found value: " << value << endl;
+            DQ_DEBUG << "Found value: " << value << endl;
             list.push_back(value);
         } else {
-            DEBUG << "propertyNodeToList: Invalid value in list, skipping" << endl;
+            DQ_DEBUG << "propertyNodeToList: Invalid value in list, skipping" << endl;
         }
     }
 
-    DEBUG << "propertyNodeToList: list has " << list.size() << " item(s)" << endl;
+    DQ_DEBUG << "propertyNodeToList: list has " << list.size() << " item(s)" << endl;
     return list;
 }
 
@@ -962,16 +962,16 @@ ObjectLoader::D::getClassNameForNode(Node node)
         try {
             className = m_tm.synthesiseClassForTypeUri(typeUri);
         } catch (UnknownTypeException) {
-            DEBUG << "getClassNameForNode: Unknown type URI " << typeUri << endl;
+            DQ_DEBUG << "getClassNameForNode: Unknown type URI " << typeUri << endl;
             throw;
         }
     } else {
-        DEBUG << "getClassNameForNode: No type URI for " << node << endl;
+        DQ_DEBUG << "getClassNameForNode: No type URI for " << node << endl;
         throw UnknownTypeException("");
     }
         
     if (!m_ob->knows(className)) {
-        DEBUG << "ObjectLoader::getClassNameForNode: Unknown object class "
+        DQ_DEBUG << "ObjectLoader::getClassNameForNode: Unknown object class "
               << className << endl;
         throw UnknownTypeException(className);
     }
@@ -992,7 +992,7 @@ ObjectLoader::D::allocateObject(Node node, QObject *parent)
 
     QString className = getClassNameForNode(node);
     
-    DEBUG << "Making object " << node.value << " of type "
+    DQ_DEBUG << "Making object " << node.value << " of type "
           << className << " with parent " << parent << endl;
 
     QObject *o = m_ob->build(className, parent);
@@ -1002,7 +1002,7 @@ ObjectLoader::D::allocateObject(Node node, QObject *parent)
         o->setProperty("uri", QVariant::fromValue(m_s->expand(node.value)));
     }
 
-    DEBUG << "Made object: " << o << endl;
+    DQ_DEBUG << "Made object: " << o << endl;
 
     return o;
 }

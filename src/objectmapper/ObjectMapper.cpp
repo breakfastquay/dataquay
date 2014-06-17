@@ -89,12 +89,12 @@ ObjectMapper::D : public QObject
         LoadStoreCallback(ObjectMapper::D *d) : m_d(d) { }
         void loaded(ObjectLoader *, ObjectLoader::NodeObjectMap &,
                     Node, QObject *o) {
-            DEBUG << "LoadStoreCallback::loaded: Object " << o << endl;
+            DQ_DEBUG << "LoadStoreCallback::loaded: Object " << o << endl;
             m_d->manage(o);
         }
         void stored(ObjectStorer *, ObjectStorer::ObjectNodeMap &,
                     QObject *o, Node) {
-            DEBUG << "LoadStoreCallback::stored: Object " << o << endl;
+            DQ_DEBUG << "LoadStoreCallback::stored: Object " << o << endl;
             m_d->manage(o);
         }
     private:
@@ -183,7 +183,7 @@ public:
             // which will happen on the next commit because we are
             // adding it to the changed object map
         }
-        DEBUG << "ObjectMapper::add: Adding " << o << " to changed list" << endl;
+        DQ_DEBUG << "ObjectMapper::add: Adding " << o << " to changed list" << endl;
         m_changedObjects.insert(o);
     }
 
@@ -197,7 +197,7 @@ public:
                 // doesn't matter (as above)
             }
         }
-        DEBUG << "ObjectMapper::add: Adding " << ol.size() << " object(s) to changed list" << endl;
+        DQ_DEBUG << "ObjectMapper::add: Adding " << ol.size() << " object(s) to changed list" << endl;
         foreach (QObject *o, ol) {
             m_changedObjects.insert(o);
         }
@@ -229,12 +229,12 @@ public:
         
         if (m_n.objectNodeMap.contains(o) &&
             m_n.nodeObjectMap.contains(Node(uri))) {
-            DEBUG << "ObjectMapper::manage: Object " << o
+            DQ_DEBUG << "ObjectMapper::manage: Object " << o
                   << " " << uri << " is already managed" << endl;
             return;
         }
 
-        DEBUG << "ObjectMapper::manage: Managing " << o
+        DQ_DEBUG << "ObjectMapper::manage: Managing " << o
               << " " << uri << endl;
 
         // The forwarder avoids us trying to connect potentially many,
@@ -250,16 +250,16 @@ public:
 
     void addListNodesFor(QObject *o) {
 
-        DEBUG << "addListNodesFor(" << o << ")" << endl;
+        DQ_DEBUG << "addListNodesFor(" << o << ")" << endl;
 
         if (!m_n.objectNodeMap.contains(o)) {
-            DEBUG << "addListNodesFor(" << o << "): Object is unknown to us" << endl;
+            DQ_DEBUG << "addListNodesFor(" << o << "): Object is unknown to us" << endl;
             return;
         }
             
         Node n = m_n.objectNodeMap.value(o);
 
-        DEBUG << "addListNodesFor: Node is " << n << endl;
+        DQ_DEBUG << "addListNodesFor: Node is " << n << endl;
 
         ContainerBuilder *cb = ContainerBuilder::getInstance();
         
@@ -274,7 +274,7 @@ public:
             
             if (cb->getContainerKind(property.typeName()) ==
                 ContainerBuilder::SequenceKind) {
-                DEBUG << "addListNodesFor: Property " << property.name() << " is a sequence kind" << endl;
+                DQ_DEBUG << "addListNodesFor: Property " << property.name() << " is a sequence kind" << endl;
                 addListNodesForProperty(o, n, property);
             }
         }
@@ -282,7 +282,7 @@ public:
 
     void removeListNodesFor(QObject *o) {
 
-        DEBUG << "removeListNodesFor(" << o << ")" << endl;
+        DQ_DEBUG << "removeListNodesFor(" << o << ")" << endl;
         
         //!!! ouch
 
@@ -323,13 +323,13 @@ public:
             Node next = m_s->matchOnce
                 (Triple(itr, m_s->expand("rdf:rest"), Node())).c;
             if (next == Node()) { // This is not a list node at all!
-                DEBUG << "addListNodesForProperty: Strange, node " << itr
+                DQ_DEBUG << "addListNodesForProperty: Strange, node " << itr
                       << " (from property URI " << puri << " of object node "
                       << n << ", object " << o << ") is not a list node" << endl;
                 break;
             }
             m_n.listNodeObjectMap[itr] = o;
-            DEBUG << "addListNodesForProperty: Added node " << itr
+            DQ_DEBUG << "addListNodesForProperty: Added node " << itr
                   << " for object " << o << endl;
             if (next == nil) { // we've finished
                 break;
@@ -353,24 +353,24 @@ public:
     }
 
     void objectModified(QObject *o) {
-        DEBUG << "ObjectMapper:: objectModified(" << o << ")" << endl;
+        DQ_DEBUG << "ObjectMapper:: objectModified(" << o << ")" << endl;
         QMutexLocker locker(&m_mutex);
         if (m_inReload) {
             // This signal must have been emitted by a modification
             // caused by our own transactionCommitted method (see
             // similar comment about m_inCommit in that method).
-            DEBUG << "(by us, ignoring it)" << endl;
+            DQ_DEBUG << "(by us, ignoring it)" << endl;
             return;
         }
 
         //!!! what if the thing that changed about the object was its URL???!!!
 
         m_changedObjects.insert(o);
-        DEBUG << "ObjectMapper::objectModified done" << endl;
+        DQ_DEBUG << "ObjectMapper::objectModified done" << endl;
     }
 
     void objectDestroyed(QObject *o) {
-        DEBUG << "ObjectMapper::objectDestroyed(" << o << ")" << endl;
+        DQ_DEBUG << "ObjectMapper::objectDestroyed(" << o << ")" << endl;
         QMutexLocker locker(&m_mutex);
         m_changedObjects.remove(o);
         if (m_forwarders.contains(o)) {
@@ -379,7 +379,7 @@ public:
         }
         Node node = m_n.objectNodeMap.value(o);
         if (node == Node()) {
-            DEBUG << "(have no node for this)" << endl;
+            DQ_DEBUG << "(have no node for this)" << endl;
             return;
         }
         m_n.objectNodeMap.remove(o);
@@ -398,17 +398,17 @@ public:
             // to ignore events for objects we know we are
             // synchronising already.
             if (m_reloading.contains(node)) {
-                DEBUG << "(by us, ignoring it)" << endl;
+                DQ_DEBUG << "(by us, ignoring it)" << endl;
                 return;
             }
             // ^^^ write a unit test for this!
         }
         m_deletedObjectNodes.insert(node);
-        DEBUG << "ObjectMapper::objectDestroyed done" << endl;
+        DQ_DEBUG << "ObjectMapper::objectDestroyed done" << endl;
     }
 
     void transactionCommitted(const ChangeSet &cs) {
-        DEBUG << "ObjectMapper::transactionCommitted" << endl;
+        DQ_DEBUG << "ObjectMapper::transactionCommitted" << endl;
         QMutexLocker locker(&m_mutex);
         if (m_inCommit) {
             // This signal must have been emitted by a commit invoked
@@ -419,40 +419,40 @@ public:
             // mutex, otherwise we would have deadlocked).  And we
             // don't want to update on the basis of our own commits,
             // only on the basis of commits happening elsewhere.
-            DEBUG << "(by us, ignoring it)" << endl;
+            DQ_DEBUG << "(by us, ignoring it)" << endl;
             return;
         }
         //!!! but now what?
         m_inReload = true;
-        DEBUG << "ObjectMapper::transactionCommitted: Synchronising from " << cs.size()
+        DQ_DEBUG << "ObjectMapper::transactionCommitted: Synchronising from " << cs.size()
               << " change(s) in transaction" << endl;
 
 #ifndef NDEBUG
-        DEBUG << "ObjectMapper: before sync, node-object map contains:" << endl;
+        DQ_DEBUG << "ObjectMapper: before sync, node-object map contains:" << endl;
         for (ObjectLoader::NodeObjectMap::iterator i = m_n.nodeObjectMap.begin();
              i != m_n.nodeObjectMap.end(); ++i) {
             QString n;
             QObject *o = i.value();
             if (o) n = o->objectName();
-            DEBUG << i.key() << " -> " << i.value() << " [" << n << "]" << endl;
+            DQ_DEBUG << i.key() << " -> " << i.value() << " [" << n << "]" << endl;
         }
 
-        DEBUG << "ObjectMapper: before sync, object-node map contains:" << endl;
+        DQ_DEBUG << "ObjectMapper: before sync, object-node map contains:" << endl;
         for (ObjectStorer::ObjectNodeMap::iterator i = m_n.objectNodeMap.begin();
              i != m_n.objectNodeMap.end(); ++i) {
             QString n;
             QObject *o = i.key();
             if (o) n = o->objectName();
-            DEBUG << i.key() << " [" << n << "] -> " << i.value() << endl;
+            DQ_DEBUG << i.key() << " [" << n << "] -> " << i.value() << endl;
         }
 
-        DEBUG << "ObjectMapper: before sync, list-node-object map contains:" << endl;
+        DQ_DEBUG << "ObjectMapper: before sync, list-node-object map contains:" << endl;
         for (ObjectLoader::NodeObjectMap::iterator i = m_n.listNodeObjectMap.begin();
              i != m_n.listNodeObjectMap.end(); ++i) {
             QString n;
             QObject *o = i.value();
             if (o) n = o->objectName();
-            DEBUG << i.key() << " -> " << i.value() << " [" << n << "]" << endl;
+            DQ_DEBUG << i.key() << " -> " << i.value() << " [" << n << "]" << endl;
         }
 #endif
         //!!! if an object has been effectively deleted from the
@@ -476,7 +476,7 @@ public:
             // property of an object, reload that object.
             if (m_n.listNodeObjectMap.contains(subject)) {
                 QObject *o = m_n.listNodeObjectMap.value(subject);
-                DEBUG << "transactionCommitted: Node " << subject
+                DQ_DEBUG << "transactionCommitted: Node " << subject
                       << " is a list node for object " << o << endl;
                 if (m_n.objectNodeMap.contains(o)) {
                     m_reloading.insert(m_n.objectNodeMap.value(o));
@@ -489,7 +489,7 @@ public:
             nodes.push_back(n);
         }
 
-        DEBUG << "transactionCommitted: Have " << nodes.size() << " node(s) to reload" << endl;
+        DQ_DEBUG << "transactionCommitted: Have " << nodes.size() << " node(s) to reload" << endl;
 
         m_loader->reload(nodes, m_n.nodeObjectMap);
         m_reloading.clear();
@@ -499,23 +499,23 @@ public:
         // from it
         syncMap(m_n.objectNodeMap, m_n.nodeObjectMap);
 
-        DEBUG << "ObjectMapper: after sync, object-node map contains:" << endl;
+        DQ_DEBUG << "ObjectMapper: after sync, object-node map contains:" << endl;
         for (ObjectStorer::ObjectNodeMap::iterator i = m_n.objectNodeMap.begin();
              i != m_n.objectNodeMap.end(); ++i) {
             QString n;
             QObject *o = i.key();
             if (o) n = o->objectName();
-            DEBUG << i.key() << " [" << n << "] -> " << i.value() << endl;
+            DQ_DEBUG << i.key() << " [" << n << "] -> " << i.value() << endl;
         }
 
         m_inReload = false;
-        DEBUG << "ObjectMapper::transactionCommitted done" << endl;
+        DQ_DEBUG << "ObjectMapper::transactionCommitted done" << endl;
     }
 
     void doCommit(ChangeSet *cs) { 
 
         QMutexLocker locker(&m_mutex);
-        DEBUG << "ObjectMapper::commit: Synchronising " << m_changedObjects.size()
+        DQ_DEBUG << "ObjectMapper::commit: Synchronising " << m_changedObjects.size()
               << " changed and " << m_deletedObjectNodes.size()
               << " deleted object(s)" << endl;
         //!!! if an object has been added as a new sibling of existing
@@ -563,7 +563,7 @@ public:
 
         m_deletedObjectNodes.clear();
         m_changedObjects.clear();
-        DEBUG << "ObjectMapper::commit done" << endl;
+        DQ_DEBUG << "ObjectMapper::commit done" << endl;
     }
 
     void commit() {
@@ -633,7 +633,7 @@ private:
             newMap.insert(n, i.key());
         }
 
-        DEBUG << "syncMap: Note: resized NodeObjectMap from " << target.size()
+        DQ_DEBUG << "syncMap: Note: resized NodeObjectMap from " << target.size()
               << " to " << newMap.size() << " element(s); " << inCommon
               << " unchanged or trivial" << endl;
 
@@ -663,7 +663,7 @@ private:
             newMap.insert(o, i.key());
         }
 
-        DEBUG << "syncMap: Note: resized ObjectNodeMap from " << target.size()
+        DQ_DEBUG << "syncMap: Note: resized ObjectNodeMap from " << target.size()
               << " to " << newMap.size() << " element(s); " << inCommon
               << " unchanged or trivial" << endl;
 

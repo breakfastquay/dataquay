@@ -108,7 +108,7 @@ public:
 
     void clear() {
         QMutexLocker locker(&m_backendLock);
-        DEBUG << "BasicStore::clear" << endl;
+        DQ_DEBUG << "BasicStore::clear" << endl;
         if (m_model) sord_free(m_model);
         // Sord can only perform wildcard matches if at least one of
         // the non-wildcard nodes in the matched triple is the primary
@@ -124,22 +124,22 @@ public:
 
     bool add(Triple t) {
         QMutexLocker locker(&m_backendLock);
-        DEBUG << "BasicStore::add: " << t << endl;
+        DQ_DEBUG << "BasicStore::add: " << t << endl;
         return doAdd(t);
     }
 
     bool remove(Triple t) {
         QMutexLocker locker(&m_backendLock);
-        DEBUG << "BasicStore::remove: " << t << endl;
+        DQ_DEBUG << "BasicStore::remove: " << t << endl;
         if (t.a.type == Node::Nothing || 
             t.b.type == Node::Nothing ||
             t.c.type == Node::Nothing) {
             Triples tt = doMatch(t);
             if (tt.empty()) return false;
-            DEBUG << "BasicStore::remove: Removing " << tt.size() << " triple(s)" << endl;
+            DQ_DEBUG << "BasicStore::remove: Removing " << tt.size() << " triple(s)" << endl;
             for (int i = 0; i < tt.size(); ++i) {
                 if (!doRemove(tt[i])) {
-                    DEBUG << "Failed to remove matched triple in remove() with wildcards; triple was: " << tt[i] << endl;
+                    DQ_DEBUG << "Failed to remove matched triple in remove() with wildcards; triple was: " << tt[i] << endl;
                     throw RDFInternalError("Failed to remove matched statement in remove() with wildcards");
                 }
             }
@@ -151,7 +151,7 @@ public:
 
     void change(ChangeSet cs) {
         QMutexLocker locker(&m_backendLock);
-        DEBUG << "BasicStore::change: " << cs.size() << " changes" << endl;
+        DQ_DEBUG << "BasicStore::change: " << cs.size() << " changes" << endl;
         for (int i = 0; i < cs.size(); ++i) {
             ChangeType type = cs[i].first;
             Triple triple = cs[i].second;
@@ -172,7 +172,7 @@ public:
 
     void revert(ChangeSet cs) {
         QMutexLocker locker(&m_backendLock);
-        DEBUG << "BasicStore::revert: " << cs.size() << " changes" << endl;
+        DQ_DEBUG << "BasicStore::revert: " << cs.size() << " changes" << endl;
         for (int i = cs.size()-1; i >= 0; --i) {
             ChangeType type = cs[i].first;
             Triple triple = cs[i].second;
@@ -193,7 +193,7 @@ public:
 
     bool contains(Triple t) const {
         QMutexLocker locker(&m_backendLock);
-        DEBUG << "BasicStore::contains: " << t << endl;
+        DQ_DEBUG << "BasicStore::contains: " << t << endl;
         SordQuad statement;
         tripleToStatement(t, statement);
         if (!checkComplete(statement)) {
@@ -208,12 +208,12 @@ public:
     
     Triples match(Triple t) const {
         QMutexLocker locker(&m_backendLock);
-        DEBUG << "BasicStore::match: " << t << endl;
+        DQ_DEBUG << "BasicStore::match: " << t << endl;
         Triples result = doMatch(t);
 #ifndef NDEBUG
-        DEBUG << "BasicStore::match result (size " << result.size() << "):" << endl;
+        DQ_DEBUG << "BasicStore::match result (size " << result.size() << "):" << endl;
         for (int i = 0; i < result.size(); ++i) {
-            DEBUG << i << ". " << result[i] << endl;
+            DQ_DEBUG << i << ". " << result[i] << endl;
         }
 #endif
         return result;
@@ -228,7 +228,7 @@ public:
             throw RDFException("Cannot complete triple unless it has only a single wildcard node", t);
         }
         QMutexLocker locker(&m_backendLock);
-        DEBUG << "BasicStore::complete: " << t << endl;
+        DQ_DEBUG << "BasicStore::complete: " << t << endl;
         Triples result = doMatch(t, true);
         if (result.empty()) return Node();
         else switch (match) {
@@ -246,12 +246,12 @@ public:
             else return Triple();
         }
         QMutexLocker locker(&m_backendLock);
-        DEBUG << "BasicStore::matchOnce: " << t << endl;
+        DQ_DEBUG << "BasicStore::matchOnce: " << t << endl;
         Triples result = doMatch(t, true);
 #ifndef NDEBUG
-        DEBUG << "BasicStore::matchOnce result:" << endl;
+        DQ_DEBUG << "BasicStore::matchOnce result:" << endl;
         for (int i = 0; i < result.size(); ++i) {
-            DEBUG << i << ". " << result[i] << endl;
+            DQ_DEBUG << i << ". " << result[i] << endl;
         }
 #endif
         if (result.empty()) return Triple();
@@ -264,7 +264,7 @@ public:
              sparql);
     }
 
-    Node queryOnce(QString sparql, QString bindingName) const {
+    Node queryOnce(QString sparql, QString /* bindingName */) const {
         throw RDFUnsupportedError
             ("SPARQL queries are not supported with Sord backend",
              sparql);
@@ -272,7 +272,7 @@ public:
 
     Uri getUniqueUri(QString prefix) const {
         QMutexLocker locker(&m_backendLock);
-        DEBUG << "BasicStore::getUniqueUri: prefix " << prefix << endl;
+        DQ_DEBUG << "BasicStore::getUniqueUri: prefix " << prefix << endl;
         bool good = false;
         Uri uri;
         while (!good) {
@@ -349,7 +349,7 @@ public:
         QMutexLocker wlocker(&m_backendLock);
         QMutexLocker plocker(&m_prefixLock);
 
-        DEBUG << "BasicStore::save(" << filename << ")" << endl;
+        DQ_DEBUG << "BasicStore::save(" << filename << ")" << endl;
 
         QByteArray bb = m_baseUri.toString().toUtf8();
         SerdURI bu;
@@ -409,7 +409,7 @@ public:
 
         if (!QFile::remove(filename)) {
             // Not necessarily fatal
-            DEBUG << "BasicStore::save: Failed to remove former save file "
+            DQ_DEBUG << "BasicStore::save: Failed to remove former save file "
                   << filename << endl;
         }
         if (!QFile::rename(tmpFilename, filename)) {
@@ -420,7 +420,7 @@ public:
 
     void addPrefixOnImport(QString pfx, Uri uri) {
 
-        DEBUG << "namespace: " << pfx << " -> " << uri << endl;
+        DQ_DEBUG << "namespace: " << pfx << " -> " << uri << endl;
 
         // don't call addPrefix; it tries to lock the mutex,
         // and anyway we want to add the prefix only if it
@@ -450,9 +450,9 @@ public:
         return SERD_SUCCESS;
     }
 
-    void import(QUrl url, ImportDuplicatesMode idm, QString format) {
+    void import(QUrl url, ImportDuplicatesMode idm, QString /* format */) {
 
-        DEBUG << "BasicStoreSord::import: " << url << endl;
+        DQ_DEBUG << "BasicStoreSord::import: " << url << endl;
 
         QMutexLocker wlocker(&m_backendLock);
         QMutexLocker plocker(&m_prefixLock);
@@ -601,9 +601,9 @@ private:
         }
         ~World() {
             QMutexLocker locker(&m_mutex);
-            DEBUG << "~World: About to lower refcount from " << m_refcount << endl;
+            DQ_DEBUG << "~World: About to lower refcount from " << m_refcount << endl;
             if (--m_refcount == 0) {
-                DEBUG << "Freeing world" << endl;
+                DQ_DEBUG << "Freeing world" << endl;
                 sord_world_free(m_world);
                 m_world = 0;
             }

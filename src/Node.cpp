@@ -261,7 +261,7 @@ Node::getVariantTypeName(Uri datatype)
 Node
 Node::fromVariant(const QVariant &v)
 {
-    DEBUG << "Node::fromVariant: QVariant type is " << v.userType()
+    DQ_DEBUG << "Node::fromVariant: QVariant type is " << v.userType()
           << " (" << int(v.userType()) << "), variant is " << v << endl;
 
     if (Uri::hasUriType(v)) {
@@ -470,6 +470,7 @@ qHash(const Dataquay::Node &n)
         return qHash(n.value + n.datatype.toString());
     case Dataquay::Node::Blank:
         return qHash(n.value);
+    case Dataquay::Node::Nothing:
     default:
         return qHash("");
     }

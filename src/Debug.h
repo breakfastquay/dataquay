@@ -40,7 +40,7 @@
 
 #include <QDebug>
 
-#define DEBUG QDebug(QtDebugMsg) << "[dataquay] "
+#define DQ_DEBUG QDebug(QtDebugMsg) << "[dataquay] "
 
 namespace Dataquay {
 
@@ -73,7 +73,7 @@ public:
 
 }
 
-#define DEBUG ::Dataquay::NoDebug()
+#define DQ_DEBUG ::Dataquay::NoDebug()
 
 #endif /* !NDEBUG */
 
