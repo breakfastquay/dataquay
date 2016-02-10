@@ -4,7 +4,7 @@ exists(debug.pri) {
 }
 
 TEMPLATE = lib
-CONFIG += warn_on
+CONFIG += warn_on staticlib
 QT -= gui
 
 TARGET = dataquay
