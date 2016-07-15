@@ -40,9 +40,9 @@
 #include <QMutexLocker>
 
 #include <iostream>
-#include <memory> // auto_ptr
+#include <memory> // unique_ptr
 
-using std::auto_ptr;
+using std::unique_ptr;
 
 namespace Dataquay
 {
@@ -337,13 +337,11 @@ public:
     }
     ~D() {
         if (!m_committed && !m_abandoned && !m_tx->getChanges().empty()) {
-            // Although it's not a good idea for any code to try to
-            // catch this exception and continue (better just to fix
-            // the code!), we should at least make it possible -- so
             // we need to either commit or rollback, or else the next
             // transaction will stall
             m_td->rollbackTransaction(m_tx);
-            throw RDFTransactionError(QString("Transaction deleted without having been committed or rolled back"));
+            // Not good form to throw an exception from the dtor
+            std::cerr << "WARNING: Transaction deleted without having been committed or rolled back" << std::endl;
         }
     }
 
@@ -635,7 +633,7 @@ TransactionalStore::import(QUrl url, ImportDuplicatesMode idm, QString format)
     if (!m_d->hasWrap()) {
         throw RDFException("TransactionalStore::import() called without Transaction");
     }
-    auto_ptr<Transaction> tx(startTransaction());
+    unique_ptr<Transaction> tx(startTransaction());
     return tx->import(url, idm, format);
 }
 
@@ -651,8 +649,8 @@ TransactionalStore::add(Triple t)
     if (!m_d->hasWrap()) {
         throw RDFException("TransactionalStore::add() called without Transaction");
     }
-    // auto_ptr here is very useful to ensure destruction on exceptions
-    auto_ptr<Transaction> tx(startTransaction());
+    // unique_ptr here is very useful to ensure destruction on exceptions
+    unique_ptr<Transaction> tx(startTransaction());
     return tx->add(t);
 }
 
@@ -662,7 +660,7 @@ TransactionalStore::remove(Triple t)
     if (!m_d->hasWrap()) {
         throw RDFException("TransactionalStore::remove() called without Transaction");
     }
-    auto_ptr<Transaction> tx(startTransaction());
+    unique_ptr<Transaction> tx(startTransaction());
     return tx->remove(t);
 }
 
@@ -672,7 +670,7 @@ TransactionalStore::change(ChangeSet cs)
     if (!m_d->hasWrap()) {
         throw RDFException("TransactionalStore::change() called without Transaction");
     }
-    auto_ptr<Transaction> tx(startTransaction());
+    unique_ptr<Transaction> tx(startTransaction());
     tx->change(cs);
 }
 
@@ -682,7 +680,7 @@ TransactionalStore::revert(ChangeSet cs)
     if (!m_d->hasWrap()) {
         throw RDFException("TransactionalStore::revert() called without Transaction");
     }
-    auto_ptr<Transaction> tx(startTransaction());
+    unique_ptr<Transaction> tx(startTransaction());
     tx->revert(cs);
 }
 
@@ -741,7 +739,7 @@ TransactionalStore::addBlankNode()
     if (!m_d->hasWrap()) {
         throw RDFException("TransactionalStore::addBlankNode() called without Transaction");
     }
-    auto_ptr<Transaction> tx(startTransaction());
+    unique_ptr<Transaction> tx(startTransaction());
     return tx->addBlankNode();
 }
 

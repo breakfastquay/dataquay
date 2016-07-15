@@ -174,14 +174,12 @@ private slots:
 	int added = 0;
 	QVERIFY(addThings(t, added));
 
-	try {
-	    delete t;
-	    QVERIFY(0);
-	} catch (RDFException) {
-	    QVERIFY(1);
-	}
+        // Logic has changed here -- we no longer throw from the
+        // dtor. Instead it just recovers, but a warning message is
+        // printed.
+        delete t;
 
-	// but check that this doesn't prevent any further
+	// and check that this doesn't prevent any further
 	// transactions from happening
 	t = ts->startTransaction();
 	t->rollback();
@@ -193,6 +191,7 @@ private slots:
 	try {
 	    Transaction *tt = ts->startTransaction();
 	    QVERIFY(0);
+            tt->rollback();
 	} catch (RDFException) {
 	    QVERIFY(1);
 	}

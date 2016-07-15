@@ -558,7 +558,7 @@ private slots:
         // And loading it should result in URLs relative to the file
         // URL
 
-        BasicStore *s2 = BasicStore::load(QUrl("file://test3.ttl"));
+        BasicStore *s2 = BasicStore::load(QUrl("file:test3.ttl"));
         t = s2->matchOnce(Triple(Node(), Uri("a"), Node()));
         QCOMPARE(t.a, Node(Uri("file://test3.ttl#thing")));
         QCOMPARE(t.c, Node(Uri("file://test3.ttl#wotsit")));

@@ -3,12 +3,12 @@ Dataquay
 ========
 
 Dataquay is a free open source library that provides a friendly C++
-API for an RDF data store using Qt 4+ classes and containers.
+API for an RDF data store using Qt classes and containers.
 
   http://breakfastquay.com/dataquay/
 
-This is version 0.9 of Dataquay.  Note that this is a pre-1.0 release
-and the API is still subject to change.
+This is version 0.9.1 of Dataquay.  Note that this is a pre-1.0
+release and the API is still subject to change.
 
 Dataquay is simple to use and easy to integrate. It is principally
 intended for use in Qt-based applications that would like to use an

@@ -490,7 +490,7 @@ ObjectStorer::D::storeProperties(StoreState &state, QObject *o, Node node)
 
         if (m_psp == StoreIfChanged) {
             if (m_ob->knows(cname)) {
-                std::auto_ptr<QObject> c(m_ob->build(cname, 0));
+                std::unique_ptr<QObject> c(m_ob->build(cname, 0));
                 QVariant deftValue = c->property(pnba.data());
                 if (variantsEqual(value, deftValue)) {
                     store = false;

@@ -36,7 +36,7 @@
 
 #include <memory>
 
-using std::auto_ptr;
+using std::unique_ptr;
 
 namespace Dataquay
 {
@@ -54,7 +54,7 @@ TransactionalCommand::execute()
         m_store->change(m_cs);
         return;
     }
-    auto_ptr<Transaction> tx(m_store->startTransaction());
+    unique_ptr<Transaction> tx(m_store->startTransaction());
     performCommand(tx.get());
     m_cs = tx->getChanges();
     m_haveCs = true;

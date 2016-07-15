@@ -10,6 +10,10 @@ exists(../config.pri) {
 	include(../config.pri)
 }
 
+!defined(DESTDIR) {
+    DESTDIR = ./
+}
+
 INCLUDEPATH += . ..
 DEPENDPATH += . ..
 QMAKE_LIBDIR += ..

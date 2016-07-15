@@ -1,4 +1,12 @@
 
+Changes in Dataquay 0.9.1 since the previous version 0.9:
+
+ * Update to support Qt5 and newer C++ compilers. Now requires C++11
+   (though the library only makes minimal use of the standard).
+
+ * Incorporate a number of build fixes
+
+
 Changes in Dataquay 0.9 since the previous version 0.8:
 
  * Rework Uri, Node, and Triple constructors. Now Uri is to be used

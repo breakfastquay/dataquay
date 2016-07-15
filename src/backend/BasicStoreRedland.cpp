@@ -288,7 +288,6 @@ public:
     Uri getUniqueUri(QString prefix) const {
         QMutexLocker locker(&m_librdfLock);
         DQ_DEBUG << "BasicStore::getUniqueUri: prefix " << prefix << endl;
-        int base = (int)(long)this; // we don't care at all about overflow
         bool good = false;
         Uri uri;
         while (!good) {
