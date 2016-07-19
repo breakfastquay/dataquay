@@ -4,7 +4,7 @@ exists(debug.pri) {
 }
 
 TEMPLATE = lib
-CONFIG += warn_on staticlib c++11
+CONFIG += warn_on c++11
 QT -= gui
 
 TARGET = dataquay
