@@ -92,7 +92,7 @@ public:
         static bool seeded = false;
         static QMutexLocker l(&m);
         if (!seeded) return;
-        srand(time(0));
+        srand((unsigned int)time(0));
         seeded = true;
     }
 
@@ -439,8 +439,10 @@ public:
 
         try {
 
-            QString qpfx(QString::fromUtf8((const char *)name->buf, name->n_bytes));
-            Uri quri(QString::fromUtf8((const char *)uri->buf, uri->n_bytes));
+            QString qpfx(QString::fromUtf8((const char *)name->buf,
+                                           (int)name->n_bytes));
+            Uri quri(QString::fromUtf8((const char *)uri->buf,
+                                       (int)uri->n_bytes));
 
             d->addPrefixOnImport(qpfx, quri);
 
