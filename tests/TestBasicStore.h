@@ -70,28 +70,28 @@ private slots:
         try {
             Uri uri("/rdf/dataquay");
             QVERIFY(0);
-        } catch (RDFIncompleteURI &) {
+        } catch (const RDFIncompleteURI &) {
             QVERIFY(1);
         }
 
         try {
             Uri uri("#x");
             QVERIFY(0);
-        } catch (RDFIncompleteURI &) {
+        } catch (const RDFIncompleteURI &) {
             QVERIFY(1);
         }
 
         try {
             Uri uri("x");
             QVERIFY(0);
-        } catch (RDFIncompleteURI &) {
+        } catch (const RDFIncompleteURI &) {
             QVERIFY(1);
         }
 
         try {
             Uri uri("<http://breakfastquay.com/rdf/dataquay/>");
             QVERIFY(0);
-        } catch (RDFIncompleteURI &) {
+        } catch (const RDFIncompleteURI &) {
             QVERIFY(1);
         }
 
@@ -110,13 +110,13 @@ private slots:
         try {
             uri = Uri("blah:a");
             QVERIFY(0);
-        } catch (RDFIncompleteURI &) {
+        } catch (const RDFIncompleteURI &) {
             QVERIFY(1);
         }
         try {
             uri = Uri("blah:/a");
             QVERIFY(0);
-        } catch (RDFIncompleteURI &) {
+        } catch (const RDFIncompleteURI &) {
             QVERIFY(1);
         }
 
@@ -128,7 +128,7 @@ private slots:
         try {
             uri = store.expand("bogus");
             QVERIFY(0);
-        } catch (RDFIncompleteURI &) {
+        } catch (const RDFIncompleteURI &) {
             QVERIFY(1);
         }
 
@@ -139,7 +139,7 @@ private slots:
         try {
             uri = s1.expand(":relative");
             QVERIFY(0);
-        } catch (RDFIncompleteURI &) {
+        } catch (const RDFIncompleteURI &) {
             QVERIFY(1);
         }
     }
@@ -358,7 +358,7 @@ private slots:
 		    (Triple(store.expand(":fred"),
 			    anotherBlank,
 			    Node("this_statement_is_incomplete"))));
-	} catch (RDFException &) {
+	} catch (const RDFException &) {
 	    QVERIFY(1);
 	}
     
@@ -443,7 +443,7 @@ private slots:
 	    QCOMPARE(v.type, Node::URI);
 	    QCOMPARE(v.value, expected);
 
-	} catch (RDFUnsupportedError &e) {
+	} catch (const RDFUnsupportedError &e) {
 #if (QT_VERSION >= 0x050000)
 	    QSKIP("SPARQL queries not supported by current store backend");
 #else
@@ -482,7 +482,7 @@ private slots:
                         store.expand("foaf:name"),
                         Node("Alice Banquet")));
             QVERIFY(0);
-        } catch (RDFException &) {
+        } catch (const RDFException &) {
             // can't complete a complete triple
             QVERIFY(1);
         }
@@ -493,7 +493,7 @@ private slots:
                         store.expand("foaf:name"),
                         Node()));
             QVERIFY(0);
-        } catch (RDFException &) {
+        } catch (const RDFException &) {
             // can't complete an underspecified triple
             QVERIFY(1);
         }

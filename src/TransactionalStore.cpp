@@ -297,7 +297,7 @@ private:
             DQ_DEBUG << "TransactionalStore::enterTransactionContext: replaying" << endl;
             try {
                 m_store->change(cs);
-            } catch (RDFException &e) {
+            } catch (const RDFException &e) {
                 throw RDFTransactionError(QString("Failed to enter transaction context.  Has the store been modified non-transactionally while a transaction was in progress?  Original error is: %1").arg(e.what()));
             }
         }
@@ -321,7 +321,7 @@ private:
         if (!cs.empty()) {
             try {
                 m_store->revert(cs);
-            } catch (RDFException &e) {
+            } catch (const RDFException &e) {
                 throw RDFTransactionError(QString("Failed to leave transaction context.  Has the store been modified non-transactionally while a transaction was in progress?  Original error is: %1").arg(e.what()));
             }
         }
@@ -370,7 +370,7 @@ public:
             } else {
                 return false;
             }
-        } catch (RDFException &) {
+        } catch (const RDFException &) {
             abandon();
             throw;
         }
@@ -404,7 +404,7 @@ public:
                 }
             }
             return found;
-        } catch (RDFException &) {
+        } catch (const RDFException &) {
             abandon();
             throw;
         }
@@ -456,7 +456,7 @@ public:
         check();
         try {
             return m_td->contains(m_tx, t);
-        } catch (RDFException &) {
+        } catch (const RDFException &) {
             abandon();
             throw;
         }
@@ -466,7 +466,7 @@ public:
         check();
         try {
             return m_td->match(m_tx, t);
-        } catch (RDFException &) {
+        } catch (const RDFException &) {
             abandon();
             throw;
         }
@@ -476,7 +476,7 @@ public:
         check();
         try {
             return m_td->query(m_tx, sparql);
-        } catch (RDFException &) {
+        } catch (const RDFException &) {
             abandon();
             throw;
         }
@@ -486,7 +486,7 @@ public:
         check();
         try {
             return m_td->complete(m_tx, t);
-        } catch (RDFException &) {
+        } catch (const RDFException &) {
             abandon();
             throw;
         }
@@ -496,7 +496,7 @@ public:
         check();
         try {
             return m_td->matchOnce(m_tx, t);
-        } catch (RDFException &) {
+        } catch (const RDFException &) {
             abandon();
             throw;
         }
@@ -506,7 +506,7 @@ public:
         check();
         try {
             return m_td->queryOnce(m_tx, sparql, bindingName);
-        } catch (RDFException &) {
+        } catch (const RDFException &) {
             abandon();
             throw;
         }
@@ -516,7 +516,7 @@ public:
         check();
         try {
             return m_td->getUniqueUri(m_tx, prefix);
-        } catch (RDFException &) {
+        } catch (const RDFException &) {
             abandon();
             throw;
         }
@@ -526,7 +526,7 @@ public:
         check();
         try {
             return m_td->addBlankNode(m_tx);
-        } catch (RDFException &) {
+        } catch (const RDFException &) {
             abandon();
             throw;
         }
@@ -540,7 +540,7 @@ public:
         check();
         try {
             return m_td->save(m_tx, filename);
-        } catch (RDFException &) {
+        } catch (const RDFException &) {
             abandon();
             throw;
         }
@@ -562,7 +562,7 @@ public:
             }
             delete bs;
             bs = 0;
-        } catch (RDFException &) {
+        } catch (const RDFException &) {
             delete bs;
             abandon();
             throw;

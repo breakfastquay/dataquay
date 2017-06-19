@@ -498,7 +498,7 @@ private:
             DQ_DEBUG << "load: calling allocate(" << node << ")" << endl;
             try {
                 allocate(state, node);
-            } catch (UnknownTypeException &e) {
+            } catch (const UnknownTypeException &e) {
                 if (state.loadFlags & LoadState::IgnoreUnknownTypes) {
                     DQ_DEBUG << "load: IgnoreUnknownTypes is set, removing object of unknown type and continuing" << endl;
                     delete state.map.value(node);
@@ -961,7 +961,7 @@ ObjectLoader::D::getClassNameForNode(Node node)
     if (typeUri != Uri()) {
         try {
             className = m_tm.synthesiseClassForTypeUri(typeUri);
-        } catch (UnknownTypeException) {
+        } catch (const UnknownTypeException &) {
             DQ_DEBUG << "getClassNameForNode: Unknown type URI " << typeUri << endl;
             throw;
         }

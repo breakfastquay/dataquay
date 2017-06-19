@@ -1,6 +1,6 @@
 
 TEMPLATE = app
-CONFIG += debug console
+CONFIG += debug console warn_on c++11
 QT += testlib
 QT -= gui
 TARGET = test-dataquay

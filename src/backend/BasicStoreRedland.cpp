@@ -537,7 +537,7 @@ public:
             Uri quri;
             try {
                 quri = lrdfUriToUri(uri);
-            } catch (RDFIncompleteURI &) {
+            } catch (const RDFIncompleteURI &) {
                 continue;
             }
             DQ_DEBUG << "namespace " << i << ": " << qpfx << " -> " << quri << endl;

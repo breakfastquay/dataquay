@@ -178,7 +178,7 @@ public:
         QMutexLocker locker(&m_mutex);
         try {
             manage(o);
-        } catch (NoUriException) {
+        } catch (const NoUriException &) {
             // doesn't matter; it will be assigned one when mapped,
             // which will happen on the next commit because we are
             // adding it to the changed object map
@@ -193,7 +193,7 @@ public:
         foreach (QObject *o, ol) {
             try {
                 manage(o);
-            } catch (NoUriException) {
+            } catch (const NoUriException &) {
                 // doesn't matter (as above)
             }
         }

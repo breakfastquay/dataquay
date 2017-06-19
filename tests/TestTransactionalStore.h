@@ -120,7 +120,7 @@ private slots:
 			  Uri("http://xmlns.com/foaf/0.1/name"),
 			  Node("this_statement_is_incomplete")));
 	    QVERIFY(0);
-	} catch (RDFException) {
+	} catch (const RDFException &) {
 	    QVERIFY(1);
 	}
 	
@@ -130,14 +130,14 @@ private slots:
 			  store.expand(":is_sadly_deluded"),
 			  Node::fromVariant(true)));
 	    QVERIFY2(0, "add succeeded after auto-rollback, should have failed");
-	} catch (RDFException) {
+	} catch (const RDFException &) {
 	    QVERIFY(1);
 	}
 
 	try {
 	    (void)t->match(Triple());
 	    QVERIFY2(0, "match succeeded after auto-rollback, should have failed");
-	} catch (RDFException) {
+	} catch (const RDFException &) {
 	    QVERIFY(1);
 	}
 
@@ -145,7 +145,7 @@ private slots:
 	try {
 	    t->commit();
 	    QVERIFY2(0, "commit succeeded after auto-rollback, should have failed");
-	} catch (RDFException) {
+	} catch (const RDFException &) {
 	    QVERIFY(1);
 	}
 
@@ -153,7 +153,7 @@ private slots:
 	try {
 	    t->rollback();
 	    QVERIFY2(0, "rollback succeed after auto-rollback, should have failed");
-	} catch (RDFException) {
+	} catch (const RDFException &) {
 	    QVERIFY(1);
 	}
 
@@ -192,7 +192,7 @@ private slots:
 	    Transaction *tt = ts->startTransaction();
 	    QVERIFY(0);
             tt->rollback();
-	} catch (RDFException) {
+	} catch (const RDFException &) {
 	    QVERIFY(1);
 	}
 	t->rollback();
@@ -220,7 +220,7 @@ private slots:
 				   Uri("http://xmlns.com/foaf/0.1/knows"),
 				   store.expand(":samuel"))));
 	    QVERIFY(0);
-	} catch (RDFException) {
+	} catch (const RDFException &) {
 	    QVERIFY(1);
 	}
 
@@ -233,7 +233,7 @@ private slots:
 	try {
 	    Triples triples = t->match(Triple());
 	    QVERIFY(0);
-	} catch (RDFException) {
+	} catch (const RDFException &) {
 	    QVERIFY(1);
 	}
 
@@ -244,7 +244,7 @@ private slots:
 	try {
 	    t->commit();
 	    QVERIFY(0);
-	} catch (RDFException) {
+	} catch (const RDFException &) {
 	    QVERIFY(1);
 	}
 	delete t;
@@ -253,7 +253,7 @@ private slots:
 	try {
 	    t->rollback();
 	    QVERIFY(0);
-	} catch (RDFException) {
+	} catch (const RDFException &) {
 	    QVERIFY(1);
 	}
 	delete t;

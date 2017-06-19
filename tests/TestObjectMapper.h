@@ -198,7 +198,7 @@ private slots:
 	    // object type is not registered, this load should fail
 	    recalled = loader.load(uri);
 	    QVERIFY(0);
-	} catch (UnknownTypeException) {
+	} catch (const UnknownTypeException &) {
 	    QVERIFY(1);
 	}
 
@@ -227,7 +227,7 @@ private slots:
 	    // object type is not registered, this load should fail
 	    recalled = loader.load(uri);
 	    QVERIFY(0);
-	} catch (UnknownTypeException) {
+	} catch (const UnknownTypeException &) {
 	    QVERIFY(1);
 	}
 
@@ -457,7 +457,7 @@ private slots:
             // added, not just managed
             mapper.manage(a);
             QVERIFY(0);
-        } catch (NoUriException) {
+        } catch (const NoUriException &) {
             QVERIFY(1);
         }
 

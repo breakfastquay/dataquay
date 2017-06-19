@@ -446,7 +446,7 @@ public:
 
             d->addPrefixOnImport(qpfx, quri);
 
-        } catch (RDFIncompleteURI &) {
+        } catch (const RDFIncompleteURI &) {
         }
 
         return SERD_SUCCESS;

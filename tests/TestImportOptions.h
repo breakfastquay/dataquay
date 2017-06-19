@@ -107,7 +107,7 @@ private slots:
 	bool caught = false;
 	try {
 	    store.import(fileUrl, BasicStore::ImportFailOnDuplicates);
-	} catch (RDFDuplicateImportException) {
+	} catch (const RDFDuplicateImportException &) {
 	    caught = true;
 	}
 	QVERIFY2(caught, "Failed to catch RDFDuplicateImportException when importing duplicate graph with ImportFailOnDuplicates");
