@@ -296,7 +296,7 @@ private:
 
     template <typename T>
     void
-    registerExtractor(QString pointerName, QString listName) {
+    registerExtractor(QString pointerName, QString /* listName */) {
         m_extractors[pointerName] = new Extractor<T *>();
     }
 
