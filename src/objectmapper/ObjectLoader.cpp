@@ -438,6 +438,12 @@ private:
         // actually be ordered
         Nodes children = childrenOf(node);
         if (children.empty()) return children;
+        
+        // Qt 5.14 deprecates QSet::fromList, but its suggested
+        // replacement (a constructor taking begin and end iterators)
+        // was only added the same 5.14 release!
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+
         NodeSet remaining = NodeSet::fromList(children);
         Nodes ordered = orderedSiblingsOf(children[0]);
         remaining.subtract(NodeSet::fromList(ordered));

@@ -190,6 +190,11 @@ private:
     Uri m_followProp;
 
     void collect(StoreState &state) {
+        
+        // Qt 5.14 deprecates QSet::fromList, but its suggested
+        // replacement (a constructor taking begin and end iterators)
+        // was only added the same 5.14 release!
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 
         QObjectList candidates = state.requested;
         state.noBlanks = ObjectSet::fromList(candidates);
