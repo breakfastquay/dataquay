@@ -31,8 +31,8 @@
     authorization.
 */
 
-#ifndef _DATAQUAY_STORE_H_
-#define _DATAQUAY_STORE_H_
+#ifndef DATAQUAY_STORE_H
+#define DATAQUAY_STORE_H
 
 #include "Triple.h"
 
@@ -242,6 +242,22 @@ public:
      * default is to guess the format if possible.
      */
     virtual void import(QUrl url, ImportDuplicatesMode idm, QString format = "") = 0;
+
+    /**
+     * Import the RDF document encoded in the given string into the
+     * current store (in addition to its existing contents).  Its
+     * behaviour when a triple is encountered that already exists in
+     * the store is controlled by the ImportDuplicatesMode.
+     * 
+     * May throw RDFException or RDFDuplicateImportException.
+     *
+     * If format is specified, it will be taken as the RDF parse
+     * format (e.g. ntriples).  The set of supported format strings
+     * depends on the underlying RDF library configuration.  The
+     * default is to guess the format if possible.
+     */
+    virtual void importString(QString encodedRdf, Uri baseUri,
+                              ImportDuplicatesMode idm, QString format = "") = 0;
 
     /**
      * Feature defines the set of optional features a Store

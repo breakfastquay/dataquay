@@ -31,8 +31,8 @@
     authorization.
 */
 
-#ifndef _DATAQUAY_NODE_H_
-#define _DATAQUAY_NODE_H_
+#ifndef DATAQUAY_NODE_H
+#define DATAQUAY_NODE_H
 
 namespace Dataquay {
 class Node;

@@ -31,8 +31,8 @@
     authorization.
 */
 
-#ifndef _DATAQUAY_TRANSACTIONAL_STORE_H_
-#define _DATAQUAY_TRANSACTIONAL_STORE_H_
+#ifndef DATAQUAY_TRANSACTIONAL_STORE_H
+#define DATAQUAY_TRANSACTIONAL_STORE_H
 
 #include "Transaction.h"
 
@@ -136,6 +136,8 @@ public:
     Uri expand(QString uri) const;
     void save(QString filename) const;
     void import(QUrl url, ImportDuplicatesMode idm, QString format = "");
+    void importString(QString encodedRdf, Uri baseUri,
+                      ImportDuplicatesMode idm, QString format = "");
     Features getSupportedFeatures() const;
 
 signals:
@@ -180,6 +182,8 @@ private:
         Uri expand(QString uri) const;
         void save(QString filename) const;
         void import(QUrl url, ImportDuplicatesMode idm, QString format = "");
+        void importString(QString encodedRdf, Uri baseUri,
+                          ImportDuplicatesMode idm, QString format = "");
         Features getSupportedFeatures() const;
 
         // Transaction interface

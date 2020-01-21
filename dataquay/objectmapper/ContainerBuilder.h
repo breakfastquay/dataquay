@@ -31,8 +31,8 @@
     authorization.
 */
 
-#ifndef _DATAQUAY_CONTAINER_BUILDER_H_
-#define _DATAQUAY_CONTAINER_BUILDER_H_
+#ifndef DATAQUAY_CONTAINER_BUILDER_H
+#define DATAQUAY_CONTAINER_BUILDER_H
 
 #include <QHash>
 #include <QString>

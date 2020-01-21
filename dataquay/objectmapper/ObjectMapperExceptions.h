@@ -31,8 +31,8 @@
     authorization.
 */
 
-#ifndef _DATAQUAY_OBJECT_MAPPER_EXCEPTIONS_H_
-#define _DATAQUAY_OBJECT_MAPPER_EXCEPTIONS_H_
+#ifndef DATAQUAY_OBJECT_MAPPER_EXCEPTIONS_H
+#define DATAQUAY_OBJECT_MAPPER_EXCEPTIONS_H
 
 #include <exception>
 #include <QString>

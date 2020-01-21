@@ -31,8 +31,8 @@
     authorization.
 */
 
-#ifndef _DATAQUAY_CONNECTION_H_
-#define _DATAQUAY_CONNECTION_H_
+#ifndef DATAQUAY_CONNECTION_H
+#define DATAQUAY_CONNECTION_H
 
 #include "Store.h"
 
@@ -106,6 +106,8 @@ public:
     Uri expand(QString uri) const;
     void save(QString filename) const;
     void import(QUrl url, ImportDuplicatesMode idm, QString format = "");
+    void importString(QString encodedRdf, Uri uri,
+                      ImportDuplicatesMode idm, QString format = "");
     Features getSupportedFeatures() const;
 
 public slots:

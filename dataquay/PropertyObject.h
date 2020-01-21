@@ -31,8 +31,8 @@
     authorization.
 */
 
-#ifndef _DATAQUAY_PROPERTY_OBJECT_H_
-#define _DATAQUAY_PROPERTY_OBJECT_H_
+#ifndef DATAQUAY_PROPERTY_OBJECT_H
+#define DATAQUAY_PROPERTY_OBJECT_H
 
 #include <QString>
 #include <QStringList>

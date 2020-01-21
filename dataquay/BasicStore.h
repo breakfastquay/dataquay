@@ -31,8 +31,8 @@
     authorization.
 */
 
-#ifndef _DATAQUAY_BASIC_STORE_H_
-#define _DATAQUAY_BASIC_STORE_H_
+#ifndef DATAQUAY_BASIC_STORE_H
+#define DATAQUAY_BASIC_STORE_H
 
 #include "Store.h"
 
@@ -117,6 +117,8 @@ public:
 
     void save(QString filename) const;
     void import(QUrl url, ImportDuplicatesMode idm, QString format = "");
+    void importString(QString encodedRdf, Uri baseUri,
+                      ImportDuplicatesMode idm, QString format = "");
 
     Features getSupportedFeatures() const;
 
@@ -137,6 +139,20 @@ public:
      * default is to guess the format if possible.
      */
     static BasicStore *load(QUrl url, QString format = "");
+
+    /**
+     * Construct a new BasicStore from the RDF document encoded in the
+     * given string.  May throw RDFException.  The returned BasicStore
+     * is owned by the caller and must be deleted using delete when
+     * finished with.  The return value is never NULL; all errors
+     * result in exceptions.
+     *
+     * If format is specified, it will be taken as the RDF parse
+     * format (e.g. ntriples).  The set of supported format strings
+     * depends on the underlying RDF library configuration.  The
+     * default is to guess the format if possible.
+     */
+    static BasicStore *loadString(QString encodedRdf, Uri baseUri, QString format = "");
 
 private:
     class D;

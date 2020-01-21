@@ -31,8 +31,8 @@
     authorization.
 */
 
-#ifndef _DATAQUAY_TRIPLE_H_
-#define _DATAQUAY_TRIPLE_H_
+#ifndef DATAQUAY_TRIPLE_H
+#define DATAQUAY_TRIPLE_H
 
 #include "Node.h"
 

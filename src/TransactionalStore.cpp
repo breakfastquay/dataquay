@@ -213,12 +213,7 @@ public:
         Operation op(this, tx);
         m_store->save(filename);
     }
-/*!!!
-    void import(Transaction *tx, QUrl url, ImportDuplicatesMode idm, QString format) {
-        Operation op(this, tx);
-        m_store->import(url, idm, format);
-    }
-*/
+
     Features getSupportedFeatures() const {
         return m_store->getSupportedFeatures();
     }
@@ -569,6 +564,30 @@ public:
         }
     }
 
+    void importString(QString encodedRdf, Uri baseUri,
+                      ImportDuplicatesMode idm, QString format) {
+        check();
+        BasicStore *bs = 0;
+        try {
+            bs = BasicStore::loadString(encodedRdf, baseUri, format);
+            Triples ts = bs->match(Triple());
+            foreach (Triple t, ts) {
+                bool added = m_td->add(m_tx, t);
+                if (added) {
+                    m_changes.push_back(Change(AddTriple, t));
+                } else if (idm == ImportFailOnDuplicates) {
+                    throw RDFDuplicateImportException("Duplicate statement encountered on import in ImportFailOnDuplicates mode");
+                }
+            }
+            delete bs;
+            bs = 0;
+        } catch (const RDFException &) {
+            delete bs;
+            abandon();
+            throw;
+        }
+    }
+
     Features getSupportedFeatures() const {
         return m_td->getSupportedFeatures();
     }
@@ -635,6 +654,17 @@ TransactionalStore::import(QUrl url, ImportDuplicatesMode idm, QString format)
     }
     unique_ptr<Transaction> tx(startTransaction());
     return tx->import(url, idm, format);
+}
+
+void
+TransactionalStore::importString(QString encodedRdf, Uri baseUri,
+                                 ImportDuplicatesMode idm, QString format)
+{
+    if (!m_d->hasWrap()) {
+        throw RDFException("TransactionalStore::import() called without Transaction");
+    }
+    unique_ptr<Transaction> tx(startTransaction());
+    return tx->importString(encodedRdf, baseUri, idm, format);
 }
 
 TransactionalStore::Features
@@ -848,6 +878,13 @@ void
 TransactionalStore::TSTransaction::import(QUrl url, ImportDuplicatesMode idm, QString format)
 {
     m_d->import(url, idm, format);
+}
+
+void
+TransactionalStore::TSTransaction::importString(QString encodedRdf, Uri baseUri,
+                                                ImportDuplicatesMode idm, QString format)
+{
+    m_d->importString(encodedRdf, baseUri, idm, format);
 }
 
 TransactionalStore::TSTransaction::Features

@@ -13,7 +13,7 @@ exists(config.pri) {
 	include(./config.pri)
 }
 
-VERSION=0.9.1
+VERSION=0.9.5
 OBJECTS_DIR = o
 MOC_DIR = o
 

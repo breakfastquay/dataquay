@@ -7,17 +7,16 @@ API for an RDF data store using Qt classes and containers.
 
   http://breakfastquay.com/dataquay/
 
-This is version 0.9.1 of Dataquay.  Note that this is a pre-1.0
+This is version 0.9.5 of Dataquay.  Note that this is a pre-1.0
 release and the API is still subject to change.
 
-Dataquay is simple to use and easy to integrate. It is principally
-intended for use in Qt-based applications that would like to use an
-RDF datastore as backing for in-memory project data, to avoid having
-to provide application data-specific file formats and to make it easy
-to augment the data with descriptive metadata pulled in from external
-sources. Dataquay is also intended to be useful for applications whose
-primary purpose is not related to RDF but that have ad-hoc RDF needs
-for metadata management.
+Dataquay is principally intended for use in Qt-based applications that
+would like to use an RDF datastore as backing for in-memory project
+data, to avoid having to provide application data-specific file
+formats and to make it easy to augment the data with descriptive
+metadata pulled in from external sources. Dataquay is also intended to
+be useful for applications whose primary purpose is not related to RDF
+but that have ad-hoc RDF needs for metadata management.
 
 Dataquay does not include the datastore implementation itself; instead
 it is a wrapper around either Redland (http://librdf.org) or Sord

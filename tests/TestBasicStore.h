@@ -562,6 +562,7 @@ private slots:
         t = s2->matchOnce(Triple(Node(), Uri("a"), Node()));
         QCOMPARE(t.a, Node(Uri("file://test3.ttl#thing")));
         QCOMPARE(t.c, Node(Uri("file://test3.ttl#wotsit")));
+        delete s2;
     }
 
     void loadMultiBase() {
@@ -623,6 +624,9 @@ private slots:
                 (Triple(Node(Uri("http://breakfastquay.com/rdf/dataquay/tests#fred")),
                         store.expand(":age"),
                         Node("42", store.expand("xsd:integer")))));
+
+        delete target;
+        delete otherStore;
     }
 
     void loadCompetingBlanks() {

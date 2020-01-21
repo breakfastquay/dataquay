@@ -31,8 +31,8 @@
     authorization.
 */
 
-#ifndef _DATAQUAY_TYPE_MAPPING_H_
-#define _DATAQUAY_TYPE_MAPPING_H_
+#ifndef DATAQUAY_TYPE_MAPPING_H
+#define DATAQUAY_TYPE_MAPPING_H
 
 #include "../Uri.h"
 

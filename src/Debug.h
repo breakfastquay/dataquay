@@ -31,8 +31,8 @@
     authorization.
 */
 
-#ifndef _DATAQUAY_INTERNAL_DEBUG_H_
-#define _DATAQUAY_INTERNAL_DEBUG_H_
+#ifndef DATAQUAY_INTERNAL_DEBUG_H
+#define DATAQUAY_INTERNAL_DEBUG_H
 
 #include <QTextStream>
 

@@ -31,8 +31,8 @@
     authorization.
 */
 
-#ifndef _DATAQUAY_URI_H_
-#define _DATAQUAY_URI_H_
+#ifndef DATAQUAY_URI_H
+#define DATAQUAY_URI_H
 
 namespace Dataquay {
 class Uri;

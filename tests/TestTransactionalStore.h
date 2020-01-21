@@ -55,6 +55,10 @@ private slots:
 	ts = new TransactionalStore(&store);
     }
 
+    void cleanupTestCase() {
+        delete ts;
+    }
+    
     void init() {
 	store.clear();
     }
@@ -274,6 +278,8 @@ private slots:
 
 	cchanges = t->getCommittedChanges();
 	QCOMPARE(cchanges, changes);
+
+        delete t;
 
 	t = ts->startTransaction();
 	t->revert(changes);

@@ -31,8 +31,8 @@
     authorization.
 */
 
-#ifndef _DATAQUAY_EXCEPTION_H_
-#define _DATAQUAY_EXCEPTION_H_
+#ifndef DATAQUAY_EXCEPTION_H
+#define DATAQUAY_EXCEPTION_H
 
 #include <QString>
 #include <exception>

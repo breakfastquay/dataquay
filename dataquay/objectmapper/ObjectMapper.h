@@ -31,8 +31,8 @@
     authorization.
 */
 
-#ifndef _DATAQUAY_OBJECT_MAPPER_H_
-#define _DATAQUAY_OBJECT_MAPPER_H_
+#ifndef DATAQUAY_OBJECT_MAPPER_H
+#define DATAQUAY_OBJECT_MAPPER_H
 
 #include "../Node.h"
 #include "../Store.h"

@@ -1,4 +1,9 @@
 
+Changes in Dataquay 0.9.5 since the previous version 0.9.1:
+
+ * Add importString methods
+
+	
 Changes in Dataquay 0.9.1 since the previous version 0.9:
 
  * Update to support Qt5 and newer C++ compilers. Now requires C++11

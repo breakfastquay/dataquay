@@ -31,8 +31,8 @@
     authorization.
 */
 
-#ifndef _DATAQUAY_OBJECT_MAPPER_DEFS_H_
-#define _DATAQUAY_OBJECT_MAPPER_DEFS_H_
+#ifndef DATAQUAY_OBJECT_MAPPER_DEFS_H
+#define DATAQUAY_OBJECT_MAPPER_DEFS_H
 
 namespace Dataquay
 {

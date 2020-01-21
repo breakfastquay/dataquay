@@ -60,6 +60,8 @@ public:
     Uri expand(QString uri) const;
     void save(QString filename) const;
     void import(QUrl url, ImportDuplicatesMode idm, QString format);
+    void importString(QString encodedRdf, Uri baseUri,
+                      ImportDuplicatesMode idm, QString format);
     Features getSupportedFeatures() const;
     
     void commit();
@@ -228,6 +230,14 @@ Connection::D::import(QUrl url, ImportDuplicatesMode idm, QString format)
     m_tx->import(url, idm, format);
 }
 
+void
+Connection::D::importString(QString encodedRdf, Uri baseUri,
+                            ImportDuplicatesMode idm, QString format)
+{
+    start();
+    m_tx->importString(encodedRdf, baseUri, idm, format);
+}
+
 Connection::Features
 Connection::D::getSupportedFeatures() const
 {
@@ -337,6 +347,13 @@ void
 Connection::import(QUrl url, ImportDuplicatesMode idm, QString format)
 {
     return m_d->import(url, idm, format);
+}
+
+void
+Connection::importString(QString encodedRdf, Uri baseUri,
+                         ImportDuplicatesMode idm, QString format)
+{
+    return m_d->importString(encodedRdf, baseUri, idm, format);
 }
 
 Connection::Features

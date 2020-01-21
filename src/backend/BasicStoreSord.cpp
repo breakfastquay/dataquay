@@ -504,7 +504,7 @@ public:
             }
 
             SerdStatus rv = serd_reader_read_file
-                (reader, (const uint8_t *)fileUri.toLocal8Bit().data());
+                (reader, (const uint8_t *)fileUri.toUtf8().data());
 
             if (rv != SERD_SUCCESS) {
                 serd_reader_free(reader);
@@ -535,7 +535,7 @@ public:
             }
 
             SerdStatus rv = serd_reader_read_file
-                (reader, (const uint8_t *)fileUri.toLocal8Bit().data());
+                (reader, (const uint8_t *)fileUri.toUtf8().data());
             
             if (rv != SERD_SUCCESS) {
                 serd_reader_free(reader);
@@ -549,40 +549,111 @@ public:
 
             serd_reader_free(reader);
 
-            SordQuad templ;
-            tripleToStatement(Triple(), templ);
+            try {
+                importFromTemporaryModel(im, idm);
+            } catch (...) {
+                sord_free(im);
+                serd_env_free(env);
+                throw;
+            }
 
-            if (idm == ImportFailOnDuplicates) {
+            sord_free(im);
+        }
 
-                SordIter *itr = sord_find(im, templ);
-                while (!sord_iter_end(itr)) {
-                    SordQuad q;
-                    sord_iter_get(itr, q);
-                    if (sord_contains(m_model, q)) {
-                        Triple culprit = statementToTriple(q);
-                        sord_iter_free(itr);
-                        freeStatement(templ);
-                        sord_free(im);
-                        serd_env_free(env);
-                        throw RDFDuplicateImportException("Duplicate statement encountered on import in ImportFailOnDuplicates mode", culprit);
-                    }
-                    sord_iter_next(itr);
-                }
-                sord_iter_free(itr);
+	serd_env_foreach(env, addPrefixSink, this);
+        serd_env_free(env);
+    }
+
+    void importString(QString encodedRdf, Uri baseUri,
+                      ImportDuplicatesMode idm, QString /* format */) {
+
+        DQ_DEBUG << "BasicStoreSord::importString" << endl;
+
+        QMutexLocker wlocker(&m_backendLock);
+        QMutexLocker plocker(&m_prefixLock);
+
+        //!!! todo: format?
+
+        QString base = baseUri.toString();
+        QByteArray bb = base.toUtf8();
+        SerdURI bu;
+
+        if (serd_uri_parse((uint8_t *)bb.data(), &bu) != SERD_SUCCESS) {
+            throw RDFInternalError("Failed to parse base URI", base);
+        }
+
+        SerdNode bn = serd_node_from_string(SERD_URI, (uint8_t *)bb.data());
+        SerdEnv *env = serd_env_new(&bn);
+
+        QByteArray rdfUtf8 = encodedRdf.toUtf8();
+
+        if (idm == ImportPermitDuplicates) {
+
+            // No special handling for duplicates, do whatever the
+            // underlying engine does
+
+            SerdReader *reader = sord_new_reader(m_model, env, SERD_TURTLE, NULL);
+
+            // if we have data in the store already, then we must add
+            // a prefix for the new blank nodes we're importing to
+            // disambiguate them
+            if (!doMatch(Triple(), true).empty()) {
+                serd_reader_add_blank_prefix
+                    (reader, (uint8_t *)(getNewString().toUtf8().data()));
+            }
+
+            SerdStatus rv = serd_reader_read_string
+                (reader, (const uint8_t *)rdfUtf8.data());
+
+            if (rv != SERD_SUCCESS) {
+                serd_reader_free(reader);
+                serd_env_free(env);
+                throw RDFException
+                    (QString("Failed to import model from string: %1")
+                     .arg(serdStatusToString(rv)));
+            }
+
+            serd_reader_free(reader);
+
+        } else {
+
+            // ImportFailOnDuplicates and ImportIgnoreDuplicates:
+            // import into a separate model and transfer across
+
+            SordModel *im = sord_new(m_w.getWorld(), 0, false); // no index
+            
+            SerdReader *reader = sord_new_reader(im, env, SERD_TURTLE, NULL);
+
+            // if we have data in the store already, then we must add
+            // a prefix for the new blank nodes we're importing to
+            // disambiguate them
+            if (!doMatch(Triple(), true).empty()) {
+                serd_reader_add_blank_prefix
+                    (reader, (uint8_t *)(getNewString().toUtf8().data()));
+            }
+
+            SerdStatus rv = serd_reader_read_string
+                (reader, (const uint8_t *)rdfUtf8.data());
+            
+            if (rv != SERD_SUCCESS) {
+                serd_reader_free(reader);
+                sord_free(im);
+                serd_env_free(env);
+                throw RDFException
+                    (QString("Failed to import model from string: %1")
+                     .arg(serdStatusToString(rv)));
+            }
+
+            serd_reader_free(reader);
+
+            try {
+                importFromTemporaryModel(im, idm);
+            } catch (...) {
+                sord_free(im);
+                serd_env_free(env);
+                throw;
             }
             
-            SordIter *itr = sord_find(im, templ);
-            while (!sord_iter_end(itr)) {
-                SordQuad q;
-                sord_iter_get(itr, q);
-                if (idm == ImportFailOnDuplicates || // (already tested if so)
-                    !sord_contains(m_model, q)) {
-                    sord_add(m_model, q);
-                }
-                sord_iter_next(itr);
-            }
-            sord_iter_free(itr);
-            freeStatement(templ);
             sord_free(im);
         }
 
@@ -630,6 +701,42 @@ private:
     PrefixMap m_prefixes;
     mutable QMutex m_prefixLock; // also protects m_baseUri
 
+    void importFromTemporaryModel(SordModel *im, ImportDuplicatesMode idm) {
+
+        SordQuad templ;
+        tripleToStatement(Triple(), templ);
+
+        if (idm == ImportFailOnDuplicates) {
+
+            SordIter *itr = sord_find(im, templ);
+            while (!sord_iter_end(itr)) {
+                SordQuad q;
+                sord_iter_get(itr, q);
+                if (sord_contains(m_model, q)) {
+                    Triple culprit = statementToTriple(q);
+                    sord_iter_free(itr);
+                    freeStatement(templ);
+                    throw RDFDuplicateImportException("Duplicate statement encountered on import in ImportFailOnDuplicates mode", culprit);
+                }
+                sord_iter_next(itr);
+            }
+            sord_iter_free(itr);
+        }
+            
+        SordIter *itr = sord_find(im, templ);
+        while (!sord_iter_end(itr)) {
+            SordQuad q;
+            sord_iter_get(itr, q);
+            if (idm == ImportFailOnDuplicates || // (already tested if so)
+                !sord_contains(m_model, q)) {
+                sord_add(m_model, q);
+            }
+            sord_iter_next(itr);
+        }
+        sord_iter_free(itr);
+        freeStatement(templ);
+    }
+    
     bool doAdd(Triple t) {
         SordQuad statement;
         tripleToStatement(t, statement);
@@ -965,6 +1072,13 @@ BasicStore::import(QUrl url, ImportDuplicatesMode idm, QString format)
     m_d->import(url, idm, format);
 }
 
+void
+BasicStore::importString(QString encodedRdf, Uri baseUri,
+                         ImportDuplicatesMode idm, QString format)
+{
+    m_d->importString(encodedRdf, baseUri, idm, format);
+}
+
 BasicStore *
 BasicStore::load(QUrl url, QString format)
 {
@@ -974,6 +1088,16 @@ BasicStore::load(QUrl url, QString format)
     s->setBaseUri(baseUri);
     // store is empty, ImportIgnoreDuplicates is faster
     s->import(url, ImportIgnoreDuplicates, format);
+    return s;
+}
+
+BasicStore *
+BasicStore::loadString(QString encodedRdf, Uri baseUri, QString format)
+{
+    BasicStore *s = new BasicStore();
+    s->setBaseUri(baseUri);
+    // store is empty, ImportIgnoreDuplicates is faster
+    s->importString(encodedRdf, baseUri, ImportIgnoreDuplicates, format);
     return s;
 }
 

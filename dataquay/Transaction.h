@@ -31,8 +31,8 @@
     authorization.
 */
 
-#ifndef _DATAQUAY_TRANSACTION_H_
-#define _DATAQUAY_TRANSACTION_H_
+#ifndef DATAQUAY_TRANSACTION_H
+#define DATAQUAY_TRANSACTION_H
 
 #include "Store.h"
 

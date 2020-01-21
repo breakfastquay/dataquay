@@ -31,8 +31,8 @@
     authorization.
 */
 
-#ifndef _DATAQUAY_OBJECT_BUILDER_H_
-#define _DATAQUAY_OBJECT_BUILDER_H_
+#ifndef DATAQUAY_OBJECT_BUILDER_H
+#define DATAQUAY_OBJECT_BUILDER_H
 
 #include <QHash>
 #include <QString>

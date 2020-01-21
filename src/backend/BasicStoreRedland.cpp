@@ -347,7 +347,9 @@ public:
         QMutexLocker locker(&m_librdfLock);
         librdf_node *node = librdf_new_node_from_blank_identifier(m_w.getWorld(), 0);
         if (!node) throw RDFInternalError("Failed to create new blank node");
-        return lrdfNodeToNode(node);
+        Node n = lrdfNodeToNode(node);
+        librdf_free_node(node);
+        return n;
     }
 
     void save(QString filename) const {
@@ -356,6 +358,14 @@ public:
         QMutexLocker plocker(&m_prefixLock);
 
         DQ_DEBUG << "BasicStore::save(" << filename << ")" << endl;
+
+        QFile f(filename);
+        if (!f.exists()) {
+            if (!f.open(QFile::WriteOnly)) {
+                throw RDFException("Failed to open file for writing", filename);
+            }
+            f.close();
+        }
 
         librdf_uri *base_uri = uriToLrdfUri(m_baseUri);
         librdf_serializer *s = librdf_new_serializer(m_w.getWorld(), "turtle", 0, 0);
@@ -366,15 +376,7 @@ public:
             QByteArray b = i.key().toUtf8();
             librdf_serializer_set_namespace(s, uriToLrdfUri(i.value()), b.data());
         }
-        librdf_serializer_set_namespace(s, uriToLrdfUri(m_baseUri), "");
-
-        QFile f(filename);
-        if (!f.exists()) {
-            if (!f.open(QFile::WriteOnly)) {
-                throw RDFException("Failed to open file for writing", filename);
-            }
-            f.close();
-        }
+        librdf_serializer_set_namespace(s, base_uri, "");
 
         QString tmpFilename = QString("%1.part").arg(filename);
         QByteArray b = QFile::encodeName(tmpFilename);
@@ -382,12 +384,14 @@ public:
         
         if (librdf_serializer_serialize_model_to_file(s, lname, base_uri, m_model)) {
             librdf_free_serializer(s);
+            librdf_free_uri(base_uri);
             QFile::remove(tmpFilename);
             throw RDFException("Failed to export RDF model to temporary file",
                                tmpFilename);
         }
 
         librdf_free_serializer(s);
+        librdf_free_uri(base_uri);
 
         // New file is now completed; the following is scruffy, but
         // that shouldn't really matter now
@@ -440,6 +444,8 @@ public:
                 librdf_free_parser(parser);
                 DQ_DEBUG << "librdf_parser_parse_into_model failed" << endl;
                 DQ_DEBUG << "luri = " << (const char *)librdf_uri_as_string(luri) << ", base_uri = " << (const char *)librdf_uri_as_string(base_uri) << endl;
+                librdf_free_uri(luri);
+                librdf_free_uri(base_uri);
                 throw RDFException("Failed to import model from URL",
                                    url.toString());
             }
@@ -464,60 +470,97 @@ public:
                 throw RDFInternalError("Failed to create import RDF data model");
             }
 
-            librdf_stream *stream = 0;
-            librdf_statement *all = 0;
-
-            try { // so as to free parser and im on exception
-
-                //!!! This appears to be returning success even on a
-                //!!! syntax error -- can this be correct?
+            try {
                 if (librdf_parser_parse_into_model(parser, luri, base_uri, im)) {
                     DQ_DEBUG << "librdf_parser_parse_into_model failed" << endl;
                     DQ_DEBUG << "luri = " << (const char *)librdf_uri_as_string(luri) << ", base_uri = " << (const char *)librdf_uri_as_string(base_uri) << endl;
                     throw RDFException("Failed to import model from URL",
                                        url.toString());
                 }
-                all = tripleToStatement(Triple());
 
-                if (idm == ImportFailOnDuplicates) {
-                    // Need to query twice, first time to check for dupes
-                    stream = librdf_model_find_statements(im, all);
-                    if (!stream) {
-                        throw RDFInternalError("Failed to list imported RDF model in duplicates check");
-                    }
-                    while (!librdf_stream_end(stream)) {
-                        librdf_statement *current = librdf_stream_get_object(stream);
-                        if (!current) continue;
-                        if (librdf_model_contains_statement(m_model, current)) {
-                            throw RDFDuplicateImportException("Duplicate statement encountered on import in ImportFailOnDuplicates mode");
-                        }
-                        librdf_stream_next(stream);
-                    }
-                    librdf_free_stream(stream);
-                    stream = 0;
-                }
-
-                // Now import.  Have to do this "manually" because librdf
-                // may allow duplicates and we want to avoid them
-                stream = librdf_model_find_statements(im, all);
-                if (!stream) {
-                    throw RDFInternalError("Failed to list imported RDF model");
-                }
-                while (!librdf_stream_end(stream)) {
-                    librdf_statement *current = librdf_stream_get_object(stream);
-                    if (!current) continue;
-                    if (idm == ImportFailOnDuplicates || // (already tested if so)
-                        !librdf_model_contains_statement(m_model, current)) {
-                        librdf_model_add_statement(m_model, current);
-                    }
-                    librdf_stream_next(stream);
-                }
-                librdf_free_stream(stream);
-                stream = 0;
+                importFromTemporaryModel(im, idm);
 
             } catch (...) {
-                if (stream) librdf_free_stream(stream);
-                if (all) librdf_free_statement(all);
+                librdf_free_parser(parser);
+                librdf_free_model(im);
+                librdf_free_storage(is);
+                librdf_free_uri(luri);
+                librdf_free_uri(base_uri);
+                throw;
+            }
+
+            librdf_free_model(im);
+            librdf_free_storage(is);
+        }
+
+        importNamespacesFromParser(parser);
+        librdf_free_parser(parser);
+        librdf_free_uri(luri);
+        librdf_free_uri(base_uri);
+    }
+
+    void importString(QString encodedRdf, Uri baseUri,
+                      ImportDuplicatesMode idm, QString format) {
+
+        QMutexLocker wlocker(&m_librdfLock);
+        QMutexLocker plocker(&m_prefixLock);
+
+        QString base = baseUri.toString();
+        librdf_uri *base_uri = uriToLrdfUri(Uri(base));
+
+        if (format == "") format = "guess";
+
+        librdf_parser *parser = librdf_new_parser
+            (m_w.getWorld(), format.toLocal8Bit().data(), NULL, NULL);
+        if (!parser) {
+            throw RDFInternalError("Failed to construct RDF parser");
+        }
+
+        QByteArray rdfUtf8 = encodedRdf.toUtf8();
+
+        if (idm == ImportPermitDuplicates) {
+            // The normal Redland behaviour, so the easy case.
+            if (librdf_parser_parse_string_into_model
+                (parser, (const unsigned char *)rdfUtf8.data(),
+                 base_uri, m_model)) {
+                librdf_free_parser(parser);
+                DQ_DEBUG << "librdf_parser_parse_into_model failed" << endl;
+                DQ_DEBUG << "base_uri = " << (const char *)librdf_uri_as_string(base_uri) << endl;
+                throw RDFException("Failed to import model from string");
+            }
+        } else { // ImportFailOnDuplicates and ImportIgnoreDuplicates modes
+
+            // This is complicated by our desire to avoid storing any
+            // duplicate triples on import, and optionally to be able
+            // to fail if any are found.  So we import into a separate
+            // model and then transfer over.  Not very efficient, but
+            // scalability is not generally the primary concern for us
+
+            librdf_storage *is = librdf_new_storage(m_w.getWorld(), "trees", 0, 0);
+            if (!is) is = librdf_new_storage(m_w.getWorld(), 0, 0, 0);
+            if (!is) {
+                librdf_free_parser(parser);
+                throw RDFInternalError("Failed to create import RDF data storage");
+            }
+            librdf_model *im = librdf_new_model(m_w.getWorld(), is, 0);
+            if (!im) {
+                librdf_free_storage(is);
+                librdf_free_parser(parser);
+                throw RDFInternalError("Failed to create import RDF data model");
+            }
+
+            try {
+                if (librdf_parser_parse_string_into_model
+                    (parser, (const unsigned char *)rdfUtf8.data(),
+                     base_uri, im)) {
+                    DQ_DEBUG << "librdf_parser_parse_into_model failed" << endl;
+                    DQ_DEBUG << "base_uri = " << (const char *)librdf_uri_as_string(base_uri) << endl;
+                    throw RDFException("Failed to import model from URL");
+                }
+
+                importFromTemporaryModel(im, idm);
+
+            } catch (...) {
                 librdf_free_parser(parser);
                 librdf_free_model(im);
                 librdf_free_storage(is);
@@ -528,28 +571,7 @@ public:
             librdf_free_storage(is);
         }
 
-        int namespaces = librdf_parser_get_namespaces_seen_count(parser);
-        DQ_DEBUG << "Parser found " << namespaces << " namespaces" << endl;
-        for (int i = 0; i < namespaces; ++i) {
-            const char *pfx = librdf_parser_get_namespaces_seen_prefix(parser, i);
-            librdf_uri *uri = librdf_parser_get_namespaces_seen_uri(parser, i);
-            QString qpfx = QString::fromUtf8(pfx);
-            Uri quri;
-            try {
-                quri = lrdfUriToUri(uri);
-            } catch (const RDFIncompleteURI &) {
-                continue;
-            }
-            DQ_DEBUG << "namespace " << i << ": " << qpfx << " -> " << quri << endl;
-            // don't call addPrefix; it tries to lock the mutex,
-            // and anyway we want to add the prefix only if it
-            // isn't already there (to avoid surprisingly changing
-            // a prefix in unusual cases, or changing the base URI)
-            if (m_prefixes.find(qpfx) == m_prefixes.end()) {
-                m_prefixes[qpfx] = quri;
-            }
-        }
-
+        importNamespacesFromParser(parser);
         librdf_free_parser(parser);
     }
 
@@ -594,6 +616,84 @@ private:
 
     mutable int m_counter;
 
+    void importFromTemporaryModel(librdf_model *im, ImportDuplicatesMode idm) {
+        
+        librdf_stream *stream = 0;
+        librdf_statement *all = 0;
+
+        try {
+        
+            all = tripleToStatement(Triple());
+
+            if (idm == ImportFailOnDuplicates) {
+                // Need to query twice, first time to check for dupes
+                stream = librdf_model_find_statements(im, all);
+                if (!stream) {
+                    throw RDFInternalError("Failed to list imported RDF model in duplicates check");
+                }
+                while (!librdf_stream_end(stream)) {
+                    librdf_statement *current = librdf_stream_get_object(stream);
+                    if (!current) continue;
+                    if (librdf_model_contains_statement(m_model, current)) {
+                        throw RDFDuplicateImportException("Duplicate statement encountered on import in ImportFailOnDuplicates mode");
+                    }
+                    librdf_stream_next(stream);
+                }
+                librdf_free_stream(stream);
+                stream = 0;
+            }
+        
+            // Now import.  Have to do this "manually" because librdf
+            // may allow duplicates and we want to avoid them
+            stream = librdf_model_find_statements(im, all);
+            if (!stream) {
+                throw RDFInternalError("Failed to list imported RDF model");
+            }
+            while (!librdf_stream_end(stream)) {
+                librdf_statement *current = librdf_stream_get_object(stream);
+                if (!current) continue;
+                if (idm == ImportFailOnDuplicates || // (already tested if so)
+                    !librdf_model_contains_statement(m_model, current)) {
+                    librdf_model_add_statement(m_model, current);
+                }
+                librdf_stream_next(stream);
+            }
+ 
+        } catch (...) {
+            if (stream) librdf_free_stream(stream);
+            if (all) librdf_free_statement(all);
+            throw;
+        }
+
+        if (stream) librdf_free_stream(stream);
+        if (all) librdf_free_statement(all);
+    }
+
+    void importNamespacesFromParser(librdf_parser *parser) {
+        
+        int namespaces = librdf_parser_get_namespaces_seen_count(parser);
+        DQ_DEBUG << "Parser found " << namespaces << " namespaces" << endl;
+        for (int i = 0; i < namespaces; ++i) {
+            const char *pfx = librdf_parser_get_namespaces_seen_prefix(parser, i);
+            librdf_uri *uri = librdf_parser_get_namespaces_seen_uri(parser, i);
+            QString qpfx = QString::fromUtf8(pfx);
+            Uri quri;
+            try {
+                quri = lrdfUriToUri(uri);
+            } catch (const RDFIncompleteURI &) {
+                continue;
+            }
+            DQ_DEBUG << "namespace " << i << ": " << qpfx << " -> " << quri << endl;
+            // don't call addPrefix; it tries to lock the mutex,
+            // and anyway we want to add the prefix only if it
+            // isn't already there (to avoid surprisingly changing
+            // a prefix in unusual cases, or changing the base URI)
+            if (m_prefixes.find(qpfx) == m_prefixes.end()) {
+                m_prefixes[qpfx] = quri;
+            }
+        }
+    }
+    
     bool doAdd(Triple t) {
         librdf_statement *statement = tripleToStatement(t);
         if (!checkComplete(statement)) {
@@ -736,11 +836,24 @@ private:
                       lrdfNodeToNode(object));
         return triple;
     }
-
+    
     bool checkComplete(librdf_statement *statement) const {
         if (librdf_statement_is_complete(statement)) return true;
         else {
-            unsigned char *text = librdf_statement_to_string(statement);
+            unsigned char *text = nullptr;
+            raptor_iostream *iostr = raptor_new_iostream_to_string
+                (librdf_world_get_raptor(m_w.getWorld()),
+                 (void **)&text, nullptr, malloc);
+            int rc = 1;
+            if (iostr) {
+                rc = librdf_statement_write(statement, iostr);
+                raptor_free_iostream(iostr);
+            }
+            if (rc) {
+                if (text) free(text);
+                std::cerr << "BasicStore::checkComplete: WARNING: RDF statement is incomplete, and writing it to a diagnostic string failed" << std::endl;
+                return false;
+            }
             QString str = QString::fromUtf8((char *)text);
             std::cerr << "BasicStore::checkComplete: WARNING: RDF statement is incomplete: " << str.toStdString() << std::endl;
             free(text);
@@ -754,8 +867,10 @@ private:
         Triples results;
         librdf_statement *templ = tripleToStatement(t);
         librdf_stream *stream = librdf_model_find_statements(m_model, templ);
-        librdf_free_statement(templ);
-        if (!stream) throw RDFInternalError("Failed to match RDF triples");
+        if (!stream) {
+            librdf_free_statement(templ);
+            throw RDFInternalError("Failed to match RDF triples");
+        }
         while (!librdf_stream_end(stream)) {
             librdf_statement *current = librdf_stream_get_object(stream);
             if (current) results.push_back(statementToTriple(current));
@@ -763,6 +878,7 @@ private:
             librdf_stream_next(stream);
         }
         librdf_free_stream(stream);
+        librdf_free_statement(templ);
         return results;
     }
 
@@ -808,7 +924,10 @@ private:
                 librdf_node *node =
                     librdf_query_results_get_binding_value(results, i);
 
-                dict[key] = lrdfNodeToNode(node);
+                if (node) {
+                    dict[key] = lrdfNodeToNode(node);
+                    librdf_free_node(node);
+                }
             }
 
             returned.push_back(dict);
@@ -960,6 +1079,13 @@ BasicStore::import(QUrl url, ImportDuplicatesMode idm, QString format)
     m_d->import(url, idm, format);
 }
 
+void
+BasicStore::importString(QString encodedRdf, Uri baseUri,
+                         ImportDuplicatesMode idm, QString format)
+{
+    m_d->importString(encodedRdf, baseUri, idm, format);
+}
+
 BasicStore *
 BasicStore::load(QUrl url, QString format)
 {
@@ -967,6 +1093,16 @@ BasicStore::load(QUrl url, QString format)
     s->setBaseUri(Uri(url));
     // store is empty, ImportIgnoreDuplicates is faster
     s->import(url, ImportIgnoreDuplicates, format);
+    return s;
+}
+
+BasicStore *
+BasicStore::loadString(QString encodedRdf, Uri baseUri, QString format)
+{
+    BasicStore *s = new BasicStore();
+    s->setBaseUri(baseUri);
+    // store is empty, ImportIgnoreDuplicates is faster
+    s->importString(encodedRdf, baseUri, ImportIgnoreDuplicates, format);
     return s;
 }
 

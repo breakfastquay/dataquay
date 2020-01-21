@@ -31,8 +31,8 @@
     authorization.
 */
 
-#ifndef _DATAQUAY_OBJECT_LOADER_H_
-#define _DATAQUAY_OBJECT_LOADER_H_
+#ifndef DATAQUAY_OBJECT_LOADER_H
+#define DATAQUAY_OBJECT_LOADER_H
 
 #include "../Node.h"
 
