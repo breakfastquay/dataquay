@@ -249,6 +249,8 @@ public:
     QObjectList loadAll(NodeObjectMap &map);
     
     struct LoadCallback {
+        virtual ~LoadCallback() { }
+        
         /**
          * An object has been loaded by the given ObjectLoader from
          * the given RDF node.  The node and object will also be found

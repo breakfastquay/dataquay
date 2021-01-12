@@ -326,6 +326,8 @@ public:
     void removeObject(Node node);
 
     struct StoreCallback {
+        virtual ~StoreCallback() { }
+        
         /**
          * An object has been stored by the given ObjectStorer,
          * resulting in the given RDF node.  The object and node will
