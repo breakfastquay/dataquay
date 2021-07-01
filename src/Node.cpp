@@ -37,6 +37,7 @@
 
 #include <QDataStream>
 #include <QTextStream>
+#include <QIODevice>
 #include <QTime>
 #include <QByteArray>
 #include <QMetaType>

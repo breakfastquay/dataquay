@@ -51,6 +51,9 @@
 
 #include <QMetaProperty>
 #include <QMutex>
+#if QT_VERSION > QT_VERSION_CHECK(6, 0, 0)
+#include <QRecursiveMutex>
+#endif
 #include <QMutexLocker>
 #include <QSet>
 #include <QHash>
@@ -106,7 +109,9 @@ public:
         m_m(m),
         m_s(s),
         m_c(s),
+#if QT_VERSION <= QT_VERSION_CHECK(6, 0, 0)
         m_mutex(QMutex::Recursive),
+#endif
         m_inCommit(false),
         m_inReload(false),
         m_callback(this)
@@ -582,8 +587,13 @@ private:
     Connection m_c;
     TypeMapping m_tm;
     Network m_n;
-
+    
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    QRecursiveMutex m_mutex;
+#else
     QMutex m_mutex;
+#endif
+    
     QHash<QObject *, ObjectMapperForwarder *> m_forwarders;
     QSet<QObject *> m_changedObjects;
     QSet<Node> m_deletedObjectNodes;

@@ -38,13 +38,8 @@
 #include <QVariant>
 #include <QMutex>
 #include <QHash>
-#include <QRegExp>
 
 #include <iostream>
-
-#ifndef NDEBUG
-#include <QRegExp>
-#endif
 
 #include "Debug.h"
 #include "RDFException.h"
@@ -74,7 +69,9 @@ private:
         DQ_DEBUG << "UriRegistrar: registering Dataquay::Uri" << endl;
         QByteArray bname = name.toLatin1();
         type = qRegisterMetaType<Uri>(bname.data());
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
         qRegisterMetaTypeStreamOperators<Uri>(bname.data());
+#endif
     }
 };
 

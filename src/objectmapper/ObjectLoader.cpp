@@ -444,12 +444,13 @@ private:
         // was only added the same 5.14 release!
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 
-        NodeSet remaining = NodeSet::fromList(children);
+        NodeSet remainingSet(children.begin(), children.end());
         Nodes ordered = orderedSiblingsOf(children[0]);
-        remaining.subtract(NodeSet::fromList(ordered));
-        foreach (Node n, remaining) ordered.push_back(n);
+        NodeSet orderedSet(ordered.begin(), ordered.end());
+        remainingSet.subtract(orderedSet);
+        foreach (Node n, remainingSet) ordered.push_back(n);
         DQ_DEBUG << "orderedChildrenOf: Node " << node << " has " << ordered.size()
-              << " children: " << ordered << endl;
+                 << " children: " << ordered << endl;
         return ordered;
     }
         
