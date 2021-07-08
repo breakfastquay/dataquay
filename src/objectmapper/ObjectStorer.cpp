@@ -197,7 +197,11 @@ private:
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 
         QObjectList candidates = state.requested;
+#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
         state.noBlanks = ObjectSet(candidates.begin(), candidates.end());
+#else 
+        state.noBlanks = ObjectSet::fromList(candidates);
+#endif
         ObjectSet visited;
 
         // Avoid ever pushing null (if returned as absence case) as a
@@ -603,7 +607,11 @@ ObjectStorer::D::replacePropertyNodes(Node node, Uri propertyUri, Node newValue)
 void
 ObjectStorer::D::replacePropertyNodes(Node node, Uri propertyUri, Nodes newValues)
 {
+#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
     QSet<Node> nodeSet = QSet<Node>(newValues.begin(), newValues.end());
+#else
+    QSet<Node> nodeSet = QSet<Node>::fromList(newValues);
+#endif
     removePropertyNodes(node, propertyUri, &nodeSet);
     // nodeSet now contains only those nodes whose triples need to be
     // added, i.e. those not present as our properties before

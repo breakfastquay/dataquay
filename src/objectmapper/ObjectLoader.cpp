@@ -444,9 +444,14 @@ private:
         // was only added the same 5.14 release!
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 
-        NodeSet remainingSet(children.begin(), children.end());
         Nodes ordered = orderedSiblingsOf(children[0]);
+#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
+        NodeSet remainingSet(children.begin(), children.end()); 
         NodeSet orderedSet(ordered.begin(), ordered.end());
+#else
+        NodeSet remainingSet = NodeSet::fromList(children);
+        NodeSet orderedSet = NodeSet::fromList(ordered);
+#endif
         remainingSet.subtract(orderedSet);
         foreach (Node n, remainingSet) ordered.push_back(n);
         DQ_DEBUG << "orderedChildrenOf: Node " << node << " has " << ordered.size()
