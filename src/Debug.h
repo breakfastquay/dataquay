@@ -53,6 +53,17 @@ inline QDebug &operator<<(QDebug &d, const T &t) {
     return d;
 }
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+template <>
+inline QDebug &operator<<(QDebug &d, const QVariant &t) {
+    QString s;
+    QTextStream ts(&s);
+    ts << t.toString();
+    d << s;
+    return d;
+}
+#endif
+
 }
 
 #else
@@ -75,13 +86,13 @@ public:
 
 #define DQ_DEBUG ::Dataquay::NoDebug()
 
+#endif /* !NDEBUG */
+
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
 using Qt::endl;
 #elif QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
 using QTextStreamFunctions::endl;
 #endif
-
-#endif /* !NDEBUG */
 
 #endif /* !_DEBUG_H_ */
 
