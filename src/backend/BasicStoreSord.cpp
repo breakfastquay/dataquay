@@ -931,8 +931,8 @@ private:
         case SERD_ERR_ID_CLASH: return "Blank node ID clash";
         case SERD_ERR_BAD_CURIE: return "Bad abbreviated URI";
         case SERD_ERR_INTERNAL: return "Internal error in Serd";
+        default: return "General Serd error";
         }
-        return QString("Unknown Serd error type");
     }
 };
 
