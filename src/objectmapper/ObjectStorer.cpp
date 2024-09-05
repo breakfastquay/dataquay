@@ -138,6 +138,8 @@ public:
 
     Uri store(QObject *o, ObjectNodeMap &map) {
 
+        DQ_DEBUG << "ObjectStorer::store beginning, requested object is " << o << " (" << o->objectName() << ")" << endl;
+        
         StoreState state;
         state.requested << o;
         state.map = map;
@@ -251,8 +253,8 @@ private:
 
                 if (!visited.contains(r)) {
 
-                    DQ_DEBUG << "ObjectStorer::collect: relative " << r 
-                          << " is new, listing it as candidate" << endl;
+                    DQ_DEBUG << "ObjectStorer::collect: relative " << r
+                             << " (" << r->objectName() << ") is new, listing it as candidate" << endl;
                     candidates << r;
 
                     // Although (in PermitBlankObjectNodes mode) we
@@ -269,8 +271,8 @@ private:
                     // object more than once by different routes, that
                     // implies that we can't use a blank node for it
                     DQ_DEBUG << "ObjectStorer::collect: relative " << r 
-                          << " has been seen more than once,"
-                          << " ensuring it doesn't get a blank node" << endl;
+                             << " (" << r->objectName() << ") has been seen more than once,"
+                             << " ensuring it doesn't get a blank node" << endl;
                     state.noBlanks << r;
                 }
             }
@@ -284,14 +286,14 @@ private:
                     if (!visited.contains(p)) {
 
                         DQ_DEBUG << "ObjectStorer::collect: property " << p 
-                              << " is new, listing it as candidate" << endl;
+                                 << " (" << p->objectName() << ") is new, listing it as candidate" << endl;
                         candidates << p;
                         
                     } else {
                         // We've seen this one before (as above)
                         DQ_DEBUG << "ObjectStorer::collect: property " << p 
-                              << " has been seen more than once,"
-                              << " ensuring it doesn't get a blank node" << endl;
+                                 << " (" << p->objectName() << ") has been seen more than once,"
+                                 << " ensuring it doesn't get a blank node" << endl;
                         state.noBlanks << p;
                     }
                 }
@@ -299,19 +301,25 @@ private:
         }
         
         DQ_DEBUG << "ObjectStorer::collect: "
-              << "requested = " << state.requested.size()
-              << ", toAllocate = " << state.toAllocate.size()
-              << ", toStore = " << state.toStore.size()
-              << endl;
+                 << "requested = " << state.requested.size()
+                 << ", toAllocate = " << state.toAllocate.size()
+                 << ", toStore = " << state.toStore.size()
+                 << endl;
 
         DQ_DEBUG << "Requested:";
-        foreach (QObject *obj, state.requested) DQ_DEBUG << obj;
+        foreach (QObject *obj, state.requested) {
+            DQ_DEBUG << obj << " (" << obj->objectName() << ")";
+        }
 
         DQ_DEBUG << "toAllocate:";
-        foreach (QObject *obj, state.toAllocate) DQ_DEBUG << obj;
+        foreach (QObject *obj, state.toAllocate) {
+            DQ_DEBUG << obj << " (" << obj->objectName() << ")";
+        }
 
         DQ_DEBUG << "toStore:";
-        foreach (QObject *obj, state.toStore) DQ_DEBUG << obj;
+        foreach (QObject *obj, state.toStore) {
+            DQ_DEBUG << obj << " (" << obj->objectName() << ")";
+        }
 
         DQ_DEBUG << endl;
     }
