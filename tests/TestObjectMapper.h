@@ -261,6 +261,7 @@ private slots:
 	ContainerBuilder::getInstance()->registerContainer<B*, QList<B*> >("B*", "QList<B*>", ContainerBuilder::SequenceKind);
 	ContainerBuilder::getInstance()->registerContainer<C*, QList<C*> >("C*", "QList<C*>", ContainerBuilder::SequenceKind);
 	ContainerBuilder::getInstance()->registerContainer<QObject*, QObjectList>("QObject*", "QObjectList", ContainerBuilder::SequenceKind);
+	ContainerBuilder::getInstance()->registerContainer<QObject*, QObjectList>("QObject*", "QList<QObject*>", ContainerBuilder::SequenceKind);
 	ContainerBuilder::getInstance()->registerContainer<float, QList<float> >("float", "QList<float>", ContainerBuilder::SequenceKind);
 	ContainerBuilder::getInstance()->registerContainer<C *, QSet<C *> >("C*", "QSet<C*>", ContainerBuilder::SetKind);
     }
@@ -332,6 +333,7 @@ private slots:
 	// blank nodes for things that already have them in the map).
 
 	Triples test = store.match(Triple(Node(), Uri("a"), Node()));
+        
 	QCOMPARE(test.size(), 10);
 
 	storer.store(o, map);

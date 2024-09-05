@@ -96,7 +96,9 @@ private slots:
 	store.setBaseUri(Uri("http://breakfastquay.com/rdf/dataquay/tests#"));
 	qRegisterMetaType<StreamableValueType>("StreamableValueType");
 	qRegisterMetaType<NonStreamableValueType>("NonStreamableValueType");
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
 	qRegisterMetaTypeStreamOperators<StreamableValueType>("StreamableValueType");
+#endif
 	nsvDtUri = Uri("http://breakfastquay.com/rdf/dataquay/test/nonstreamable");
 	Node::registerDatatype(nsvDtUri,
 			       "NonStreamableValueType",

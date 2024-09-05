@@ -540,7 +540,7 @@ private slots:
         QFile f("test3.ttl");
         QVERIFY(f.open(QFile::WriteOnly | QFile::Truncate));
         QTextStream ts(&f);
-        ts << "@prefix : <#> ." << endl << ":thing a :wotsit ." << endl;
+        ts << "@prefix : <#> .\n:thing a :wotsit .\n";
         ts.flush();
         f.close();
 
@@ -639,9 +639,9 @@ private slots:
             QFile f("test-blank-1.ttl");
             QVERIFY(f.open(QFile::WriteOnly | QFile::Truncate));
             QTextStream ts(&f);
-            ts << "@prefix : <#> ." << endl;
-            ts << ":thing :has _:genid1 ." << endl;
-            ts << "_:genid1 :name \"weevil\" ." << endl;
+            ts << "@prefix : <#> .\n";
+            ts << ":thing :has _:genid1 .\n";
+            ts << "_:genid1 :name \"weevil\" .\n";
             ts.flush();
             f.close();
         }
@@ -650,9 +650,9 @@ private slots:
             QFile f("test-blank-2.ttl");
             QVERIFY(f.open(QFile::WriteOnly | QFile::Truncate));
             QTextStream ts(&f);
-            ts << "@prefix : <#> ." << endl;
-            ts << ":other :has _:genid1 ." << endl;
-            ts << "_:genid1 :name \"squidlet\" ." << endl;
+            ts << "@prefix : <#> .\n";
+            ts << ":other :has _:genid1 .\n";
+            ts << "_:genid1 :name \"squidlet\" .\n";
             ts.flush();
             f.close();
         }
