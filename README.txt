@@ -86,12 +86,13 @@ build with Redland.
 Compiling Dataquay
 ------------------
 
-Dataquay requires Qt 4.5 or newer with qmake.
+Dataquay requires Qt 5 or newer with qmake.
 
 Make sure your preferred datastore (see above) is selected in the
 config.pri file.
 
-Run "qmake dataquay.pro", then make.
+Run "qmake -r dataquay.pro" (or use qmake5/qmake6 as appropriate),
+then make.
 
 This should compile the library and unit tests and automatically run
 the tests. If compilation succeeds but any unit tests fail, please do

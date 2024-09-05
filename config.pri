@@ -8,6 +8,6 @@ EXTRALIBS += -lrdf
 
 # Define this to use the Sord datastore (http://drobilla.net/software/sord/)
 #DEFINES += USE_SORD
-#QMAKE_CXXFLAGS += -I/usr/include/sord-0 -I/usr/include/serd-0 -Werror
+#QMAKE_CXXFLAGS += -I/usr/include/sord-0 -I/usr/include/serd-0
 #EXTRALIBS += -lsord-0 -lserd-0
 
